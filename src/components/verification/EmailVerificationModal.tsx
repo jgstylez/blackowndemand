@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Mail, Check, AlertCircle, Edit } from 'lucide-react';
+import { X, Mail, Check, AlertCircle, Edit, ArrowLeft } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { maskEmail } from '../../utils/emailUtils';
 import { callEdgeFunction } from '../../lib/edgeFunctions';
@@ -36,6 +36,7 @@ const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [countdown, setCountdown] = useState(0);
+  const [codeSent, setCodeSent] = useState(false);
 
   useEffect(() => {
     if (countdown > 0) {
@@ -46,9 +47,19 @@ const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
 
   if (!isOpen) return null;
 
+  const validateEmail = (email: string): boolean => {
+    const emailRegex = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+    return emailRegex.test(email);
+  };
+
   const sendVerificationCode = async () => {
     if (!email.trim()) {
       setError('Please enter a valid email address');
+      return;
+    }
+
+    if (!validateEmail(email)) {
+      setError('Please enter a valid email format (example@domain.com)');
       return;
     }
 
@@ -57,7 +68,7 @@ const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
       setError(null);
 
       // Call the send-verification-code Edge Function
-      const response = await callEdgeFunction<{ success: boolean }>({
+      const response = await callEdgeFunction<{ success: boolean, message?: string }>({
         functionName: 'send-verification-code',
         payload: {
           email: email,
@@ -66,12 +77,13 @@ const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
       });
 
       if (!response.success) {
-        throw new Error('Failed to send verification code');
+        throw new Error(response.message || 'Failed to send verification code');
       }
 
       // Move to code entry step
       setStep('code');
       setCountdown(60); // 60 second countdown for resend
+      setCodeSent(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to send verification code. Please try again.');
     } finally {
@@ -82,6 +94,11 @@ const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
   const verifyCode = async () => {
     if (!enteredCode.trim()) {
       setError('Please enter the verification code');
+      return;
+    }
+
+    if (enteredCode.length !== 6) {
+      setError('Verification code must be 6 digits');
       return;
     }
 
@@ -112,6 +129,12 @@ const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
     } finally {
       setLoading(false);
     }
+  };
+
+  const goBackToEmailStep = () => {
+    setStep('email');
+    setEnteredCode('');
+    setError(null);
   };
 
   const renderEmailStep = () => (
@@ -172,7 +195,11 @@ const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
         <Mail className="h-12 w-12 text-green-500 mx-auto mb-4" />
         <h3 className="text-xl font-bold text-white mb-2">Enter Verification Code</h3>
         <p className="text-gray-400">
-          We've sent a 6-digit code to <span className="text-white">{maskEmail(email)}</span>
+          {codeSent ? (
+            <>We've sent a 6-digit code to <span className="text-white">{maskEmail(email)}</span></>
+          ) : (
+            <>Please enter the verification code sent to <span className="text-white">{maskEmail(email)}</span></>
+          )}
         </p>
       </div>
 
@@ -201,13 +228,21 @@ const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
         {loading ? 'Verifying...' : 'Verify Code'}
       </button>
 
-      <div className="text-center">
+      <div className="flex flex-col items-center gap-4">
         <button
           onClick={() => countdown === 0 ? sendVerificationCode() : undefined}
           disabled={countdown > 0 || loading}
           className="text-gray-400 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
         >
           {countdown > 0 ? `Resend code in ${countdown}s` : 'Resend verification code'}
+        </button>
+        
+        <button
+          onClick={goBackToEmailStep}
+          className="text-gray-400 hover:text-white transition-colors text-sm flex items-center gap-1"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Change email address
         </button>
       </div>
     </div>
