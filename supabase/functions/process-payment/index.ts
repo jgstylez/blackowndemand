@@ -1,6 +1,7 @@
 // This is a Supabase Edge Function for processing payments
 
 import { createClient } from "npm:@supabase/supabase-js";
+import { serve } from "std/server";
 
 // Initialize Supabase client with service role key for admin access
 const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
@@ -147,7 +148,7 @@ function getNMIErrorMessage(
   );
 }
 
-Deno.serve(async (req) => {
+serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -171,55 +172,31 @@ Deno.serve(async (req) => {
     );
 
     const {
+      token,
       amount,
-      final_amount,
-      currency,
-      description,
       customer_email,
-      payment_method,
+      planId,
+      description,
       discount_code_id,
-      plan_name,
-      is_recurring = true, // Default to recurring payments
     } = requestBody;
 
+    console.log("Received token:", token);
     console.log("Received amount:", amount);
-    console.log("Received final_amount:", final_amount);
-    console.log(
-      "Received payment_method:",
-      payment_method ? "Present (details masked)" : "Missing"
-    );
-    console.log(
-      "Payment method details:",
-      payment_method
-        ? {
-            card_number: payment_method.card_number
-              ? `****${payment_method.card_number.slice(-4)}`
-              : "Missing",
-            expiry_date: payment_method.expiry_date || "Missing",
-            cvv: payment_method.cvv ? "***" : "Missing",
-            cardholder_name: payment_method.cardholder_name
-              ? "Present (masked)"
-              : "Missing",
-          }
-        : "No payment method provided"
-    );
+    console.log("Received customer_email:", customer_email);
+    console.log("Received planId:", planId);
+    console.log("Received description:", description);
+    console.log("Received discount_code_id:", discount_code_id);
 
     // Validate required fields - improved validation
-    // If amount is 0, we don't need payment method
-    const processAmount = final_amount !== undefined ? final_amount : amount;
-    const isZeroAmount = processAmount === 0;
-
-    if (
-      typeof processAmount !== "number" ||
-      processAmount < 0 ||
-      (!isZeroAmount && !payment_method)
-    ) {
+    if (!token || !amount || !customer_email || !planId) {
       console.error("Validation failed:", {
-        amount_invalid: typeof processAmount !== "number" || processAmount < 0,
-        payment_method_missing: !isZeroAmount && !payment_method,
+        token_missing: !token,
+        amount_missing: !amount,
+        customer_email_missing: !customer_email,
+        planId_missing: !planId,
       });
       return new Response(
-        JSON.stringify({ error: "Missing or invalid payment information" }),
+        JSON.stringify({ error: "Missing required payment fields." }),
         {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -247,304 +224,101 @@ Deno.serve(async (req) => {
       }
     }
 
-    // For zero-amount transactions, skip payment processing
-    if (isZeroAmount) {
-      console.log("Zero amount transaction - skipping payment processing");
-
-      // Generate a simulated transaction ID for free orders
-      const transactionId = `free_${Date.now()}_${Math.random()
-        .toString(36)
-        .substring(2, 10)}`;
-
-      // Return success response for free transaction
-      return new Response(
-        JSON.stringify({
-          success: true,
-          transaction_id: transactionId,
-          amount: 0,
-          currency: currency || "USD",
-          description,
-          customer_email,
-          payment_date: new Date().toISOString(),
-          status: "approved",
-          payment_method_details: {
-            type: "free",
-            card: null,
-          },
-          isFreeTransaction: true,
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Check if we should use simulation mode
-    if (shouldUseSimulation(payment_method.card_number)) {
-      console.log("Using simulation mode for payment processing");
-
-      // Simulate processing delay
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      const simulatedResponse = createSimulatedResponse(
-        processAmount,
-        currency,
-        description,
-        customer_email,
-        payment_method,
-        !SECURITY_KEY
-          ? "No security key configured"
-          : "Development mode with test card"
-      );
-
-      return new Response(JSON.stringify(simulatedResponse), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Prepare the billing information
-    const billingInfo = {
-      first_name: payment_method.cardholder_name?.split(" ")[0] || "",
-      last_name:
-        payment_method.cardholder_name?.split(" ").slice(1).join(" ") || "",
-      address1: payment_method.billing_address?.street || "",
-      city: payment_method.billing_address?.city || "",
-      state: payment_method.billing_address?.state || "",
-      zip:
-        payment_method.billing_address?.zipCode ||
-        payment_method.billing_zip ||
-        "",
-      country: payment_method.billing_address?.country || "US",
-      email: customer_email || "",
-    };
-
-    // Prepare the payment data according to the API
-    const postData = new URLSearchParams();
-
-    // Common fields for all transaction types
-    postData.append("security_key", SECURITY_KEY);
-    postData.append("ccnumber", payment_method.card_number.replace(/\s/g, ""));
-    postData.append("ccexp", payment_method.expiry_date);
-    postData.append("cvv", payment_method.cvv);
-
-    // Add billing information
-    Object.entries(billingInfo).forEach(([key, value]) => {
-      if (value) postData.append(key, value);
+    // Prepare payload for NMI Payment API
+    const paymentPayload = new URLSearchParams({
+      security_key: SECURITY_KEY,
+      amount: (amount / 100).toFixed(2), // NMI expects dollars, not cents
+      payment_token: token,
+      email: customer_email,
+      description: description || "",
+      // Add any other required fields here
     });
 
-    // Set up transaction type and amount
-    if (is_recurring) {
-      // For recurring subscriptions
-      postData.append("type", "add_subscription");
-      postData.append("plan_payments", "0"); // 0 = unlimited recurring payments
-      postData.append("plan_amount", (processAmount / 100).toFixed(2)); // Convert cents to dollars
-      postData.append("day_frequency", "365"); // Annual billing
-      postData.append("month_frequency", "0");
-      postData.append("customer_vault", "add_customer"); // Store payment info for future use
-    } else {
-      // For one-time payments
-      postData.append("type", "sale");
-      postData.append("amount", (processAmount / 100).toFixed(2)); // Convert cents to dollars
-    }
+    // Call NMI Payment API
+    const nmiRes = await fetch(
+      "https://secure.transactiongateway.com/api/transact.php",
+      {
+        method: "POST",
+        body: paymentPayload,
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      }
+    );
 
-    // Add description and currency
-    if (description) postData.append("order_description", description);
-    postData.append("currency", currency || "USD");
+    const nmiText = await nmiRes.text();
+    // NMI returns query string format, parse it
+    const nmiResult = Object.fromEntries(new URLSearchParams(nmiText));
 
-    console.log("Payment gateway configuration:", {
-      hasSecurityKey: !!SECURITY_KEY,
-      securityKeyLength: SECURITY_KEY?.length || 0,
-      environment: NODE_ENV,
-      shouldSimulate: shouldUseSimulation(payment_method.card_number),
-      cardNumber:
-        "****" + payment_method.card_number.replace(/\s/g, "").slice(-4),
-    });
-
-    let paymentResponse;
-    let responseText;
-
-    try {
-      // Make the request to the payment gateway with timeout and error handling
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
-
-      paymentResponse = await fetch(
-        "https://ecompaymentprocessing.transactiongateway.com/api/transact.php",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
-          },
-          body: postData.toString(),
-          signal: controller.signal,
-        }
-      );
-
-      clearTimeout(timeoutId);
-
-      console.log("Payment gateway response status:", paymentResponse.status);
-      console.log(
-        "Payment gateway response headers:",
-        Object.fromEntries(paymentResponse.headers.entries())
-      );
-
-      // Get the response text
-      responseText = await paymentResponse.text();
-      console.log("Raw payment gateway response string:", responseText);
-    } catch (networkError) {
-      console.error(
-        "Network error when contacting payment gateway:",
-        networkError
-      );
-      console.log("Falling back to simulation mode due to network error");
-
-      // Network request failed - fall back to simulation mode
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      const simulatedResponse = createSimulatedResponse(
-        processAmount,
-        currency,
-        description,
-        customer_email,
-        payment_method,
-        `Network error: ${networkError.message}`
-      );
-
-      return new Response(JSON.stringify(simulatedResponse), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Parse the NMI response
-    const parsedResponse = parseNMIResponse(responseText);
-    console.log("Parsed payment gateway response:", parsedResponse);
-
-    // Check if the payment was successful (response code 1 means approved)
-    if (!parsedResponse.success) {
+    if (nmiResult["response"] !== "1") {
+      // Payment failed
       console.error(
         "Payment failed with response code:",
-        parsedResponse.responseCode
+        nmiResult["response"]
       );
-      console.error("Response text:", parsedResponse.responseText);
+      console.error("Response text:", nmiResult["responsetext"]);
 
       // Get user-friendly error message
       const errorMessage = getNMIErrorMessage(
-        parsedResponse.responseCode,
-        parsedResponse.responseText
+        nmiResult["response"],
+        nmiResult["responsetext"]
       );
 
       return new Response(
         JSON.stringify({
+          success: false,
           error: errorMessage,
-          code: parsedResponse.responseCode || "unknown_error",
-          details:
-            parsedResponse.responseText || "No additional details available",
+          nmiResult,
         }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+        { status: 402 }
       );
     }
 
-    // Extract the last 4 digits of the card number for storage
-    const last4 = payment_method.card_number.replace(/\s/g, "").slice(-4);
+    // Payment succeeded, update subscription in your DB
+    // Example: upsert into 'subscriptions' table
+    const { error: dbError } = await supabase.from("subscriptions").upsert([
+      {
+        user_email: customer_email,
+        plan_id: planId,
+        status: "active",
+        transaction_id: nmiResult["transactionid"],
+        amount_paid: amount,
+        discount_code_id: discount_code_id || null,
+        paid_at: new Date().toISOString(),
+      },
+    ]);
 
-    // For recurring payments, store subscription details in the database
-    if (is_recurring && parsedResponse.subscriptionId) {
-      try {
-        // Get the business ID from the customer email
-        const { data: businessData, error: businessError } = await supabase
-          .from("businesses")
-          .select("id")
-          .eq("email", customer_email)
-          .single();
-
-        if (businessError) {
-          console.error("Error finding business:", businessError);
-        } else if (businessData) {
-          // Update the business with subscription details
-          const { error: updateError } = await supabase
-            .from("businesses")
-            .update({
-              nmi_subscription_id: parsedResponse.subscriptionId,
-              nmi_customer_vault_id: parsedResponse.customerVaultId,
-              subscription_status: "active",
-              next_billing_date: new Date(
-                Date.now() + 365 * 24 * 60 * 60 * 1000
-              ).toISOString(),
-              last_payment_date: new Date().toISOString(),
-              payment_method_last_four: last4,
-            })
-            .eq("id", businessData.id);
-
-          if (updateError) {
-            console.error(
-              "Error updating business with subscription details:",
-              updateError
-            );
-          }
-
-          // Log the payment in payment_history
-          const { error: historyError } = await supabase
-            .from("payment_history")
-            .insert({
-              business_id: businessData.id,
-              nmi_transaction_id: parsedResponse.transactionId,
-              amount: processAmount / 100, // Convert cents to dollars
-              status: "approved",
-              type: "initial_subscription",
-              response_text: responseText,
-            });
-
-          if (historyError) {
-            console.error("Error logging payment history:", historyError);
-          }
-        }
-      } catch (dbError) {
-        console.error(
-          "Database error when storing subscription details:",
-          dbError
-        );
-      }
+    if (dbError) {
+      console.error("Database error when updating subscription:", dbError);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Payment succeeded but failed to update subscription.",
+        }),
+        { status: 500 }
+      );
     }
 
-    // Payment successful - return the response
+    // Respond with success and transaction info
     return new Response(
       JSON.stringify({
         success: true,
-        transaction_id: parsedResponse.transactionId,
-        subscription_id: parsedResponse.subscriptionId,
-        customer_vault_id: parsedResponse.customerVaultId,
-        amount: processAmount / 100, // Convert cents to dollars
-        currency: currency || "USD",
-        description: description,
-        customer_email: customer_email,
-        payment_date: new Date().toISOString(),
-        status: "approved",
-        payment_method_details: {
-          type: "card",
-          card: {
-            last4: last4,
-            exp_month: payment_method.expiry_date.split("/")[0],
-            exp_year: `20${payment_method.expiry_date.split("/")[1]}`,
-          },
-        },
-        gateway_response: parsedResponse,
+        transaction_id: nmiResult["transactionid"],
+        amount: amount,
+        plan_id: planId,
+        nmiResult,
       }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 200 }
     );
-  } catch (error) {
-    console.error("Error processing payment:", error);
+  } catch (err) {
+    console.error("Error processing payment:", err);
 
     return new Response(
       JSON.stringify({
+        success: false,
         error:
           "An unexpected error occurred while processing your payment. Please try again or contact support.",
-        details: error.message || "Internal server error",
+        details: err.message || "Internal server error",
       }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      { status: 500 }
     );
   }
 });
