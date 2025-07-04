@@ -3,6 +3,7 @@ import { validateForm } from "../utils/paymentValidation";
 import { callEdgeFunction } from "../lib/edgeFunctions";
 import { sendPaymentConfirmationEmail } from "../lib/emailService";
 import { DiscountInfo } from "../components/payment/DiscountCodeInput";
+import { useAuth } from "../contexts/AuthContext";
 
 interface PaymentFormData {
   cardNumber: string;
@@ -37,6 +38,9 @@ export const usePaymentProcessing = ({
     "payment"
   );
 
+  const { user } = useAuth();
+  const customerEmail = user?.email || "";
+
   const handleSubmit = async (
     e: React.FormEvent,
     formData: PaymentFormData
@@ -56,6 +60,17 @@ export const usePaymentProcessing = ({
 
     try {
       console.log("Starting payment processing for amount:", amount);
+
+      console.log(
+        "amount:",
+        amount,
+        "discountedAmount:",
+        discountedAmount,
+        "discountInfo:",
+        discountInfo,
+        "customerEmail:",
+        customerEmail
+      );
 
       // Call the process-payment edge function using our utility
       const paymentResult = await callEdgeFunction<any>({
