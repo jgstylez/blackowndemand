@@ -14,7 +14,6 @@ interface PaymentModalProps {
   amount: number | undefined | null;
   description: string;
   planName?: string;
-  customerEmail?: string;
 }
 
 const PaymentModal: React.FC<PaymentModalProps> = ({
@@ -24,8 +23,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
   amount,
   description,
   planName = "Business Listing",
-  customerEmail = "",
-}) => {
+}: PaymentModalProps) => {
   console.log("PaymentModal initialized with:", {
     amount,
     description,
@@ -41,7 +39,13 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
   // Ensure amount is always a number, defaulting to 0 if undefined or null
   const safeAmount = amount !== undefined && amount !== null ? amount : 0;
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    cardNumber: string;
+    expiryDate: string;
+    cvv: string;
+    cardholderName: string;
+    billingZip: string;
+  }>({
     cardNumber: "",
     expiryDate: "",
     cvv: "",
@@ -52,7 +56,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
   // Add state for discount code functionality
   const [discountInfo, setDiscountInfo] = useState<DiscountInfo | null>(null);
   const [discountedAmount, setDiscountedAmount] = useState<number>(safeAmount);
-  const [showPassword, setShowPassword] = useState(false);
+  const [showPassword, setShowPassword] = useState<boolean>(false);
 
   // Use the payment processing hook
   const { loading, error, step, handleSubmit } = usePaymentProcessing({
@@ -60,7 +64,6 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
     discountedAmount,
     description,
     planName,
-    customerEmail,
     discountInfo,
     onSuccess,
   });
@@ -109,8 +112,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-    setError(null);
+    setFormData((prev: typeof formData) => ({ ...prev, [name]: value }));
   };
 
   const formatCardNumber = (value: string) => {
@@ -140,12 +142,18 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
 
   const handleCardNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const formatted = formatCardNumber(e.target.value);
-    setFormData((prev) => ({ ...prev, cardNumber: formatted }));
+    setFormData((prev: typeof formData) => ({
+      ...prev,
+      cardNumber: formatted,
+    }));
   };
 
   const handleExpiryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const formatted = formatExpiryDate(e.target.value);
-    setFormData((prev) => ({ ...prev, expiryDate: formatted }));
+    setFormData((prev: typeof formData) => ({
+      ...prev,
+      expiryDate: formatted,
+    }));
   };
 
   // Handle applying discount
