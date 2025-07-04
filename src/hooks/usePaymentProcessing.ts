@@ -18,7 +18,6 @@ interface UsePaymentProcessingProps {
   discountedAmount: number; // after discount
   description: string;
   planName?: string;
-  customerEmail?: string;
   discountInfo?: DiscountInfo | null;
   onSuccess: (paymentData: any) => void;
 }
@@ -28,7 +27,6 @@ export const usePaymentProcessing = ({
   discountedAmount,
   description,
   planName = "",
-  customerEmail = "",
   discountInfo,
   onSuccess,
 }: UsePaymentProcessingProps) => {
