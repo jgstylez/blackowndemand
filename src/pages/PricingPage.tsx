@@ -1,55 +1,104 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import Layout from '../components/layout/Layout';
-import { Check, X, Star, Users, TrendingUp, Shield, Crown } from 'lucide-react';
-import { supabase } from '../lib/supabase';
-import PlanPromotion from '../components/pricing/PlanPromotion';
-import PaymentModal from '../components/payment/PaymentModal';
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import Layout from "../components/layout/Layout";
+import { Check, X, Star, Users, TrendingUp, Shield, Crown } from "lucide-react";
+import { supabase } from "../lib/supabase";
+import PlanPromotion from "../components/pricing/PlanPromotion";
+import PaymentModal from "../components/payment/PaymentModal";
+import { loadStripe } from "@stripe/stripe-js";
+
+type PlanName = "Starter Plan" | "Enhanced Plan" | "VIP Plan";
 
 const PricingPage = () => {
   const navigate = useNavigate();
   const [showContactForm, setShowContactForm] = useState(false);
   const [contactForm, setContactForm] = useState({
-    name: '',
-    email: '',
-    message: '',
-    service: ''
+    name: "",
+    email: "",
+    message: "",
+    service: "",
   });
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState<{price: number, name: string} | null>(null);
-  
-  const handlePlanSelect = async (planPrice: number, planName: string) => {
+  const [selectedPlan, setSelectedPlan] = useState<{
+    price: number;
+    name: string;
+  } | null>(null);
+
+  const PLAN_PRICE_IDS: Record<PlanName, string> = {
+    "Starter Plan": "prod_ShK1TiSkLlnzrZ",
+    "Enhanced Plan": "prod_ShK2XoddLnQl5R",
+    "VIP Plan": "prod_ShK3DtQoELeSml",
+  };
+
+  const stripePromise = loadStripe("pk_test_..."); // Use your real publishable key
+
+  async function handleCheckout(
+    planName: PlanName,
+    userEmail: string,
+    discountCode: string | null
+  ) {
+    const planPriceId = PLAN_PRICE_IDS[planName];
+    if (!planPriceId) {
+      alert("No Stripe Price ID found for this plan.");
+      return;
+    }
+    const SUPABASE_FUNCTIONS_URL = import.meta.env.VITE_SUPABASE_FUNCTIONS_URL;
+    const response = await fetch(
+      `${SUPABASE_FUNCTIONS_URL}/create-checkout-session`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planPriceId, userEmail, discountCode }),
+      }
+    );
+    const { sessionId, error } = await response.json();
+    if (error) {
+      alert(error);
+      return;
+    }
+    const stripe = await stripePromise;
+    if (stripe) {
+      await stripe.redirectToCheckout({ sessionId });
+    }
+  }
+
+  const handlePlanSelect = async (planPrice: number, planName: PlanName) => {
     // Check if user is authenticated
-    const { data: { user } } = await supabase.auth.getUser();
-    
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
     if (!user) {
       // Store selected plan in session storage
-      sessionStorage.setItem('selectedPlan', planPrice.toString());
-      sessionStorage.setItem('selectedPlanName', planName);
+      sessionStorage.setItem("selectedPlan", planPrice.toString());
+      sessionStorage.setItem("selectedPlanName", planName);
       // Redirect to login
-      navigate('/login?redirect=/pricing');
+      navigate("/login?redirect=/pricing");
       return;
     }
 
-    // If user is authenticated, show payment modal
-    setSelectedPlan({ price: planPrice, name: planName });
-    setShowPaymentModal(true);
+    if (!user.email) {
+      alert("User email is missing.");
+      return;
+    }
+    // If user is authenticated, trigger Stripe Checkout
+    await handleCheckout(planName, user.email, null); // Pass discountCode if you have one
   };
 
   const handlePaymentSuccess = (paymentData: any) => {
     // Close payment modal
     setShowPaymentModal(false);
-    
+
     // Navigate to business listing form with payment completed flag
     if (selectedPlan) {
-      navigate('/business/new', { 
-        state: { 
-          planPrice: selectedPlan.price, 
+      navigate("/business/new", {
+        state: {
+          planPrice: selectedPlan.price,
           planName: selectedPlan.name,
-          paymentCompleted: true 
-        }
+          paymentCompleted: true,
+        },
       });
     }
   };
@@ -60,33 +109,36 @@ const PricingPage = () => {
 
     try {
       // Send email using Supabase Edge Function
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-contact-email`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-        },
-        body: JSON.stringify(contactForm),
-      });
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-contact-email`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          },
+          body: JSON.stringify(contactForm),
+        }
+      );
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to send message');
+        throw new Error(errorData.error || "Failed to send message");
       }
-      
+
       setSuccess(true);
       setTimeout(() => {
         setShowContactForm(false);
         setSuccess(false);
         setContactForm({
-          name: '',
-          email: '',
-          message: '',
-          service: ''
+          name: "",
+          email: "",
+          message: "",
+          service: "",
         });
       }, 2000);
     } catch (error) {
-      console.error('Error sending message:', error);
+      console.error("Error sending message:", error);
     } finally {
       setLoading(false);
     }
@@ -98,7 +150,8 @@ const PricingPage = () => {
         <div className="text-center mb-16">
           <h1 className="text-4xl font-bold text-white mb-4">Pricing Plans</h1>
           <p className="text-xl text-gray-400 max-w-3xl mx-auto">
-            Exclusive pricing plans for business owners looking to showcase their businesses and connect with customers on our platform.
+            Exclusive pricing plans for business owners looking to showcase
+            their businesses and connect with customers on our platform.
           </p>
         </div>
 
@@ -107,8 +160,12 @@ const PricingPage = () => {
           <div className="bg-gray-900 rounded-2xl p-8">
             <div className="mb-8">
               <span className="text-sm text-gray-400">Basic Listing</span>
-              <h2 className="text-2xl font-bold text-white mt-2 mb-3">Starter Plan</h2>
-              <p className="text-gray-400 text-sm">Perfect for getting started with your visibility</p>
+              <h2 className="text-2xl font-bold text-white mt-2 mb-3">
+                Starter Plan
+              </h2>
+              <p className="text-gray-400 text-sm">
+                Perfect for getting started with your visibility
+              </p>
             </div>
 
             <div className="mb-8">
@@ -116,17 +173,19 @@ const PricingPage = () => {
                 <span className="text-5xl font-bold text-white">$1</span>
                 <span className="text-gray-400 ml-2">/month</span>
               </div>
-              <p className="text-sm text-gray-500 mt-1">(billed annually at $12)</p>
+              <p className="text-sm text-gray-500 mt-1">
+                (billed annually at $12)
+              </p>
             </div>
 
             <ul className="space-y-4 mb-8">
               <li className="flex items-center text-gray-300">
                 <Check className="h-5 w-5 text-white mr-3" />
-                 Public Directory Access
+                Public Directory Access
               </li>
               <li className="flex items-center text-gray-300">
                 <Check className="h-5 w-5 text-white mr-3" />
-                Basic Profile 
+                Basic Profile
               </li>
               <li className="flex items-center text-gray-300">
                 <Check className="h-5 w-5 text-white mr-3" />
@@ -137,9 +196,8 @@ const PricingPage = () => {
                 Image Gallery
               </li>
             </ul>
-
-            <button 
-              onClick={() => handlePlanSelect(12, 'Starter Plan')}
+            <button
+              onClick={() => handlePlanSelect(12, "Starter Plan")}
               className="w-full py-3 px-4 bg-white hover:bg-gray-100 text-black rounded-lg transition-colors"
             >
               Select Plan
@@ -156,8 +214,12 @@ const PricingPage = () => {
 
             <div className="mb-8">
               <span className="text-sm text-gray-400">More Benefits</span>
-              <h2 className="text-2xl font-bold text-white mt-2 mb-3">Enhanced Plan</h2>
-              <p className="text-gray-400 text-sm">Get more visibility and features for your business</p>
+              <h2 className="text-2xl font-bold text-white mt-2 mb-3">
+                Enhanced Plan
+              </h2>
+              <p className="text-gray-400 text-sm">
+                Get more visibility and features for your business
+              </p>
             </div>
 
             <div className="mb-8">
@@ -165,7 +227,9 @@ const PricingPage = () => {
                 <span className="text-5xl font-bold text-white">$5</span>
                 <span className="text-gray-400 ml-2">/month</span>
               </div>
-              <p className="text-sm text-gray-500 mt-1">(billed annually at $60)</p>
+              <p className="text-sm text-gray-500 mt-1">
+                (billed annually at $60)
+              </p>
             </div>
 
             <ul className="space-y-4 mb-8">
@@ -173,7 +237,7 @@ const PricingPage = () => {
                 <Check className="h-5 w-5 text-white mr-3" />
                 Everything in Starter Plan
               </li>
-             
+
               <li className="flex items-center text-gray-300">
                 <Check className="h-5 w-5 text-white mr-3" />
                 Higher Directory Placement
@@ -196,8 +260,8 @@ const PricingPage = () => {
               </li>
             </ul>
 
-            <button 
-              onClick={() => handlePlanSelect(60, 'Enhanced')}
+            <button
+              onClick={() => handlePlanSelect(60, "Enhanced Plan")}
               className="w-full py-3 px-4 bg-white hover:bg-gray-100 text-black rounded-lg transition-colors"
             >
               Select Plan
@@ -212,7 +276,9 @@ const PricingPage = () => {
                 VIP Plan
                 <Crown className="h-6 w-6 text-yellow-400" />
               </h2>
-              <p className="text-gray-400 text-sm">Join and gain access to special benefits</p>
+              <p className="text-gray-400 text-sm">
+                Join and gain access to special benefits
+              </p>
             </div>
 
             <div className="mb-8 pt-0">
@@ -224,7 +290,7 @@ const PricingPage = () => {
                 <Check className="h-5 w-5 text-white mr-3" />
                 Everything in Enhanced Plan
               </li>
-               <li className="flex items-center text-gray-300">
+              <li className="flex items-center text-gray-300">
                 <Check className="h-5 w-5 text-white mr-3" />
                 Exclusive Badge
               </li>
@@ -254,8 +320,8 @@ const PricingPage = () => {
               </li>
             </ul>
 
-            <button 
-              onClick={() => handlePlanSelect(99, 'VIP Plan')}
+            <button
+              onClick={() => handlePlanSelect(99, "VIP Plan")}
               className="w-full py-3 px-4 bg-yellow-400 hover:bg-yellow-300 text-black rounded-lg transition-colors font-semibold"
             >
               Become VIP
@@ -269,32 +335,52 @@ const PricingPage = () => {
             <div className="bg-white/10 p-3 rounded-lg w-12 h-12 flex items-center justify-center mb-4">
               <Users className="h-6 w-6 text-white" />
             </div>
-            <h3 className="text-lg font-semibold text-white mb-2">Global Reach</h3>
-            <p className="text-gray-400">Connect with customers worldwide looking specifically for Black-owned businesses.</p>
+            <h3 className="text-lg font-semibold text-white mb-2">
+              Global Reach
+            </h3>
+            <p className="text-gray-400">
+              Connect with customers worldwide looking specifically for
+              Black-owned businesses.
+            </p>
           </div>
 
           <div className="bg-gray-900 rounded-xl p-6">
             <div className="bg-white/10 p-3 rounded-lg w-12 h-12 flex items-center justify-center mb-4">
               <Shield className="h-6 w-6 text-white" />
             </div>
-            <h3 className="text-lg font-semibold text-white mb-2">Verified Status</h3>
-            <p className="text-gray-400">Build trust with customers through our business verification system.</p>
+            <h3 className="text-lg font-semibold text-white mb-2">
+              Verified Status
+            </h3>
+            <p className="text-gray-400">
+              Build trust with customers through our business verification
+              system.
+            </p>
           </div>
 
           <div className="bg-gray-900 rounded-xl p-6">
             <div className="bg-white/10 p-3 rounded-lg w-12 h-12 flex items-center justify-center mb-4">
               <Star className="h-6 w-6 text-white" />
             </div>
-            <h3 className="text-lg font-semibold text-white mb-2">Premium Features</h3>
-            <p className="text-gray-400">Access professional tools and features to showcase your business effectively.</p>
+            <h3 className="text-lg font-semibold text-white mb-2">
+              Premium Features
+            </h3>
+            <p className="text-gray-400">
+              Access professional tools and features to showcase your business
+              effectively.
+            </p>
           </div>
 
           <div className="bg-gray-900 rounded-xl p-6">
             <div className="bg-white/10 p-3 rounded-lg w-12 h-12 flex items-center justify-center mb-4">
               <TrendingUp className="h-6 w-6 text-white" />
             </div>
-            <h3 className="text-lg font-semibold text-white mb-2">Growth Tools</h3>
-            <p className="text-gray-400">Get insights and analytics to help your business thrive in the digital economy.</p>
+            <h3 className="text-lg font-semibold text-white mb-2">
+              Growth Tools
+            </h3>
+            <p className="text-gray-400">
+              Get insights and analytics to help your business thrive in the
+              digital economy.
+            </p>
           </div>
         </div>
 
@@ -303,7 +389,9 @@ const PricingPage = () => {
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-gray-900 rounded-xl p-6 max-w-md w-full mx-4">
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold text-white">Contact Sales Team</h2>
+                <h2 className="text-xl font-bold text-white">
+                  Contact Sales Team
+                </h2>
                 <button
                   onClick={() => setShowContactForm(false)}
                   className="text-gray-400 hover:text-white transition-colors"
@@ -330,7 +418,12 @@ const PricingPage = () => {
                       type="text"
                       required
                       value={contactForm.name}
-                      onChange={(e) => setContactForm(prev => ({ ...prev, name: e.target.value }))}
+                      onChange={(e) =>
+                        setContactForm((prev) => ({
+                          ...prev,
+                          name: e.target.value,
+                        }))
+                      }
                       className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white focus:border-transparent"
                       placeholder="Your name"
                     />
@@ -344,7 +437,12 @@ const PricingPage = () => {
                       type="email"
                       required
                       value={contactForm.email}
-                      onChange={(e) => setContactForm(prev => ({ ...prev, email: e.target.value }))}
+                      onChange={(e) =>
+                        setContactForm((prev) => ({
+                          ...prev,
+                          email: e.target.value,
+                        }))
+                      }
                       className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white focus:border-transparent"
                       placeholder="your@email.com"
                     />
@@ -357,7 +455,12 @@ const PricingPage = () => {
                     <select
                       required
                       value={contactForm.service}
-                      onChange={(e) => setContactForm(prev => ({ ...prev, service: e.target.value }))}
+                      onChange={(e) =>
+                        setContactForm((prev) => ({
+                          ...prev,
+                          service: e.target.value,
+                        }))
+                      }
                       className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white focus:border-transparent"
                     >
                       <option value="">Select a service</option>
@@ -375,7 +478,12 @@ const PricingPage = () => {
                     <textarea
                       required
                       value={contactForm.message}
-                      onChange={(e) => setContactForm(prev => ({ ...prev, message: e.target.value }))}
+                      onChange={(e) =>
+                        setContactForm((prev) => ({
+                          ...prev,
+                          message: e.target.value,
+                        }))
+                      }
                       rows={4}
                       className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white focus:border-transparent resize-none"
                       placeholder="Tell us about your needs..."
@@ -387,7 +495,7 @@ const PricingPage = () => {
                     disabled={loading}
                     className="w-full py-3 px-4 bg-white hover:bg-gray-100 text-black rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {loading ? 'Sending...' : 'Send Message'}
+                    {loading ? "Sending..." : "Send Message"}
                   </button>
                 </form>
               )}
