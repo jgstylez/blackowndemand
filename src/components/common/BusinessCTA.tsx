@@ -1,14 +1,13 @@
 import React from 'react';
 import { ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext';
+
 
 interface BusinessCTAProps {
   className?: string;
 }
 
 const BusinessCTA: React.FC<BusinessCTAProps> = ({ className = '' }) => {
-  const { user } = useAuth();
   
   return (
     <section className={`py-16 bg-gradient-to-r from-purple-900 to-blue-900 ${className}`}>

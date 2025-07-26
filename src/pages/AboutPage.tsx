@@ -1,7 +1,5 @@
-import React from 'react';
 import Layout from '../components/layout/Layout';
 import { Globe, ShoppingBag, Heart } from 'lucide-react';
-import { Link } from 'react-router-dom';
 import NewsletterSubscription from '../components/common/NewsletterSubscription';
 import ImageWithFallback from '../components/utils/ImageWithFallback';
 

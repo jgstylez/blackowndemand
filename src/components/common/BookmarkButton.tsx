@@ -61,7 +61,7 @@ const BookmarkButton: React.FC<BookmarkButtonProps> = ({
     try {
       if (isBookmarked) {
         // Remove bookmark
-        const { data, error } = await supabase.rpc('remove_bookmark', {
+        const { error } = await supabase.rpc('remove_bookmark', {
           p_business_id: businessId
         });
         
@@ -69,7 +69,7 @@ const BookmarkButton: React.FC<BookmarkButtonProps> = ({
         setIsBookmarked(false);
       } else {
         // Add bookmark
-        const { data, error } = await supabase.rpc('add_bookmark', {
+        const { error } = await supabase.rpc('add_bookmark', {
           p_business_id: businessId
         });
         

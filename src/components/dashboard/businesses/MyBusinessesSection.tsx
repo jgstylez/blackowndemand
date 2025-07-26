@@ -2,7 +2,6 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Building2, Plus, Edit2, Trash2, Clock, Crown, CheckCircle } from 'lucide-react';
 import { Business } from '../../../types';
-import { getBusinessImageUrl } from '../../../lib/supabase';
 
 interface MyBusinessesSectionProps {
   businesses: Business[];
@@ -120,7 +119,7 @@ const MyBusinessesSection: React.FC<MyBusinessesSectionProps> = ({
                 <div>
                   <div className="flex items-center gap-2 mb-2">
                     <h3 className="text-xl font-semibold text-white">{business.name}</h3>
-                    {business.is_verified ? (
+                    {business.isVerified ? (
                       <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-500/10 text-green-500">
                         <CheckCircle className="h-3 w-3 mr-1" />
                         Verified

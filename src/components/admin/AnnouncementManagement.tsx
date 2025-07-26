@@ -5,7 +5,6 @@ import {
   Trash2, 
   Eye, 
   EyeOff, 
-  Save, 
   X,
   Megaphone,
   ExternalLink
@@ -14,16 +13,16 @@ import { supabase } from '../../lib/supabase';
 
 interface Announcement {
   id: string;
-  title: string;
+  title: string | null;
   message: string;
-  link_url: string;
-  link_text: string;
-  is_active: boolean;
-  background_color: string;
-  text_color: string;
-  created_at: string;
-  updated_at: string;
-  created_by: string;
+  link_url: string | null;
+  link_text: string | null;
+  is_active: boolean | null;
+  background_color: string | null;
+  text_color: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+  created_by: string | null;
 }
 
 interface AnnouncementForm {
@@ -159,8 +158,8 @@ const AnnouncementManagement: React.FC<AnnouncementManagementProps> = ({ onAnnou
       message: announcement.message,
       link_url: announcement.link_url || '',
       link_text: announcement.link_text || '',
-      background_color: announcement.background_color,
-      text_color: announcement.text_color
+      background_color: announcement.background_color || '#1f2937',
+      text_color: announcement.text_color || '#ffffff'
     });
     setEditingId(announcement.id);
     setShowForm(true);
@@ -475,18 +474,18 @@ const AnnouncementManagement: React.FC<AnnouncementManagementProps> = ({ onAnnou
                     <div className="flex items-center gap-2 mb-3">
                       <div 
                         className="w-6 h-6 rounded border border-gray-600"
-                        style={{ backgroundColor: announcement.background_color }}
+                        style={{ backgroundColor: announcement.background_color || '#1f2937' }}
                       />
                       <div 
                         className="w-6 h-6 rounded border border-gray-600"
-                        style={{ backgroundColor: announcement.text_color }}
+                        style={{ backgroundColor: announcement.text_color || '#ffffff' }}
                       />
                       <span className="text-xs text-gray-500">Color scheme</span>
                     </div>
                     
                     <div className="text-xs text-gray-500">
-                      Created {new Date(announcement.created_at).toLocaleDateString()}
-                      {announcement.updated_at !== announcement.created_at && (
+                      {announcement.created_at && `Created ${new Date(announcement.created_at).toLocaleDateString()}`}
+                      {announcement.updated_at && announcement.updated_at !== announcement.created_at && (
                         <span> • Updated {new Date(announcement.updated_at).toLocaleDateString()}</span>
                       )}
                     </div>
@@ -494,7 +493,7 @@ const AnnouncementManagement: React.FC<AnnouncementManagementProps> = ({ onAnnou
                   
                   <div className="flex items-center gap-2 ml-4">
                     <button
-                      onClick={() => handleToggleActive(announcement.id, announcement.is_active)}
+                      onClick={() => handleToggleActive(announcement.id, announcement.is_active || false)}
                       className={`p-2 rounded-lg transition-colors ${
                         announcement.is_active
                           ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30'

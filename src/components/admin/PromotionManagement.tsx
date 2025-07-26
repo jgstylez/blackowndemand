@@ -1,13 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Plus, 
-  Edit, 
-  Trash2, 
-  X, 
-  Save, 
-  Calendar, 
-  DollarSign, 
-  Percent, 
+import React, { useState, useEffect } from "react";
+import {
+  Plus,
+  Edit,
+  Trash2,
+  X,
+  Calendar,
+  DollarSign,
   Tag,
   CheckCircle,
   XCircle,
@@ -16,9 +14,9 @@ import {
   RefreshCw,
   Download,
   Info,
-  AlertCircle
-} from 'lucide-react';
-import { supabase } from '../../lib/supabase';
+  AlertCircle,
+} from "lucide-react";
+import { supabase } from "../../lib/supabase";
 
 interface Promotion {
   id: string;
@@ -59,26 +57,32 @@ interface PromotionManagementProps {
   onUpdate?: () => void;
 }
 
-const PromotionManagement: React.FC<PromotionManagementProps> = ({ onUpdate }) => {
+const PromotionManagement: React.FC<PromotionManagementProps> = ({
+  onUpdate,
+}) => {
   const [promotions, setPromotions] = useState<Promotion[]>([]);
-  const [subscriptionPlans, setSubscriptionPlans] = useState<SubscriptionPlan[]>([]);
+  const [subscriptionPlans, setSubscriptionPlans] = useState<
+    SubscriptionPlan[]
+  >([]);
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  
+
   const defaultFormData: PromotionFormData = {
-    name: '',
-    description: '',
-    original_plan_id: '',
+    name: "",
+    description: "",
+    original_plan_id: "",
     promotional_price: 0,
-    start_date: new Date().toISOString().split('T')[0],
-    end_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 30 days from now
-    target_audience: 'all',
-    is_active: true
+    start_date: new Date().toISOString().split("T")[0],
+    end_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .split("T")[0], // 30 days from now
+    target_audience: "all",
+    is_active: true,
   };
-  
+
   const [formData, setFormData] = useState<PromotionFormData>(defaultFormData);
 
   useEffect(() => {
@@ -89,10 +93,11 @@ const PromotionManagement: React.FC<PromotionManagementProps> = ({ onUpdate }) =
   const fetchPromotions = async () => {
     try {
       setLoading(true);
-      
+
       const { data, error } = await supabase
-        .from('promotions')
-        .select(`
+        .from("promotions")
+        .select(
+          `
           id,
           name,
           description,
@@ -104,49 +109,61 @@ const PromotionManagement: React.FC<PromotionManagementProps> = ({ onUpdate }) =
           is_active,
           created_at,
           updated_at
-        `)
-        .order('created_at', { ascending: false });
+        `
+        )
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
-      
+
       // Fetch plan details for each promotion
-      const promotionsWithDetails = await Promise.all((data || []).map(async (promo) => {
-        const { data: planData, error: planError } = await supabase
-          .from('subscription_plans')
-          .select('name, price')
-          .eq('id', promo.original_plan_id)
-          .single();
-          
-        if (planError) {
-          console.error('Error fetching plan details:', planError);
+      const promotionsWithDetails = await Promise.all(
+        (data || []).map(async (promo) => {
+          const { data: planData, error: planError } = await supabase
+            .from("subscription_plans")
+            .select("name, price")
+            .eq("id", promo.original_plan_id ?? "")
+            .single();
+
+          if (planError) {
+            console.error("Error fetching plan details:", planError);
+            return {
+              ...promo,
+              description: promo.description ?? "",
+              original_plan_id: promo.original_plan_id ?? "",
+              end_date: promo.end_date ?? "",
+              updated_at: promo.updated_at ?? "",
+              original_plan_name: "Unknown Plan",
+              original_price: 0,
+              savings_amount: 0,
+              savings_percentage: 0,
+            };
+          }
+
+          const original_price = planData?.price || 0;
+          const savings_amount = original_price - promo.promotional_price;
+          const savings_percentage =
+            original_price > 0
+              ? Math.round((savings_amount / original_price) * 100 * 10) / 10
+              : 0;
+
           return {
             ...promo,
-            original_plan_name: 'Unknown Plan',
-            original_price: 0,
-            savings_amount: 0,
-            savings_percentage: 0
+            description: promo.description ?? "",
+            original_plan_id: promo.original_plan_id ?? "",
+            end_date: promo.end_date ?? "",
+            updated_at: promo.updated_at ?? "",
+            original_plan_name: planData?.name || "Unknown Plan",
+            original_price,
+            savings_amount,
+            savings_percentage,
           };
-        }
-        
-        const original_price = planData?.price || 0;
-        const savings_amount = original_price - promo.promotional_price;
-        const savings_percentage = original_price > 0 
-          ? Math.round((savings_amount / original_price) * 100 * 10) / 10 
-          : 0;
-          
-        return {
-          ...promo,
-          original_plan_name: planData?.name || 'Unknown Plan',
-          original_price,
-          savings_amount,
-          savings_percentage
-        };
-      }));
-      
+        })
+      );
+
       setPromotions(promotionsWithDetails);
     } catch (err) {
-      console.error('Failed to fetch promotions:', err);
-      setError('Failed to load promotions');
+      console.error("Failed to fetch promotions:", err);
+      setError("Failed to load promotions");
     } finally {
       setLoading(false);
     }
@@ -155,92 +172,100 @@ const PromotionManagement: React.FC<PromotionManagementProps> = ({ onUpdate }) =
   const fetchSubscriptionPlans = async () => {
     try {
       const { data, error } = await supabase
-        .from('subscription_plans')
-        .select('id, name, price')
-        .order('price', { ascending: true });
+        .from("subscription_plans")
+        .select("id, name, price")
+        .order("price", { ascending: true });
 
       if (error) throw error;
       setSubscriptionPlans(data || []);
     } catch (err) {
-      console.error('Failed to fetch subscription plans:', err);
+      console.error("Failed to fetch subscription plans:", err);
     }
   };
 
-  const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleFormChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >
+  ) => {
     const { name, value, type } = e.target;
-    
-    if (type === 'checkbox') {
+
+    if (type === "checkbox") {
       const checked = (e.target as HTMLInputElement).checked;
-      setFormData(prev => ({ ...prev, [name]: checked }));
-    } else if (type === 'number') {
-      setFormData(prev => ({ ...prev, [name]: parseFloat(value) || 0 }));
+      setFormData((prev) => ({ ...prev, [name]: checked }));
+    } else if (type === "number") {
+      setFormData((prev) => ({ ...prev, [name]: parseFloat(value) || 0 }));
     } else {
-      setFormData(prev => ({ ...prev, [name]: value }));
+      setFormData((prev) => ({ ...prev, [name]: value }));
     }
-    
+
     setError(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.name.trim()) {
-      setError('Promotion name is required');
+      setError("Promotion name is required");
       return;
     }
-    
+
     if (!formData.original_plan_id) {
-      setError('Please select a subscription plan');
+      setError("Please select a subscription plan");
       return;
     }
-    
+
     if (formData.promotional_price <= 0) {
-      setError('Promotional price must be greater than 0');
+      setError("Promotional price must be greater than 0");
       return;
     }
-    
+
     // Get the original plan price to validate the promotional price
-    const plan = subscriptionPlans.find(p => p.id === formData.original_plan_id);
+    const plan = subscriptionPlans.find(
+      (p) => p.id === formData.original_plan_id
+    );
     if (plan && formData.promotional_price >= plan.price) {
-      setError('Promotional price must be less than the original price');
+      setError("Promotional price must be less than the original price");
       return;
     }
 
     try {
       setLoading(true);
       setError(null);
-      
+
       const promotionData = {
         name: formData.name,
         description: formData.description,
         original_plan_id: formData.original_plan_id,
         promotional_price: formData.promotional_price,
         start_date: new Date(formData.start_date).toISOString(),
-        end_date: formData.end_date ? new Date(formData.end_date).toISOString() : null,
+        end_date: formData.end_date
+          ? new Date(formData.end_date).toISOString()
+          : null,
         target_audience: formData.target_audience,
-        is_active: formData.is_active
+        is_active: formData.is_active,
       };
 
       if (editingId) {
         // Update existing promotion
         const { error } = await supabase
-          .from('promotions')
+          .from("promotions")
           .update({
             ...promotionData,
-            updated_at: new Date().toISOString()
+            updated_at: new Date().toISOString(),
           })
-          .eq('id', editingId);
+          .eq("id", editingId);
 
         if (error) throw error;
-        setSuccess('Promotion updated successfully');
+        setSuccess("Promotion updated successfully");
       } else {
         // Create new promotion
         const { error } = await supabase
-          .from('promotions')
+          .from("promotions")
           .insert(promotionData);
 
         if (error) throw error;
-        setSuccess('Promotion created successfully');
+        setSuccess("Promotion created successfully");
       }
 
       // Reset form and refresh data
@@ -249,14 +274,14 @@ const PromotionManagement: React.FC<PromotionManagementProps> = ({ onUpdate }) =
       setEditingId(null);
       fetchPromotions();
       if (onUpdate) onUpdate();
-      
+
       // Clear success message after 3 seconds
       setTimeout(() => {
         setSuccess(null);
       }, 3000);
     } catch (err) {
-      console.error('Failed to save promotion:', err);
-      setError('Failed to save promotion');
+      console.error("Failed to save promotion:", err);
+      setError("Failed to save promotion");
     } finally {
       setLoading(false);
     }
@@ -268,10 +293,12 @@ const PromotionManagement: React.FC<PromotionManagementProps> = ({ onUpdate }) =
       description: promotion.description,
       original_plan_id: promotion.original_plan_id,
       promotional_price: promotion.promotional_price,
-      start_date: new Date(promotion.start_date).toISOString().split('T')[0],
-      end_date: promotion.end_date ? new Date(promotion.end_date).toISOString().split('T')[0] : '',
+      start_date: new Date(promotion.start_date).toISOString().split("T")[0],
+      end_date: promotion.end_date
+        ? new Date(promotion.end_date).toISOString().split("T")[0]
+        : "",
       target_audience: promotion.target_audience,
-      is_active: promotion.is_active
+      is_active: promotion.is_active,
     });
     setEditingId(promotion.id);
     setShowForm(true);
@@ -279,31 +306,32 @@ const PromotionManagement: React.FC<PromotionManagementProps> = ({ onUpdate }) =
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this promotion? This action cannot be undone.')) {
+    if (
+      !window.confirm(
+        "Are you sure you want to delete this promotion? This action cannot be undone."
+      )
+    ) {
       return;
     }
 
     try {
       setLoading(true);
-      
-      const { error } = await supabase
-        .from('promotions')
-        .delete()
-        .eq('id', id);
+
+      const { error } = await supabase.from("promotions").delete().eq("id", id);
 
       if (error) throw error;
-      
-      setSuccess('Promotion deleted successfully');
+
+      setSuccess("Promotion deleted successfully");
       fetchPromotions();
       if (onUpdate) onUpdate();
-      
+
       // Clear success message after 3 seconds
       setTimeout(() => {
         setSuccess(null);
       }, 3000);
     } catch (err) {
-      console.error('Failed to delete promotion:', err);
-      setError('Failed to delete promotion');
+      console.error("Failed to delete promotion:", err);
+      setError("Failed to delete promotion");
     } finally {
       setLoading(false);
     }
@@ -312,28 +340,30 @@ const PromotionManagement: React.FC<PromotionManagementProps> = ({ onUpdate }) =
   const handleToggleActive = async (id: string, currentStatus: boolean) => {
     try {
       setLoading(true);
-      
+
       const { error } = await supabase
-        .from('promotions')
-        .update({ 
+        .from("promotions")
+        .update({
           is_active: !currentStatus,
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
         })
-        .eq('id', id);
+        .eq("id", id);
 
       if (error) throw error;
-      
-      setSuccess(`Promotion ${!currentStatus ? 'activated' : 'deactivated'} successfully`);
+
+      setSuccess(
+        `Promotion ${!currentStatus ? "activated" : "deactivated"} successfully`
+      );
       fetchPromotions();
       if (onUpdate) onUpdate();
-      
+
       // Clear success message after 3 seconds
       setTimeout(() => {
         setSuccess(null);
       }, 3000);
     } catch (err) {
-      console.error('Failed to toggle promotion status:', err);
-      setError('Failed to update promotion status');
+      console.error("Failed to toggle promotion status:", err);
+      setError("Failed to update promotion status");
     } finally {
       setLoading(false);
     }
@@ -341,8 +371,19 @@ const PromotionManagement: React.FC<PromotionManagementProps> = ({ onUpdate }) =
 
   const exportPromotions = () => {
     const csvContent = [
-      ['Name', 'Description', 'Plan', 'Original Price', 'Promotional Price', 'Savings', 'Start Date', 'End Date', 'Target Audience', 'Status'],
-      ...promotions.map(promo => [
+      [
+        "Name",
+        "Description",
+        "Plan",
+        "Original Price",
+        "Promotional Price",
+        "Savings",
+        "Start Date",
+        "End Date",
+        "Target Audience",
+        "Status",
+      ],
+      ...promotions.map((promo) => [
         promo.name,
         promo.description,
         promo.original_plan_name,
@@ -350,17 +391,21 @@ const PromotionManagement: React.FC<PromotionManagementProps> = ({ onUpdate }) =
         `$${promo.promotional_price}`,
         `$${promo.savings_amount} (${promo.savings_percentage}%)`,
         new Date(promo.start_date).toLocaleDateString(),
-        promo.end_date ? new Date(promo.end_date).toLocaleDateString() : 'No expiration',
+        promo.end_date
+          ? new Date(promo.end_date).toLocaleDateString()
+          : "No expiration",
         promo.target_audience,
-        promo.is_active ? 'Active' : 'Inactive'
-      ])
-    ].map(row => row.join(',')).join('\n');
-    
-    const blob = new Blob([csvContent], { type: 'text/csv' });
+        promo.is_active ? "Active" : "Inactive",
+      ]),
+    ]
+      .map((row) => row.join(","))
+      .join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv" });
     const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
-    a.download = `promotions-${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `promotions-${new Date().toISOString().split("T")[0]}.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -368,22 +413,22 @@ const PromotionManagement: React.FC<PromotionManagementProps> = ({ onUpdate }) =
   };
 
   const calculateTimeRemaining = (endDate: string | null) => {
-    if (!endDate) return 'No expiration';
-    
+    if (!endDate) return "No expiration";
+
     const end = new Date(endDate);
     const now = new Date();
-    
-    if (end <= now) return 'Expired';
-    
+
+    if (end <= now) return "Expired";
+
     const diffTime = end.getTime() - now.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
+
     if (diffDays > 30) {
       const diffMonths = Math.floor(diffDays / 30);
-      return `${diffMonths} month${diffMonths !== 1 ? 's' : ''} left`;
+      return `${diffMonths} month${diffMonths !== 1 ? "s" : ""} left`;
     }
-    
-    return `${diffDays} day${diffDays !== 1 ? 's' : ''} left`;
+
+    return `${diffDays} day${diffDays !== 1 ? "s" : ""} left`;
   };
 
   const cancelForm = () => {
@@ -398,10 +443,14 @@ const PromotionManagement: React.FC<PromotionManagementProps> = ({ onUpdate }) =
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-white">Promotion Management</h2>
-          <p className="text-gray-400">Create and manage promotional offers for subscription plans</p>
+          <h2 className="text-2xl font-bold text-white">
+            Promotion Management
+          </h2>
+          <p className="text-gray-400">
+            Create and manage promotional offers for subscription plans
+          </p>
         </div>
-        
+
         <div className="flex gap-2">
           <button
             onClick={exportPromotions}
@@ -434,7 +483,7 @@ const PromotionManagement: React.FC<PromotionManagementProps> = ({ onUpdate }) =
           <span>{error}</span>
         </div>
       )}
-      
+
       {success && (
         <div className="p-4 bg-green-500/10 text-green-500 rounded-lg flex items-center gap-2">
           <CheckCircle className="h-5 w-5 flex-shrink-0" />
@@ -447,7 +496,7 @@ const PromotionManagement: React.FC<PromotionManagementProps> = ({ onUpdate }) =
         <div className="bg-gray-900 rounded-xl p-6">
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-xl font-bold text-white">
-              {editingId ? 'Edit Promotion' : 'Create New Promotion'}
+              {editingId ? "Edit Promotion" : "Create New Promotion"}
             </h3>
             <button
               onClick={cancelForm}
@@ -460,7 +509,10 @@ const PromotionManagement: React.FC<PromotionManagementProps> = ({ onUpdate }) =
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label htmlFor="name" className="block text-sm font-medium text-gray-300 mb-2">
+                <label
+                  htmlFor="name"
+                  className="block text-sm font-medium text-gray-300 mb-2"
+                >
                   Promotion Name *
                 </label>
                 <input
@@ -476,7 +528,10 @@ const PromotionManagement: React.FC<PromotionManagementProps> = ({ onUpdate }) =
               </div>
 
               <div>
-                <label htmlFor="original_plan_id" className="block text-sm font-medium text-gray-300 mb-2">
+                <label
+                  htmlFor="original_plan_id"
+                  className="block text-sm font-medium text-gray-300 mb-2"
+                >
                   Subscription Plan *
                 </label>
                 <select
@@ -488,7 +543,7 @@ const PromotionManagement: React.FC<PromotionManagementProps> = ({ onUpdate }) =
                   required
                 >
                   <option value="">Select a plan</option>
-                  {subscriptionPlans.map(plan => (
+                  {subscriptionPlans.map((plan) => (
                     <option key={plan.id} value={plan.id}>
                       {plan.name} (Regular: ${plan.price})
                     </option>
@@ -498,7 +553,10 @@ const PromotionManagement: React.FC<PromotionManagementProps> = ({ onUpdate }) =
             </div>
 
             <div>
-              <label htmlFor="description" className="block text-sm font-medium text-gray-300 mb-2">
+              <label
+                htmlFor="description"
+                className="block text-sm font-medium text-gray-300 mb-2"
+              >
                 Description
               </label>
               <textarea
@@ -514,7 +572,10 @@ const PromotionManagement: React.FC<PromotionManagementProps> = ({ onUpdate }) =
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label htmlFor="promotional_price" className="block text-sm font-medium text-gray-300 mb-2">
+                <label
+                  htmlFor="promotional_price"
+                  className="block text-sm font-medium text-gray-300 mb-2"
+                >
                   Promotional Price *
                 </label>
                 <div className="relative">
@@ -532,38 +593,49 @@ const PromotionManagement: React.FC<PromotionManagementProps> = ({ onUpdate }) =
                     required
                   />
                 </div>
-                {formData.original_plan_id && subscriptionPlans.find(p => p.id === formData.original_plan_id)?.price && (
-                  <div className="mt-2 text-sm">
-                    {(() => {
-                      const plan = subscriptionPlans.find(p => p.id === formData.original_plan_id);
-                      if (!plan) return null;
-                      
-                      const originalPrice = plan.price;
-                      const promoPrice = formData.promotional_price;
-                      
-                      if (promoPrice >= originalPrice) {
+                {formData.original_plan_id &&
+                  subscriptionPlans.find(
+                    (p) => p.id === formData.original_plan_id
+                  )?.price && (
+                    <div className="mt-2 text-sm">
+                      {(() => {
+                        const plan = subscriptionPlans.find(
+                          (p) => p.id === formData.original_plan_id
+                        );
+                        if (!plan) return null;
+
+                        const originalPrice = plan.price;
+                        const promoPrice = formData.promotional_price;
+
+                        if (promoPrice >= originalPrice) {
+                          return (
+                            <p className="text-red-500">
+                              Promotional price must be less than original price
+                              (${originalPrice})
+                            </p>
+                          );
+                        }
+
+                        const savings = originalPrice - promoPrice;
+                        const savingsPercent =
+                          Math.round((savings / originalPrice) * 100 * 10) / 10;
+
                         return (
-                          <p className="text-red-500">
-                            Promotional price must be less than original price (${originalPrice})
+                          <p className="text-green-500">
+                            Savings: ${savings.toFixed(2)} ({savingsPercent}%
+                            off)
                           </p>
                         );
-                      }
-                      
-                      const savings = originalPrice - promoPrice;
-                      const savingsPercent = Math.round((savings / originalPrice) * 100 * 10) / 10;
-                      
-                      return (
-                        <p className="text-green-500">
-                          Savings: ${savings.toFixed(2)} ({savingsPercent}% off)
-                        </p>
-                      );
-                    })()}
-                  </div>
-                )}
+                      })()}
+                    </div>
+                  )}
               </div>
 
               <div>
-                <label htmlFor="target_audience" className="block text-sm font-medium text-gray-300 mb-2">
+                <label
+                  htmlFor="target_audience"
+                  className="block text-sm font-medium text-gray-300 mb-2"
+                >
                   Target Audience
                 </label>
                 <div className="relative">
@@ -578,7 +650,9 @@ const PromotionManagement: React.FC<PromotionManagementProps> = ({ onUpdate }) =
                     <option value="all">All Users</option>
                     <option value="new_users">New Users Only</option>
                     <option value="existing_users">Existing Users Only</option>
-                    <option value="claimed_businesses">Claimed Businesses</option>
+                    <option value="claimed_businesses">
+                      Claimed Businesses
+                    </option>
                   </select>
                 </div>
               </div>
@@ -586,7 +660,10 @@ const PromotionManagement: React.FC<PromotionManagementProps> = ({ onUpdate }) =
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label htmlFor="start_date" className="block text-sm font-medium text-gray-300 mb-2">
+                <label
+                  htmlFor="start_date"
+                  className="block text-sm font-medium text-gray-300 mb-2"
+                >
                   Start Date *
                 </label>
                 <div className="relative">
@@ -604,7 +681,10 @@ const PromotionManagement: React.FC<PromotionManagementProps> = ({ onUpdate }) =
               </div>
 
               <div>
-                <label htmlFor="end_date" className="block text-sm font-medium text-gray-300 mb-2">
+                <label
+                  htmlFor="end_date"
+                  className="block text-sm font-medium text-gray-300 mb-2"
+                >
                   End Date
                 </label>
                 <div className="relative">
@@ -630,10 +710,18 @@ const PromotionManagement: React.FC<PromotionManagementProps> = ({ onUpdate }) =
                 id="is_active"
                 name="is_active"
                 checked={formData.is_active}
-                onChange={(e) => setFormData(prev => ({ ...prev, is_active: e.target.checked }))}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    is_active: e.target.checked,
+                  }))
+                }
                 className="h-4 w-4 rounded border-gray-700 bg-gray-800 text-white focus:ring-white focus:ring-offset-gray-900"
               />
-              <label htmlFor="is_active" className="ml-2 block text-sm text-gray-300">
+              <label
+                htmlFor="is_active"
+                className="ml-2 block text-sm text-gray-300"
+              >
                 Active
               </label>
             </div>
@@ -651,7 +739,11 @@ const PromotionManagement: React.FC<PromotionManagementProps> = ({ onUpdate }) =
                 disabled={loading}
                 className="flex-1 py-3 px-4 bg-white hover:bg-gray-100 text-black rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
               >
-                {loading ? 'Saving...' : (editingId ? 'Update Promotion' : 'Create Promotion')}
+                {loading
+                  ? "Saving..."
+                  : editingId
+                  ? "Update Promotion"
+                  : "Create Promotion"}
               </button>
             </div>
           </form>
@@ -683,13 +775,15 @@ const PromotionManagement: React.FC<PromotionManagementProps> = ({ onUpdate }) =
               <div
                 key={promotion.id}
                 className={`bg-gray-900 rounded-xl p-6 transition-all ${
-                  promotion.is_active ? 'ring-2 ring-green-500' : ''
+                  promotion.is_active ? "ring-2 ring-green-500" : ""
                 }`}
               >
                 <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                   <div className="flex-grow">
                     <div className="flex items-center gap-3 mb-2">
-                      <h3 className="text-lg font-bold text-white">{promotion.name}</h3>
+                      <h3 className="text-lg font-bold text-white">
+                        {promotion.name}
+                      </h3>
                       {promotion.is_active && (
                         <span className="px-2 py-1 bg-green-500/20 text-green-400 rounded-full text-xs font-medium">
                           Active
@@ -700,65 +794,88 @@ const PromotionManagement: React.FC<PromotionManagementProps> = ({ onUpdate }) =
                           Inactive
                         </span>
                       )}
-                      {promotion.end_date && new Date(promotion.end_date) < new Date() && (
-                        <span className="px-2 py-1 bg-red-500/20 text-red-400 rounded-full text-xs font-medium">
-                          Expired
-                        </span>
-                      )}
+                      {promotion.end_date &&
+                        new Date(promotion.end_date) < new Date() && (
+                          <span className="px-2 py-1 bg-red-500/20 text-red-400 rounded-full text-xs font-medium">
+                            Expired
+                          </span>
+                        )}
                     </div>
-                    
-                    <p className="text-gray-300 mb-3">{promotion.description}</p>
-                    
+
+                    <p className="text-gray-300 mb-3">
+                      {promotion.description}
+                    </p>
+
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm mb-4">
                       <div>
                         <p className="text-gray-500">Plan</p>
-                        <p className="text-white">{promotion.original_plan_name}</p>
+                        <p className="text-white">
+                          {promotion.original_plan_name}
+                        </p>
                       </div>
                       <div>
                         <p className="text-gray-500">Price</p>
                         <div className="flex items-center gap-2">
-                          <span className="text-gray-400 line-through">${promotion.original_price}</span>
-                          <span className="text-white font-medium">${promotion.promotional_price}</span>
-                          <span className="text-green-500">(-{promotion.savings_percentage}%)</span>
+                          <span className="text-gray-400 line-through">
+                            ${promotion.original_price}
+                          </span>
+                          <span className="text-white font-medium">
+                            ${promotion.promotional_price}
+                          </span>
+                          <span className="text-green-500">
+                            (-{promotion.savings_percentage}%)
+                          </span>
                         </div>
                       </div>
                       <div>
                         <p className="text-gray-500">Audience</p>
-                        <p className="text-white capitalize">{promotion.target_audience.replace('_', ' ')}</p>
+                        <p className="text-white capitalize">
+                          {promotion.target_audience.replace("_", " ")}
+                        </p>
                       </div>
                     </div>
-                    
+
                     <div className="flex flex-wrap gap-4 text-sm">
                       <div className="flex items-center gap-1 text-gray-400">
                         <Calendar className="h-4 w-4" />
-                        <span>Start: {new Date(promotion.start_date).toLocaleDateString()}</span>
+                        <span>
+                          Start:{" "}
+                          {new Date(promotion.start_date).toLocaleDateString()}
+                        </span>
                       </div>
-                      
+
                       {promotion.end_date && (
                         <div className="flex items-center gap-1 text-gray-400">
                           <Calendar className="h-4 w-4" />
-                          <span>End: {new Date(promotion.end_date).toLocaleDateString()}</span>
+                          <span>
+                            End:{" "}
+                            {new Date(promotion.end_date).toLocaleDateString()}
+                          </span>
                         </div>
                       )}
-                      
+
                       {promotion.end_date && (
                         <div className="flex items-center gap-1 text-gray-400">
                           <Clock className="h-4 w-4" />
-                          <span>{calculateTimeRemaining(promotion.end_date)}</span>
+                          <span>
+                            {calculateTimeRemaining(promotion.end_date)}
+                          </span>
                         </div>
                       )}
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={() => handleToggleActive(promotion.id, promotion.is_active)}
+                      onClick={() =>
+                        handleToggleActive(promotion.id, promotion.is_active)
+                      }
                       className={`p-2 rounded-lg transition-colors ${
                         promotion.is_active
-                          ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
-                          : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                          ? "bg-green-500/20 text-green-400 hover:bg-green-500/30"
+                          : "bg-gray-800 text-gray-400 hover:bg-gray-700"
                       }`}
-                      title={promotion.is_active ? 'Deactivate' : 'Activate'}
+                      title={promotion.is_active ? "Deactivate" : "Activate"}
                     >
                       {promotion.is_active ? (
                         <CheckCircle className="h-5 w-5" />
@@ -766,7 +883,7 @@ const PromotionManagement: React.FC<PromotionManagementProps> = ({ onUpdate }) =
                         <XCircle className="h-5 w-5" />
                       )}
                     </button>
-                    
+
                     <button
                       onClick={() => handleEdit(promotion)}
                       className="p-2 rounded-lg bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white transition-colors"
@@ -774,7 +891,7 @@ const PromotionManagement: React.FC<PromotionManagementProps> = ({ onUpdate }) =
                     >
                       <Edit className="h-5 w-5" />
                     </button>
-                    
+
                     <button
                       onClick={() => handleDelete(promotion.id)}
                       className="p-2 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors"
@@ -807,13 +924,21 @@ const PromotionManagement: React.FC<PromotionManagementProps> = ({ onUpdate }) =
         <Info className="h-5 w-5 flex-shrink-0 mt-0.5" />
         <div>
           <p className="text-sm">
-            <strong>Promotions</strong> allow you to offer discounted pricing on subscription plans for a limited time.
-            You can set start and end dates, target specific audiences, and control which plans are discounted.
+            <strong>Promotions</strong> allow you to offer discounted pricing on
+            subscription plans for a limited time. You can set start and end
+            dates, target specific audiences, and control which plans are
+            discounted.
           </p>
           <ul className="mt-2 text-sm list-disc list-inside">
             <li>Active promotions will be displayed on the pricing page</li>
-            <li>You can have multiple promotions, but only one per plan will be shown</li>
-            <li>Promotions without end dates will run indefinitely until manually deactivated</li>
+            <li>
+              You can have multiple promotions, but only one per plan will be
+              shown
+            </li>
+            <li>
+              Promotions without end dates will run indefinitely until manually
+              deactivated
+            </li>
           </ul>
         </div>
       </div>

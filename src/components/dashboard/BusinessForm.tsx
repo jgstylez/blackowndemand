@@ -1,7 +1,7 @@
+
 import React, { useState, useEffect } from "react";
 import {
   Business,
-  BusinessCategory,
   BusinessCategoryLabels,
   BusinessTag,
   BusinessTagLabels,
@@ -11,7 +11,6 @@ import {
   Globe,
   Phone,
   Building2,
-  MapPin,
   Video,
   Tags,
 } from "lucide-react";
@@ -235,7 +234,7 @@ const BusinessForm: React.FC<BusinessFormProps> = ({
                 type="text"
                 id="name"
                 name="name"
-                value={formData.name}
+                value={formData.name || ''}
                 onChange={handleChange}
                 className="w-full pl-10 px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white focus:border-transparent"
                 required
@@ -254,7 +253,7 @@ const BusinessForm: React.FC<BusinessFormProps> = ({
               type="text"
               id="tagline"
               name="tagline"
-              value={formData.tagline}
+              value={formData.tagline || ''}
               onChange={handleChange}
               className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white focus:border-transparent"
             />
@@ -270,7 +269,7 @@ const BusinessForm: React.FC<BusinessFormProps> = ({
             <textarea
               id="description"
               name="description"
-              value={formData.description}
+              value={formData.description || ''}
               onChange={handleChange}
               rows={4}
               className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white focus:border-transparent"
@@ -287,7 +286,7 @@ const BusinessForm: React.FC<BusinessFormProps> = ({
             <select
               id="category"
               name="category"
-              value={formData.category}
+              value={formData.category || ''}
               onChange={handleChange}
               className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white focus:border-transparent"
               required
@@ -301,6 +300,7 @@ const BusinessForm: React.FC<BusinessFormProps> = ({
             </select>
           </div>
 
+          {/* Tags Section */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
               Tags (max {maxTagsAllowed})
@@ -350,6 +350,7 @@ const BusinessForm: React.FC<BusinessFormProps> = ({
             </p>
           </div>
 
+          {/* Contact Information */}
           <div>
             <label
               htmlFor="website_url"
@@ -363,7 +364,7 @@ const BusinessForm: React.FC<BusinessFormProps> = ({
                 type="url"
                 id="website_url"
                 name="website_url"
-                value={formData.website_url}
+                value={formData.website_url || ''}
                 onChange={handleChange}
                 className="w-full pl-10 px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white focus:border-transparent"
               />
@@ -383,7 +384,7 @@ const BusinessForm: React.FC<BusinessFormProps> = ({
                 type="tel"
                 id="phone"
                 name="phone"
-                value={formData.phone}
+                value={formData.phone || ''}
                 onChange={handleChange}
                 className="w-full pl-10 px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white focus:border-transparent"
               />
@@ -403,7 +404,7 @@ const BusinessForm: React.FC<BusinessFormProps> = ({
                 type="email"
                 id="email"
                 name="email"
-                value={formData.email}
+                value={formData.email || ''}
                 onChange={handleChange}
                 className="w-full pl-10 px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white focus:border-transparent"
                 required

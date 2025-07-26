@@ -1,115 +1,97 @@
-import { useState, useCallback } from 'react';
-import { supabase } from '../../lib/supabase';
-import { logError } from '../../lib/errorLogger';
-import useErrorHandler from '../useErrorHandler';
 
-export interface UserSettings {
+import { useState, useEffect } from 'react';
+import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../contexts/AuthContext';
+
+interface UserSettings {
+  emailNotifications: boolean;
   marketingEmails: boolean;
-  productUpdates: boolean;
-  communityNews: boolean;
-  darkMode: boolean;
+  theme: 'light' | 'dark' | 'system';
   language: string;
-  timezone: string;
 }
 
-export const useUserSettings = () => {
-  const [userSettings, setUserSettings] = useState<UserSettings>({
-    marketingEmails: true,
-    productUpdates: true,
-    communityNews: true,
-    darkMode: false,
-    language: 'en',
-    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-  });
+const defaultSettings: UserSettings = {
+  emailNotifications: true,
+  marketingEmails: false,
+  theme: 'system',
+  language: 'en'
+};
+
+const useUserSettings = () => {
+  const { user } = useAuth();
+  const [settings, setSettings] = useState<UserSettings>(defaultSettings);
   const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const { error, handleError, clearError } = useErrorHandler({
-    context: 'useUserSettings',
-    defaultMessage: 'Failed to fetch your settings'
-  });
+  const fetchSettings = async () => {
+    if (!user?.id) return;
 
-  const fetchUserSettings = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
     try {
-      setLoading(true);
-      clearError();
-      
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
-      
-      const { data, error: fetchError } = await supabase
+      const { data, error } = await supabase
         .from('user_settings')
-        .select('*')
-        .eq('user_id', user.id);
+        .select('settings')
+        .eq('user_id', user.id)
+        .single();
 
-      if (fetchError) {
-        throw fetchError;
+      if (error && error.code !== 'PGRST116') {
+        throw error;
       }
 
-      if (data && data.length > 0) {
-        setUserSettings(data[0].settings);
+      if (data?.settings) {
+        setSettings({ ...defaultSettings, ...(data.settings as Partial<UserSettings>) });
       }
-    } catch (err) {
-      handleError(err, 'Failed to fetch your settings');
-      logError('Error fetching user settings', {
-        context: 'useUserSettings',
-        metadata: { error: err }
-      });
+    } catch (error: any) {
+      console.error('Error fetching user settings:', error);
+      setError(error.message || 'Failed to fetch settings');
     } finally {
       setLoading(false);
     }
-  }, [handleError, clearError]);
+  };
 
-  const updateSetting = useCallback((setting: keyof UserSettings, value: any) => {
-    setUserSettings(prev => ({
-      ...prev,
-      [setting]: value,
-    }));
-    setSuccess(null);
-  }, []);
+  const updateSettings = async (newSettings: Partial<UserSettings>) => {
+    if (!user?.id) {
+      setError('User not authenticated');
+      return;
+    }
 
-  const saveSettings = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
     try {
-      setLoading(true);
-      clearError();
-      setSuccess(null);
+      const updatedSettings = { ...settings, ...newSettings };
       
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
-      
-      const { error: saveError } = await supabase
+      const { error } = await supabase
         .from('user_settings')
-        .upsert({
+        .upsert({ 
           user_id: user.id,
-          settings: userSettings,
-          updated_at: new Date().toISOString(),
+          settings: updatedSettings,
+          updated_at: new Date().toISOString()
         });
 
-      if (saveError) {
-        throw saveError;
-      }
-      
-      setSuccess('Settings saved successfully');
-    } catch (err) {
-      handleError(err, 'Failed to save settings');
-      logError('Error saving user settings', {
-        context: 'useUserSettings',
-        metadata: { error: err }
-      });
+      if (error) throw error;
+
+      setSettings(updatedSettings);
+    } catch (error: any) {
+      console.error('Error updating user settings:', error);
+      setError(error.message || 'Failed to update settings');
     } finally {
       setLoading(false);
     }
-  }, [userSettings, handleError, clearError]);
+  };
+
+  useEffect(() => {
+    fetchSettings();
+  }, [user]);
 
   return {
-    userSettings,
+    settings,
+    updateSettings,
     loading,
     error,
-    success,
-    fetchUserSettings,
-    updateSetting,
-    saveSettings,
-    setSuccess
+    refetch: fetchSettings
   };
 };
 

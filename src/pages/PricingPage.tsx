@@ -1,16 +1,20 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import Layout from "../components/layout/Layout";
 import { Check, X, Star, Users, TrendingUp, Shield, Crown } from "lucide-react";
+import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../lib/supabase";
-import PlanPromotion from "../components/pricing/PlanPromotion";
+import { usePaymentProvider } from "../hooks/usePaymentProvider";
 import PaymentModal from "../components/payment/PaymentModal";
-import { loadStripe } from "@stripe/stripe-js";
+import PlanPromotion from "../components/pricing/PlanPromotion";
 
 type PlanName = "Starter Plan" | "Enhanced Plan" | "VIP Plan";
 
 const PricingPage = () => {
+  const { user } = useAuth();
+  const { provider, isStripe } = usePaymentProvider();
   const navigate = useNavigate();
+  const location = useLocation();
   const [showContactForm, setShowContactForm] = useState(false);
   const [contactForm, setContactForm] = useState({
     name: "",
@@ -20,83 +24,105 @@ const PricingPage = () => {
   });
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<{
-    price: number;
-    name: string;
+    planPrice: number;
+    planName: PlanName;
   } | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const PLAN_PRICE_IDS: Record<PlanName, string> = {
-    "Starter Plan": "prod_ShK1TiSkLlnzrZ",
-    "Enhanced Plan": "prod_ShK2XoddLnQl5R",
-    "VIP Plan": "prod_ShK3DtQoELeSml",
-  };
+  // Check for Stripe checkout results
+  useEffect(() => {
+    const urlParams = new URLSearchParams(location.search);
+    const success = urlParams.get("success");
+    const canceled = urlParams.get("canceled");
+    const planName = urlParams.get("plan");
 
-  const stripePromise = loadStripe("pk_test_..."); // Use your real publishable key
-
-  async function handleCheckout(
-    planName: PlanName,
-    userEmail: string,
-    discountCode: string | null
-  ) {
-    const planPriceId = PLAN_PRICE_IDS[planName];
-    if (!planPriceId) {
-      alert("No Stripe Price ID found for this plan.");
-      return;
+    if (success === "true" && planName) {
+      // Payment successful, navigate to business creation
+      navigate("/business/new", {
+        state: {
+          planName: decodeURIComponent(planName),
+          paymentCompleted: true,
+        },
+      });
+    } else if (canceled === "true") {
+      setError("Payment was canceled. Please try again.");
+      setTimeout(() => setError(null), 5000);
     }
-    const SUPABASE_FUNCTIONS_URL = import.meta.env.VITE_SUPABASE_FUNCTIONS_URL;
-    const response = await fetch(
-      `${SUPABASE_FUNCTIONS_URL}/create-checkout-session`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ planPriceId, userEmail, discountCode }),
-      }
-    );
-    const { sessionId, error } = await response.json();
-    if (error) {
-      alert(error);
-      return;
-    }
-    const stripe = await stripePromise;
-    if (stripe) {
-      await stripe.redirectToCheckout({ sessionId });
-    }
-  }
+  }, [location, navigate]);
 
   const handlePlanSelect = async (planPrice: number, planName: PlanName) => {
-    // Check if user is authenticated
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
     if (!user) {
-      // Store selected plan in session storage
-      sessionStorage.setItem("selectedPlan", planPrice.toString());
-      sessionStorage.setItem("selectedPlanName", planName);
-      // Redirect to login
-      navigate("/login?redirect=/pricing");
+      // Store selected plan in session storage for after login
+      sessionStorage.setItem(
+        "selectedPlan",
+        JSON.stringify({ planPrice, planName })
+      );
+      navigate("/login");
       return;
     }
 
-    if (!user.email) {
-      alert("User email is missing.");
-      return;
+    setSelectedPlan({ planPrice, planName });
+
+    console.log("Payment provider:", provider, "isStripe:", isStripe);
+
+    // --- FORCE STRIPE FOR LOCAL DEV ---
+    // if (isStripe) {
+    try {
+      // Create Stripe checkout session with annual billing
+      const { data, error } = await supabase.functions.invoke(
+        "create-checkout-session",
+        {
+          body: {
+            planPrice,
+            planName,
+            successUrl: `${
+              window.location.origin
+            }/pricing?success=true&plan=${encodeURIComponent(planName)}`,
+            cancelUrl: `${window.location.origin}/pricing?canceled=true`,
+          },
+        }
+      );
+
+      if (error) throw error;
+
+      if (data?.free_transaction) {
+        // Handle $0 transactions
+        navigate("/business/new", {
+          state: {
+            planPrice: 0,
+            planName: planName,
+            paymentCompleted: true,
+          },
+        });
+        return;
+      }
+
+      if (!data?.url) throw new Error("No checkout URL received");
+
+      // Redirect to Stripe Checkout
+      window.location.href = data.url;
+    } catch (error) {
+      console.error("Error creating checkout session:", error);
+      setError("Failed to initiate payment. Please try again.");
     }
-    // If user is authenticated, trigger Stripe Checkout
-    await handleCheckout(planName, user.email, null); // Pass discountCode if you have one
+    // } else {
+    //   // Use Ecom Payments payment modal
+    //   setIsPaymentModalOpen(true);
+    // }
   };
 
   const handlePaymentSuccess = (paymentData: any) => {
     // Close payment modal
-    setShowPaymentModal(false);
+    setIsPaymentModalOpen(false);
 
     // Navigate to business listing form with payment completed flag
     if (selectedPlan) {
       navigate("/business/new", {
         state: {
-          planPrice: selectedPlan.price,
-          planName: selectedPlan.name,
+          planPrice: selectedPlan.planPrice,
+          planName: selectedPlan.planName,
           paymentCompleted: true,
         },
       });
@@ -294,10 +320,6 @@ const PricingPage = () => {
                 <Check className="h-5 w-5 text-white mr-3" />
                 Exclusive Badge
               </li>
-              <li className="hidden flex items-center text-gray-300">
-                <Check className="h-5 w-5 text-white mr-3" />
-                Early Access
-              </li>
               <li className="flex items-center text-gray-300">
                 <Check className="h-5 w-5 text-white mr-3" />
                 Special Recognition
@@ -309,10 +331,6 @@ const PricingPage = () => {
               <li className="flex items-center text-gray-300">
                 <Check className="h-5 w-5 text-white mr-3" />
                 Priority Placement
-              </li>
-              <li className="hidden flex items-center text-gray-300">
-                <Check className="h-5 w-5 text-white mr-3" />
-                Private VIP network
               </li>
               <li className="flex items-center text-gray-300">
                 <Check className="h-5 w-5 text-white mr-3" />
@@ -503,15 +521,24 @@ const PricingPage = () => {
           </div>
         )}
 
-        {/* Payment Modal */}
-        <PaymentModal
-          isOpen={showPaymentModal}
-          onClose={() => setShowPaymentModal(false)}
-          onSuccess={handlePaymentSuccess}
-          amount={selectedPlan?.price || 0}
-          description={`Annual ${selectedPlan?.name || ""} subscription`}
-          planName={selectedPlan?.name || ""}
-        />
+        {/* Payment Modal for Ecom Payments */}
+        {selectedPlan && (
+          <PaymentModal
+            isOpen={isPaymentModalOpen}
+            onClose={() => setIsPaymentModalOpen(false)}
+            onSuccess={handlePaymentSuccess}
+            amount={selectedPlan.planPrice}
+            description={`Annual ${selectedPlan.planName} subscription`}
+            planName={selectedPlan.planName}
+          />
+        )}
+
+        {/* Error Display */}
+        {error && (
+          <div className="fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg z-50">
+            {error}
+          </div>
+        )}
       </div>
     </Layout>
   );

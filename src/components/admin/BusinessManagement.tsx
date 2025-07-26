@@ -1,16 +1,13 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { 
-  Download, 
-  RefreshCw
-} from 'lucide-react';
-import { supabase } from '../../lib/supabase';
-import { logError } from '../../lib/errorLogger';
-import useErrorHandler from '../../hooks/useErrorHandler';
-import ErrorFallback from '../common/ErrorFallback';
-import BusinessStatsCards from './business/BusinessStatsCards';
-import BusinessFilters from './business/BusinessFilters';
-import BusinessListItem from './business/BusinessListItem';
-import PaginationControls from '../common/PaginationControls';
+import React, { useState, useEffect, useCallback } from "react";
+import { Download, RefreshCw, Building2 } from "lucide-react";
+import { supabase } from "../../lib/supabase";
+import { logError } from "../../lib/errorLogger";
+import useErrorHandler from "../../hooks/useErrorHandler";
+import ErrorFallback from "../common/ErrorFallback";
+import BusinessStatsCards from "./business/BusinessStatsCards";
+import BusinessFilters from "./business/BusinessFilters";
+import BusinessListItem from "./business/BusinessListItem";
+import PaginationControls from "../common/PaginationControls";
 
 interface Business {
   id: string;
@@ -36,19 +33,28 @@ interface Business {
   vip_member?: any;
 }
 
-type BusinessFilter = 'all' | 'verified' | 'unverified' | 'featured' | 'members' | 'unclaimed' | 'inactive';
-type SortOption = 'newest' | 'oldest' | 'name_asc' | 'name_desc' | 'category';
+type BusinessFilter =
+  | "all"
+  | "verified"
+  | "unverified"
+  | "featured"
+  | "members"
+  | "unclaimed"
+  | "inactive";
+type SortOption = "newest" | "oldest" | "name_asc" | "name_desc" | "category";
 
 interface BusinessManagementProps {
   onBusinessUpdate?: () => void;
 }
 
-const BusinessManagement: React.FC<BusinessManagementProps> = ({ onBusinessUpdate }) => {
+const BusinessManagement: React.FC<BusinessManagementProps> = ({
+  onBusinessUpdate,
+}) => {
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [loading, setLoading] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filter, setFilter] = useState<BusinessFilter>('all');
-  const [sortBy, setSortBy] = useState<SortOption>('newest');
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filter, setFilter] = useState<BusinessFilter>("all");
+  const [sortBy, setSortBy] = useState<SortOption>("newest");
   const [selectedBusinesses, setSelectedBusinesses] = useState<string[]>([]);
   const [showActions, setShowActions] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -60,33 +66,33 @@ const BusinessManagement: React.FC<BusinessManagementProps> = ({ onBusinessUpdat
     featured: 0,
     members: 0,
     unclaimed: 0,
-    inactive: 0
+    inactive: 0,
   });
 
   const { error, handleError, clearError } = useErrorHandler({
-    context: 'BusinessManagement',
-    defaultMessage: 'Failed to manage businesses'
+    context: "BusinessManagement",
+    defaultMessage: "Failed to manage businesses",
   });
 
   const fetchStats = useCallback(async () => {
     try {
-      const { data, error } = await supabase.rpc('get_business_stats');
+      const { data, error } = await supabase.rpc("get_business_stats");
       if (error) throw error;
-      
+
       if (data && data.length > 0) {
         setStats({
           total: data[0].total_businesses || 0,
           verified: data[0].verified_businesses || 0,
           featured: data[0].featured_businesses || 0,
-          members: data[0].member_businesses || 0,
+          members: data[0].founder_businesses || 0,
           unclaimed: data[0].unclaimed_businesses || 0,
-          inactive: data[0].inactive_businesses || 0
+          inactive: data[0].inactive_businesses || 0,
         });
       }
     } catch (err) {
-      logError('Failed to fetch stats', {
-        context: 'BusinessManagement.fetchStats',
-        metadata: { error: err }
+      logError("Failed to fetch stats", {
+        context: "BusinessManagement.fetchStats",
+        metadata: { error: err },
       });
     }
   }, []);
@@ -95,36 +101,41 @@ const BusinessManagement: React.FC<BusinessManagementProps> = ({ onBusinessUpdat
     try {
       setLoading(true);
       clearError();
-      
-      let query = supabase
-        .from('businesses')
-        .select(`
+
+      let query = supabase.from("businesses").select(
+        `
           *,
           vip_member(*)
-        `, { count: 'exact' });
-      
+        `,
+        { count: "exact" }
+      );
+
       // Apply filters
       switch (filter) {
-        case 'verified':
-          query = query.eq('is_verified', true);
+        case "verified":
+          query = query.eq("is_verified", true);
           break;
-        case 'unverified':
-          query = query.eq('is_verified', false);
+        case "unverified":
+          query = query.eq("is_verified", false);
           break;
-        case 'featured':
-          query = query.eq('is_featured', true);
+        case "featured":
+          query = query
+            .eq("is_featured", true)
+            .order("featured_position", { ascending: true, nullsFirst: false });
           break;
-        case 'members':
-          query = query.not('vip_member', 'is', null);
+        case "members":
+          query = query.not("vip_member", "is", null);
           break;
-        case 'unclaimed':
-          query = query.not('migration_source', 'is', null).is('claimed_at', null);
+        case "unclaimed":
+          query = query
+            .not("migration_source", "is", null)
+            .is("claimed_at", null);
           break;
-        case 'inactive':
-          query = query.eq('is_active', false);
+        case "inactive":
+          query = query.eq("is_active", false);
           break;
       }
-      
+
       // Apply search
       if (searchTerm) {
         query = query.or(`
@@ -134,42 +145,73 @@ const BusinessManagement: React.FC<BusinessManagementProps> = ({ onBusinessUpdat
           category.ilike.%${searchTerm}%
         `);
       }
-      
+
       // Apply sorting
       switch (sortBy) {
-        case 'newest':
-          query = query.order('created_at', { ascending: false });
+        case "newest":
+          query = query.order("created_at", { ascending: false });
           break;
-        case 'oldest':
-          query = query.order('created_at', { ascending: true });
+        case "oldest":
+          query = query.order("created_at", { ascending: true });
           break;
-        case 'name_asc':
-          query = query.order('name', { ascending: true });
+        case "name_asc":
+          query = query.order("name", { ascending: true });
           break;
-        case 'name_desc':
-          query = query.order('name', { ascending: false });
+        case "name_desc":
+          query = query.order("name", { ascending: false });
           break;
-        case 'category':
-          query = query.order('category', { ascending: true }).order('name', { ascending: true });
+        case "category":
+          query = query
+            .order("category", { ascending: true })
+            .order("name", { ascending: true });
           break;
       }
-      
+
       // Apply pagination
       const start = (currentPage - 1) * itemsPerPage;
       query = query.range(start, start + itemsPerPage - 1);
-      
+
       const { data, error: fetchError, count } = await query;
-      
+
       if (fetchError) throw fetchError;
-      
-      setBusinesses(data || []);
+
+      setBusinesses(
+        (data || []).map((b: any) => ({
+          ...b,
+          tagline: b.tagline ?? "",
+          name: b.name ?? "",
+          description: b.description ?? "",
+          category: b.category ?? "",
+          city: b.city ?? "",
+          state: b.state ?? "",
+          country: b.country ?? "",
+          website_url: b.website_url ?? "",
+          phone: b.phone ?? "",
+          email: b.email ?? "",
+          image_url: b.image_url ?? "",
+          migration_source: b.migration_source ?? "",
+          claimed_at: b.claimed_at ?? "",
+          owner_id: b.owner_id ?? "",
+          created_at: b.created_at ?? "",
+          updated_at: b.updated_at ?? "",
+          // Add other fields as needed to ensure non-null values
+        }))
+      );
       setTotalCount(count || 0);
     } catch (err) {
-      handleError(err, 'Failed to fetch businesses');
+      handleError(err, "Failed to fetch businesses");
     } finally {
       setLoading(false);
     }
-  }, [searchTerm, filter, sortBy, currentPage, itemsPerPage, handleError, clearError]);
+  }, [
+    searchTerm,
+    filter,
+    sortBy,
+    currentPage,
+    itemsPerPage,
+    handleError,
+    clearError,
+  ]);
 
   useEffect(() => {
     fetchBusinesses();
@@ -180,54 +222,55 @@ const BusinessManagement: React.FC<BusinessManagementProps> = ({ onBusinessUpdat
     try {
       setLoading(true);
       clearError();
-      
+
       switch (action) {
-        case 'verify':
+        case "verify":
           await supabase
-            .from('businesses')
+            .from("businesses")
             .update({ is_verified: true })
-            .eq('id', businessId);
+            .eq("id", businessId);
           break;
-        case 'unverify':
+        case "unverify":
           await supabase
-            .from('businesses')
+            .from("businesses")
             .update({ is_verified: false })
-            .eq('id', businessId);
+            .eq("id", businessId);
           break;
-        case 'feature':
+        case "feature":
           await supabase
-            .from('businesses')
+            .from("businesses")
             .update({ is_featured: true })
-            .eq('id', businessId);
+            .eq("id", businessId);
           break;
-        case 'unfeature':
+        case "unfeature":
           await supabase
-            .from('businesses')
+            .from("businesses")
             .update({ is_featured: false })
-            .eq('id', businessId);
+            .eq("id", businessId);
           break;
-        case 'activate':
+        case "activate":
           await supabase
-            .from('businesses')
+            .from("businesses")
             .update({ is_active: true })
-            .eq('id', businessId);
+            .eq("id", businessId);
           break;
-        case 'deactivate':
+        case "deactivate":
           await supabase
-            .from('businesses')
+            .from("businesses")
             .update({ is_active: false })
-            .eq('id', businessId);
+            .eq("id", businessId);
           break;
-        case 'delete':
-          if (window.confirm('Are you sure you want to delete this business? This action cannot be undone.')) {
-            await supabase
-              .from('businesses')
-              .delete()
-              .eq('id', businessId);
+        case "delete":
+          if (
+            window.confirm(
+              "Are you sure you want to delete this business? This action cannot be undone."
+            )
+          ) {
+            await supabase.from("businesses").delete().eq("id", businessId);
           }
           break;
       }
-      
+
       // Refresh data
       fetchBusinesses();
       fetchStats();
@@ -241,18 +284,18 @@ const BusinessManagement: React.FC<BusinessManagementProps> = ({ onBusinessUpdat
 
   const handleBulkAction = async (action: string) => {
     if (selectedBusinesses.length === 0) return;
-    
+
     const confirmMessage = `Are you sure you want to ${action} ${selectedBusinesses.length} businesses?`;
     if (!window.confirm(confirmMessage)) return;
-    
+
     try {
       setLoading(true);
       clearError();
-      
+
       for (const businessId of selectedBusinesses) {
         await handleBusinessAction(action, businessId);
       }
-      
+
       setSelectedBusinesses([]);
     } catch (err) {
       handleError(err, `Failed to perform bulk ${action}`);
@@ -265,43 +308,45 @@ const BusinessManagement: React.FC<BusinessManagementProps> = ({ onBusinessUpdat
     try {
       setLoading(true);
       clearError();
-      
+
       const { data, error } = await supabase
-        .from('businesses')
-        .select('*')
+        .from("businesses")
+        .select("*")
         .csv();
-      
+
       if (error) throw error;
-      
-      const blob = new Blob([data], { type: 'text/csv' });
+
+      const blob = new Blob([data], { type: "text/csv" });
       const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
+      const a = document.createElement("a");
       a.href = url;
-      a.download = `businesses-export-${new Date().toISOString().split('T')[0]}.csv`;
+      a.download = `businesses-export-${
+        new Date().toISOString().split("T")[0]
+      }.csv`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
     } catch (err) {
-      handleError(err, 'Failed to export businesses');
+      handleError(err, "Failed to export businesses");
     } finally {
       setLoading(false);
     }
   };
 
   const toggleBusinessSelection = (businessId: string) => {
-    setSelectedBusinesses(prev => 
+    setSelectedBusinesses((prev) =>
       prev.includes(businessId)
-        ? prev.filter(id => id !== businessId)
+        ? prev.filter((id) => id !== businessId)
         : [...prev, businessId]
     );
   };
 
   const toggleSelectAll = () => {
     setSelectedBusinesses(
-      selectedBusinesses.length === businesses.length 
-        ? [] 
-        : businesses.map(b => b.id)
+      selectedBusinesses.length === businesses.length
+        ? []
+        : businesses.map((b) => b.id)
     );
   };
 
@@ -310,11 +355,55 @@ const BusinessManagement: React.FC<BusinessManagementProps> = ({ onBusinessUpdat
   // If there's an error, show the error fallback
   if (error.hasError && !loading) {
     return (
-      <ErrorFallback 
+      <ErrorFallback
         error={error.details}
         message={error.message || "Failed to load businesses"}
         resetErrorBoundary={fetchBusinesses}
       />
+    );
+  }
+
+  // Extract business list rendering logic
+  let businessListContent: React.ReactNode;
+  if (loading) {
+    businessListContent = (
+      <div className="space-y-4">
+        {[...Array(5)].map((_, i) => (
+          <div key={i} className="bg-gray-900 rounded-xl p-6 animate-pulse">
+            <div className="flex items-start gap-4">
+              <div className="w-16 h-16 bg-gray-800 rounded-lg" />
+              <div className="flex-grow space-y-3">
+                <div className="h-6 bg-gray-800 rounded w-1/3" />
+                <div className="h-4 bg-gray-800 rounded w-2/3" />
+                <div className="h-4 bg-gray-800 rounded w-1/2" />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  } else if (businesses.length === 0) {
+    businessListContent = (
+      <div className="text-center py-12">
+        <Building2 className="h-12 w-12 text-gray-600 mx-auto mb-4" />
+        <p className="text-gray-400">No businesses found</p>
+      </div>
+    );
+  } else {
+    businessListContent = (
+      <div className="space-y-4">
+        {businesses.map((business) => (
+          <BusinessListItem
+            key={business.id}
+            business={business}
+            selectedBusinesses={selectedBusinesses}
+            toggleBusinessSelection={toggleBusinessSelection}
+            showActions={showActions}
+            setShowActions={setShowActions}
+            handleBusinessAction={handleBusinessAction}
+          />
+        ))}
+      </div>
     );
   }
 
@@ -324,9 +413,11 @@ const BusinessManagement: React.FC<BusinessManagementProps> = ({ onBusinessUpdat
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="text-2xl font-bold text-white">Business Management</h2>
-          <p className="text-gray-400">Manage business listings and verification status</p>
+          <p className="text-gray-400">
+            Manage business listings and verification status
+          </p>
         </div>
-        
+
         <div className="flex gap-2">
           <button
             onClick={exportBusinesses}
@@ -344,7 +435,9 @@ const BusinessManagement: React.FC<BusinessManagementProps> = ({ onBusinessUpdat
             disabled={loading}
             className="inline-flex items-center px-4 py-2 rounded-lg bg-gray-800 text-white hover:bg-gray-700 transition-colors disabled:opacity-50"
           >
-            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw
+              className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`}
+            />
             Refresh
           </button>
         </div>
@@ -354,7 +447,7 @@ const BusinessManagement: React.FC<BusinessManagementProps> = ({ onBusinessUpdat
       <BusinessStatsCards stats={stats} />
 
       {/* Filters and Search */}
-      <BusinessFilters 
+      <BusinessFilters
         searchTerm={searchTerm}
         filter={filter}
         sortBy={sortBy}
@@ -370,9 +463,9 @@ const BusinessManagement: React.FC<BusinessManagementProps> = ({ onBusinessUpdat
           setCurrentPage(1);
         }}
         onClearFilters={() => {
-          setSearchTerm('');
-          setFilter('all');
-          setSortBy('newest');
+          setSearchTerm("");
+          setFilter("all");
+          setSortBy("newest");
           setCurrentPage(1);
         }}
         onBulkAction={handleBulkAction}
@@ -380,41 +473,7 @@ const BusinessManagement: React.FC<BusinessManagementProps> = ({ onBusinessUpdat
       />
 
       {/* Business List */}
-      {loading ? (
-        <div className="space-y-4">
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className="bg-gray-900 rounded-xl p-6 animate-pulse">
-              <div className="flex items-start gap-4">
-                <div className="w-16 h-16 bg-gray-800 rounded-lg" />
-                <div className="flex-grow space-y-3">
-                  <div className="h-6 bg-gray-800 rounded w-1/3" />
-                  <div className="h-4 bg-gray-800 rounded w-2/3" />
-                  <div className="h-4 bg-gray-800 rounded w-1/2" />
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : businesses.length === 0 ? (
-        <div className="text-center py-12">
-          <Building2 className="h-12 w-12 text-gray-600 mx-auto mb-4" />
-          <p className="text-gray-400">No businesses found</p>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {businesses.map((business) => (
-            <BusinessListItem
-              key={business.id}
-              business={business}
-              selectedBusinesses={selectedBusinesses}
-              toggleBusinessSelection={toggleBusinessSelection}
-              showActions={showActions}
-              setShowActions={setShowActions}
-              handleBusinessAction={handleBusinessAction}
-            />
-          ))}
-        </div>
-      )}
+      {businessListContent}
 
       {/* Pagination */}
       {totalPages > 1 && (

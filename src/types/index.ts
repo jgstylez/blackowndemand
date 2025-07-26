@@ -1,19 +1,36 @@
 export interface Business {
   id: string;
   name: string;
-  tagline: string;
-  description: string;
-  category: BusinessCategory;
+  tagline?: string | null;
+  description?: string | null;
+  category?: BusinessCategory | null;
   isVerified: boolean;
   isFeatured: boolean;
-  location: {
-    city: string;
-    state: string;
-    zipCode: string;
-    country: string;
-  };
-  tags: BusinessTag[];
-  imageUrl?: string;
+  is_active: boolean;
+  city?: string | null;
+  state?: string | null;
+  zip_code?: string | null;
+  country?: string | null;
+  website_url?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  image_url?: string | null;
+  social_links?: any;
+  business_hours?: any;
+  amenities?: string[] | null;
+  payment_methods?: string[] | null;
+  categories?: string[] | null;
+  tags?: BusinessTag[] | null;
+  created_at: string;
+  updated_at: string;
+  owner_id?: string | null;
+  subscription_id?: string | null;
+  is_claimed: boolean;
+  claimed_at?: string | null;
+  migration_source?: string | null;
+  is_resource?: boolean | null;
+  promo_video_url?: string | null;
+  subscription_plan_name?: string;
 }
 
 export interface Category {

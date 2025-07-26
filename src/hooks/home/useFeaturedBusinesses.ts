@@ -1,51 +1,79 @@
-import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '../../lib/supabase';
-import { logError } from '../../lib/errorLogger';
+import { useState, useEffect } from "react";
+import { supabase } from "../../lib/supabase";
 
-export const useFeaturedBusinesses = (limit: number = 20) => {
-  const [businesses, setBusinesses] = useState<any[]>([]);
+interface Business {
+  id: string;
+  name: string;
+  tagline: string | null;
+  description: string | null;
+  category: string;
+  is_verified: boolean;
+  is_featured: boolean;
+  city: string;
+  state: string;
+  image_url: string | null;
+  website_url: string | null;
+  phone: string | null;
+  email: string | null;
+  featured_position: number | null;
+}
+
+export const useFeaturedBusinesses = () => {
+  const [businesses, setBusinesses] = useState<Business[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const fetchBusinesses = useCallback(async () => {
+  const fetchFeaturedBusinesses = async () => {
     try {
       setLoading(true);
       setError(null);
-      
-      // Fetch featured businesses using the RPC function
-      const { data, error: fetchError } = await supabase
-        .rpc('get_businesses_with_plan_details_v2', {
-          p_is_featured: true,
-          p_is_active: true,
-          p_limit: limit
-        });
 
-      if (fetchError) {
-        throw fetchError;
-      }
-      
-      setBusinesses(data || []);
-    } catch (err) {
-      const error = err as Error;
-      setError(error);
-      logError('Error fetching featured businesses', {
-        context: 'useFeaturedBusinesses',
-        metadata: { error: err }
-      });
+      const { data, error } = await supabase
+        .from("businesses")
+        .select(
+          `
+          id,
+          name,
+          tagline,
+          description,
+          category,
+          is_verified,
+          is_featured,
+          city,
+          state,
+          image_url,
+          website_url,
+          phone,
+          email,
+          featured_position
+        `
+        )
+        .eq("is_featured", true)
+        .eq("is_active", true)
+        .order("featured_position", { ascending: true, nullsFirst: false })
+        .order("created_at", { ascending: false })
+        .limit(10);
+
+      if (error) throw error;
+
+      setBusinesses((data as any) || []);
+    } catch (err: any) {
+      console.error("Error fetching featured businesses:", err);
+      setError(err.message);
     } finally {
       setLoading(false);
     }
-  }, [limit]);
+  };
 
   useEffect(() => {
-    fetchBusinesses();
-  }, [fetchBusinesses]);
+    fetchFeaturedBusinesses();
+  }, []);
 
   return {
     businesses,
     loading,
     error,
-    refetch: fetchBusinesses
+    refetch: fetchFeaturedBusinesses,
   };
 };
 

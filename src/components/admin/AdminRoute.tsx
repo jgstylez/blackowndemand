@@ -2,8 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
-import { logError } from '../../lib/errorLogger';
-import ErrorFallback from '../common/ErrorFallback';
 
 interface AdminRouteProps {
   children: React.ReactNode;
@@ -88,11 +86,7 @@ const AdminRoute: React.FC<AdminRouteProps> = ({
       console.log('User does not have any required roles:', requiredRoles);
       setHasRequiredRole(false);
     } catch (err) {
-      logError('Error checking user roles', {
-        context: 'AdminRoute',
-        user: user.id,
-        metadata: { error: err }
-      });
+      console.error('Error checking user roles:', err);
       setError(err instanceof Error ? err : new Error('Unknown error checking user roles'));
       setHasRequiredRole(false);
     } finally {
@@ -110,11 +104,12 @@ const AdminRoute: React.FC<AdminRouteProps> = ({
 
   if (error) {
     return (
-      <ErrorFallback
-        error={error}
-        message="Error checking admin permissions"
-        resetErrorBoundary={checkUserRoles}
-      />
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-white mb-4">Error</h1>
+          <p className="text-gray-400">{error.message}</p>
+        </div>
+      </div>
     );
   }
 

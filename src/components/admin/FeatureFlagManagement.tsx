@@ -2,12 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { 
   Flag, 
   Check, 
-  X, 
   RefreshCw, 
   AlertTriangle,
   Info,
-  Eye,
-  EyeOff,
   Lock
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
@@ -16,10 +13,10 @@ import useErrorHandler from '../../hooks/useErrorHandler';
 interface FeatureFlag {
   id: string;
   name: string;
-  description: string;
+  description: string | null;
   is_enabled: boolean;
-  created_at: string;
-  updated_at: string;
+  created_at: string | null;
+  updated_at: string | null;
 }
 
 interface FeatureFlagManagementProps {
@@ -248,7 +245,7 @@ const FeatureFlagManagement: React.FC<FeatureFlagManagementProps> = ({ onUpdate 
                       {flag.description || getFeatureFlagDescription(flag.name)}
                     </p>
                     <p className="text-gray-500 text-xs mt-2">
-                      Last updated: {new Date(flag.updated_at).toLocaleString()}
+                      Last updated: {flag.updated_at ? new Date(flag.updated_at).toLocaleString() : 'Unknown'}
                     </p>
                   </div>
                   <div>

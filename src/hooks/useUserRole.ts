@@ -11,7 +11,7 @@ import { useAuth } from '../contexts/AuthContext';
 export const useUserRole = (roleName: string): boolean => {
   const { user } = useAuth();
   const [hasRole, setHasRole] = useState<boolean>(false);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
     const checkUserRole = async () => {

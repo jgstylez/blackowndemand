@@ -10,7 +10,7 @@ import { supabase } from '../lib/supabase';
  */
 export const useFeatureFlag = (flagName: string, defaultValue: boolean = false): boolean => {
   const [isEnabled, setIsEnabled] = useState<boolean>(defaultValue);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
     const checkFeatureFlag = async () => {

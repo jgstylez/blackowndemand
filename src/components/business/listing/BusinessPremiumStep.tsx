@@ -1,128 +1,181 @@
-import React from "react";
-import {
-  Star,
-  Video,
-  Facebook,
-  Instagram,
-  Twitter,
-  Linkedin,
-} from "lucide-react";
+
+import React from 'react';
+import { Star, Crown, Users, TrendingUp, Shield, Zap } from 'lucide-react';
 
 interface BusinessPremiumStepProps {
-  formData: any;
-  setFormData: (fn: (prev: any) => any) => void;
-  handleChange: (e: React.ChangeEvent<any>) => void;
-  handleSocialLinkChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  formData?: any;
+  setFormData?: (data: any) => void;
+  updateFormData?: (updates: any) => void;
+  onNext?: () => void;
+  onBack?: () => void;
+  nextStep?: () => void;
+  startPayment?: (planName: string, price: number) => void;
 }
 
 const BusinessPremiumStep: React.FC<BusinessPremiumStepProps> = ({
-  formData,
-  setFormData,
-  handleChange,
-  handleSocialLinkChange,
-}) => (
-  <div className="space-y-6">
-    <div className="bg-gray-800 p-4 rounded-lg mb-6">
-      <h3 className="text-white font-medium mb-2 flex items-center gap-2">
-        <Star className="h-5 w-5 text-yellow-400" />
-        Premium Features
-      </h3>
-      <p className="text-gray-400 text-sm">
-        Your plan includes these additional features to enhance your business
-        listing. All fields below are optional.
-      </p>
-    </div>
+  onNext,
+  onBack,
+  nextStep,
+  startPayment
+}) => {
+  
+  const handleNext = () => {
+    if (onNext) onNext();
+    if (nextStep) nextStep();
+  };
 
-    <div>
-      <label
-        htmlFor="promoVideoUrl"
-        className="block text-sm font-medium text-gray-300 mb-2"
-      >
-        Promo Video URL (Optional)
-      </label>
-      <div className="relative">
-        <Video className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-        <input
-          type="text"
-          id="promoVideoUrl"
-          name="promoVideoUrl"
-          value={formData.promoVideoUrl}
-          onChange={handleChange}
-          className="pl-10 w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white focus:border-transparent"
-          placeholder="https://theblacktube.com/embed/D1UMvOIf9Fzqjfj"
-        />
+  const handleStartPayment = (planName: string, price: number) => {
+    if (startPayment) {
+      startPayment(planName, price);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="text-center">
+        <h2 className="text-2xl font-bold text-white">
+          Choose a Premium Plan
+        </h2>
+        <p className="text-gray-400">
+          Enhance your business listing with premium features.
+        </p>
       </div>
-      <p className="text-xs text-gray-500 mt-1">
-        Only videos are supported via The BlackTube.{" "}
-        <a
-          href="https://theblacktube.com/register?invite=3555839516347fbdc231f85.93072946&fbclid=PAQ0xDSwK4hiRleHRuA2FlbQIxMAABp57tcvmPj_ekt1TJm6y8xbmiIs1tWlp5uCBU-OUgm9em-7UI3H7jUkxtYl8j_aem_xI4s2OvmZ5so0LsrQoAUBQ"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-blue-400 hover:text-blue-300"
+
+      {/* Premium Plan Options */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* Featured Listing */}
+        <div 
+          className="bg-gray-900 rounded-lg p-4 hover:bg-gray-800 transition-colors cursor-pointer"
+          onClick={() => handleStartPayment("Featured", 99)}
         >
-          Create an account here
-        </a>
-        , upload your video, then copy and paste the embed code in the input
-        field above.
-      </p>
-    </div>
+          <div className="flex items-center space-x-3 mb-3">
+            <Star className="h-5 w-5 text-yellow-400" />
+            <h3 className="text-lg font-semibold text-white">
+              Featured Listing
+            </h3>
+          </div>
+          <p className="text-gray-400 text-sm">
+            Highlight your business at the top of search results.
+          </p>
+          <ul className="list-disc list-inside text-gray-300 mt-3 text-sm">
+            <li>Increased visibility</li>
+            <li>Attract more customers</li>
+            <li>Stand out from the competition</li>
+          </ul>
+        </div>
 
-    <div>
-      <label className="block text-sm font-medium text-gray-300 mb-4">
-        Social Media Links (Optional)
-      </label>
-      <div className="space-y-4">
-        {/* Facebook */}
-        <div className="relative">
-          <Facebook className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-          <input
-            type="url"
-            name="facebook"
-            value={formData.socialLinks.facebook}
-            onChange={handleSocialLinkChange}
-            className="pl-10 w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white focus:border-transparent"
-            placeholder="https://facebook.com/yourbusiness"
-          />
+        {/* Verified Badge */}
+        <div className="bg-gray-900 rounded-lg p-4 hover:bg-gray-800 transition-colors cursor-pointer">
+          <div className="flex items-center space-x-3 mb-3">
+            <Shield className="h-5 w-5 text-blue-400" />
+            <h3 className="text-lg font-semibold text-white">
+              Verified Badge
+            </h3>
+          </div>
+          <p className="text-gray-400 text-sm">
+            Build trust with a verified badge on your listing.
+          </p>
+          <ul className="list-disc list-inside text-gray-300 mt-3 text-sm">
+            <li>Show customers you're legitimate</li>
+            <li>Increase credibility</li>
+            <li>Boost confidence in your business</li>
+          </ul>
         </div>
-        {/* Instagram */}
-        <div className="relative">
-          <Instagram className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-          <input
-            type="url"
-            name="instagram"
-            value={formData.socialLinks.instagram}
-            onChange={handleSocialLinkChange}
-            className="pl-10 w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white focus:border-transparent"
-            placeholder="https://instagram.com/yourbusiness"
-          />
+
+        {/* Priority Support */}
+        <div className="bg-gray-900 rounded-lg p-4 hover:bg-gray-800 transition-colors cursor-pointer">
+          <div className="flex items-center space-x-3 mb-3">
+            <Zap className="h-5 w-5 text-purple-400" />
+            <h3 className="text-lg font-semibold text-white">
+              Priority Support
+            </h3>
+          </div>
+          <p className="text-gray-400 text-sm">
+            Get faster support and assistance when you need it.
+          </p>
+          <ul className="list-disc list-inside text-gray-300 mt-3 text-sm">
+            <li>Dedicated support team</li>
+            <li>Faster response times</li>
+            <li>Personalized assistance</li>
+          </ul>
         </div>
-        {/* Twitter */}
-        <div className="relative">
-          <Twitter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-          <input
-            type="url"
-            name="twitter"
-            value={formData.socialLinks.twitter}
-            onChange={handleSocialLinkChange}
-            className="pl-10 w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white focus:border-transparent"
-            placeholder="https://twitter.com/yourbusiness"
-          />
+
+        {/* VIP Membership */}
+        <div 
+          className="bg-gray-900 rounded-lg p-4 hover:bg-gray-800 transition-colors cursor-pointer"
+          onClick={() => handleStartPayment("VIP Plan", 299)}
+        >
+          <div className="flex items-center space-x-3 mb-3">
+            <Crown className="h-5 w-5 text-yellow-500" />
+            <h3 className="text-lg font-semibold text-white">
+              VIP Membership
+            </h3>
+          </div>
+          <p className="text-gray-400 text-sm">
+            Unlock exclusive benefits and features with VIP membership.
+          </p>
+          <ul className="list-disc list-inside text-gray-300 mt-3 text-sm">
+            <li>All premium features included</li>
+            <li>Exclusive events and promotions</li>
+            <li>Dedicated account manager</li>
+          </ul>
         </div>
-        {/* LinkedIn */}
-        <div className="relative">
-          <Linkedin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-          <input
-            type="url"
-            name="linkedin"
-            value={formData.socialLinks.linkedin}
-            onChange={handleSocialLinkChange}
-            className="pl-10 w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white focus:border-transparent"
-            placeholder="https://linkedin.com/company/yourbusiness"
-          />
+
+        {/* Enhanced Analytics */}
+        <div className="bg-gray-900 rounded-lg p-4 hover:bg-gray-800 transition-colors cursor-pointer">
+          <div className="flex items-center space-x-3 mb-3">
+            <TrendingUp className="h-5 w-5 text-green-400" />
+            <h3 className="text-lg font-semibold text-white">
+              Enhanced Analytics
+            </h3>
+          </div>
+          <p className="text-gray-400 text-sm">
+            Track your listing's performance with detailed analytics.
+          </p>
+          <ul className="list-disc list-inside text-gray-300 mt-3 text-sm">
+            <li>Detailed traffic data</li>
+            <li>Customer engagement metrics</li>
+            <li>Insights to improve your listing</li>
+          </ul>
+        </div>
+
+        {/* Unlimited Media Uploads */}
+        <div className="bg-gray-900 rounded-lg p-4 hover:bg-gray-800 transition-colors cursor-pointer">
+          <div className="flex items-center space-x-3 mb-3">
+            <Users className="h-5 w-5 text-pink-400" />
+            <h3 className="text-lg font-semibold text-white">
+              Unlimited Media
+            </h3>
+          </div>
+          <p className="text-gray-400 text-sm">
+            Upload unlimited photos and videos to showcase your business.
+          </p>
+          <ul className="list-disc list-inside text-gray-300 mt-3 text-sm">
+            <li>Showcase your business</li>
+            <li>Attract more customers</li>
+            <li>Better represent your business</li>
+          </ul>
         </div>
       </div>
+
+      {/* Navigation Buttons */}
+      <div className="flex justify-between">
+        <button
+          onClick={onBack}
+          className="bg-gray-800 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+        >
+          Back
+        </button>
+        <button
+          onClick={handleNext}
+          className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+        >
+          Skip / Continue
+        </button>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 export default BusinessPremiumStep;

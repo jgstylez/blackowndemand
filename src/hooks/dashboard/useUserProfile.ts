@@ -1,53 +1,75 @@
-import { useState, useCallback } from 'react';
-import { supabase } from '../../lib/supabase';
-import { logError } from '../../lib/errorLogger';
-import useErrorHandler from '../useErrorHandler';
 
-export interface Profile {
+import { useState, useEffect } from 'react';
+import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../contexts/AuthContext';
+
+interface Profile {
   id: string;
   first_name: string | null;
   last_name: string | null;
   email: string;
+  created_at: string;
+  updated_at: string;
   full_name: string | null;
 }
 
-export const useUserProfile = () => {
-  const [userProfile, setUserProfile] = useState<Profile | null>(null);
-  const [loading, setLoading] = useState(false);
+const useUserProfile = () => {
+  const { user } = useAuth();
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const { error, handleError, clearError } = useErrorHandler({
-    context: 'useUserProfile',
-    defaultMessage: 'Failed to fetch your profile'
-  });
+  useEffect(() => {
+    if (user) {
+      fetchProfile();
+    }
+  }, [user]);
 
-  const fetchUserProfile = useCallback(async () => {
+  const fetchProfile = async () => {
     try {
       setLoading(true);
-      clearError();
-      
-      const { data, error: profileError } = await supabase.rpc('get_user_profile');
-      
-      if (profileError) {
-        throw profileError;
-      }
-      
-      setUserProfile(data);
+      setError(null);
+
+      const { data, error } = await supabase.rpc('get_user_profile');
+
+      if (error) throw error;
+
+      setProfile(data as unknown as Profile);
     } catch (err) {
-      handleError(err, 'Failed to fetch your profile');
-      logError('Error fetching user profile', {
-        context: 'useUserProfile',
-        metadata: { error: err }
-      });
+      console.error('Error fetching profile:', err);
+      setError(err instanceof Error ? err.message : 'Failed to fetch profile');
     } finally {
       setLoading(false);
     }
-  }, [handleError, clearError]);
+  };
+
+  const updateProfile = async (updates: Partial<Profile>) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const { error } = await supabase
+        .from('profiles')
+        .update(updates)
+        .eq('id', user?.id!);
+
+      if (error) throw error;
+
+      await fetchProfile();
+    } catch (err) {
+      console.error('Error updating profile:', err);
+      setError(err instanceof Error ? err.message : 'Failed to update profile');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return {
-    userProfile,
+    profile,
     loading,
     error,
-    fetchUserProfile
+    updateProfile,
+    refetch: fetchProfile
   };
 };
 

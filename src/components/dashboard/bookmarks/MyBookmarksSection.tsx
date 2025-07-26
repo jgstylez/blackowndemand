@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bookmark, Trash2 } from 'lucide-react';
+import { Bookmark, Trash2, CheckCircle, Crown } from 'lucide-react';
 import { Business } from '../../../types';
 import { getBusinessImageUrl } from '../../../lib/supabase';
 
@@ -64,12 +64,12 @@ const MyBookmarksSection: React.FC<MyBookmarksSectionProps> = ({
                     <div>
                       <div className="flex items-center gap-2 mb-2">
                         <h3 className="text-xl font-semibold text-white">{business.name}</h3>
-                        {business.is_verified && (
-                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-500/10 text-green-500">
-                            <CheckCircle className="h-3 w-3 mr-1" />
-                            Verified
-                          </span>
-                        )}
+                         {business.isVerified && (
+                           <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-500/10 text-green-500">
+                             <CheckCircle className="h-3 w-3 mr-1" />
+                             Verified
+                           </span>
+                         )}
                         {business.subscription_plan_name === 'VIP Plan' && (
                           <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-yellow-400/20 text-yellow-400">
                             <Crown className="h-3 w-3 mr-1" />

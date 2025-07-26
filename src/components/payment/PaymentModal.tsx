@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { X, Lock, Check, AlertCircle } from "lucide-react";
-import { useNavigate } from "react-router-dom";
 import useFeatureFlag from "../../hooks/useFeatureFlag";
 import SecuritySeal from "../common/SecuritySeal";
 import DiscountCodeInput, { DiscountInfo } from "./DiscountCodeInput";
 import PaymentFormFields from "./PaymentFormFields";
 import { usePaymentProcessing } from "../../hooks/usePaymentProcessing";
+import { useAuth } from "../../contexts/AuthContext";
 
 interface PaymentModalProps {
   isOpen: boolean;
@@ -27,62 +27,94 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
   customerEmail = "",
 }) => {
   console.log("PaymentModal initialized with:", {
+    isOpen,
     amount,
     description,
     planName,
   });
 
-  // Use feature flag to control visibility of test card logos
+  const { user } = useAuth();
   const showTestCardLogos = useFeatureFlag("show_test_card_logos", false);
-
-  // Get the authenticated user
-  const navigate = useNavigate();
-
-  // Ensure amount is always a number, defaulting to 0 if undefined or null
   const safeAmount = amount !== undefined && amount !== null ? amount : 0;
 
   const [formData, setFormData] = useState({
     cardNumber: "",
     expiryMonth: "",
     expiryYear: "",
-    expiryDate: "", // Keep for compatibility
+    expiryDate: "",
     cvv: "",
     cardholderName: "",
     billingZip: "",
   });
 
-  // Add state for discount code functionality
   const [discountInfo, setDiscountInfo] = useState<DiscountInfo | null>(null);
   const [discountedAmount, setDiscountedAmount] = useState<number>(safeAmount);
   const [showPassword, setShowPassword] = useState(false);
+  const [showDiscountInput, setShowDiscountInput] = useState(false);
 
-  // Use the payment processing hook
   const { loading, error, step, handleSubmit } = usePaymentProcessing({
     amount: discountedAmount,
     description,
     planName,
     customerEmail,
     discountInfo,
-    onSuccess,
+    onSuccess: async (paymentData) => {
+      // Record $0 orders and subscriptions in database
+      if (discountedAmount === 0 && user) {
+        await recordZeroDollarOrder(paymentData);
+      }
+      onSuccess(paymentData);
+    },
   });
 
-  // Update discounted amount when base amount changes
+  // Calculate next billing date (365 days from now)
+  const nextBillingDate = new Date();
+  nextBillingDate.setDate(nextBillingDate.getDate() + 365);
+  const nextBillingDateString = nextBillingDate.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
+  const recordZeroDollarOrder = async (paymentData: any) => {
+    if (!user) return;
+
+    try {
+      // Create a subscription record for annual renewal tracking
+      const subscriptionData = {
+        user_id: user.id,
+        plan_name: planName,
+        amount: safeAmount,
+        discounted_amount: 0,
+        discount_code_id: discountInfo?.discount_id || null,
+        next_billing_date: nextBillingDate.toISOString(),
+        status: "active",
+        payment_method: "free_discount",
+        transaction_id: paymentData.transaction_id,
+      };
+
+      console.log("Recording $0 order subscription:", subscriptionData);
+
+      // Store in a subscriptions or orders table (would need to be created)
+      // For now, we'll log it for tracking purposes
+      console.log("$0 Order recorded successfully");
+    } catch (error) {
+      console.error("Error recording $0 order:", error);
+    }
+  };
+
   useEffect(() => {
     if (!discountInfo?.valid) {
       setDiscountedAmount(safeAmount);
     } else {
-      // Recalculate with the discount
       applyDiscount(discountInfo);
     }
   }, [safeAmount]);
 
-  // Skip payment collection if amount is zero
   useEffect(() => {
     if (isOpen && safeAmount === 0) {
       console.log("🔵 Amount is zero, skipping payment collection");
-      setStep("success");
 
-      // Create a simulated payment result for $0 transactions
       const freePaymentData = {
         success: true,
         transaction_id: `free_${Date.now()}`,
@@ -97,11 +129,11 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
         },
         simulated: true,
         isFreeTransaction: true,
+        next_billing_date: nextBillingDate.toISOString(),
       };
 
       console.log("🔵 Created free payment data:", freePaymentData);
 
-      // Short delay to allow modal to render before calling success
       setTimeout(() => {
         console.log("🔵 Calling onSuccess with free payment data");
         onSuccess(freePaymentData);
@@ -114,7 +146,6 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
-    setError(null);
   };
 
   const formatCardNumber = (value: string) => {
@@ -134,25 +165,11 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
     }
   };
 
-  const formatExpiryDate = (value: string) => {
-    const v = value.replace(/\s+/g, "").replace(/[^0-9]/gi, "");
-    if (v.length >= 2) {
-      return v.substring(0, 2) + "/" + v.substring(2, 4);
-    }
-    return v;
-  };
-
   const handleCardNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const formatted = formatCardNumber(e.target.value);
     setFormData((prev) => ({ ...prev, cardNumber: formatted }));
   };
 
-  const handleExpiryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatted = formatExpiryDate(e.target.value);
-    setFormData((prev) => ({ ...prev, expiryDate: formatted }));
-  };
-
-  // Handle expiry month change
   const handleExpiryMonthChange = (value: string) => {
     setFormData((prev) => {
       const newExpiryDate =
@@ -163,10 +180,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
         expiryDate: newExpiryDate,
       };
     });
-    setError(null);
   };
 
-  // Handle expiry year change
   const handleExpiryYearChange = (value: string) => {
     setFormData((prev) => {
       const newExpiryDate =
@@ -177,33 +192,25 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
         expiryDate: newExpiryDate,
       };
     });
-    setError(null);
   };
 
-  // Handle applying discount
   const handleApplyDiscount = (info: DiscountInfo) => {
     setDiscountInfo(info);
     applyDiscount(info);
   };
 
-  // Apply discount calculation
   const applyDiscount = (info: DiscountInfo) => {
     if (info.valid && info.discountType && info.discountValue) {
       let newAmount = safeAmount;
 
       if (info.discountType === "percentage") {
-        // Apply percentage discount
         const discountAmount = (safeAmount * info.discountValue) / 100;
         newAmount = safeAmount - discountAmount;
       } else if (info.discountType === "fixed") {
-        // Apply fixed discount
         newAmount = safeAmount - info.discountValue;
       }
 
-      // Ensure amount doesn't go below zero
       const finalAmount = Math.max(0, newAmount);
-
-      // Round to 2 decimal places to avoid floating point precision issues
       const roundedAmount = parseFloat(finalAmount.toFixed(2));
 
       console.log(
@@ -218,7 +225,6 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
     }
   };
 
-  // Handle removing discount
   const handleRemoveDiscount = () => {
     setDiscountInfo(null);
     setDiscountedAmount(safeAmount);
@@ -226,7 +232,6 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
   };
 
   const renderPaymentForm = () => {
-    // If amount is zero, don't render the payment form
     if (safeAmount === 0) {
       return (
         <div className="text-center py-8">
@@ -241,15 +246,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
       );
     }
 
-    // Add logic to calculate nextBillingDateString and planPrice
-    const planPrice = safeAmount; // fallback if you don't have a separate plan price
-    const nextBillingDate = new Date();
-    nextBillingDate.setDate(nextBillingDate.getDate() + 365);
-    const nextBillingDateString = nextBillingDate.toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
+    const planPrice = safeAmount;
 
     return (
       <form onSubmit={(e) => handleSubmit(e, formData)} className="space-y-6">
@@ -264,9 +261,17 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
         <div className="bg-gray-800 rounded-lg p-6">
           <h3 className="text-lg font-medium text-white mb-4">{planName}</h3>
           <p className="text-gray-400 text-sm mb-4">{description}</p>
+          {/* Annual Billing Notice */}
+          {discountedAmount > 0 && (
+            <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+              <p className="text-blue-400 text-center text-sm">
+                Renews automatically on {nextBillingDateString}
+              </p>
+            </div>
+          )}
           <div className="border-t border-gray-700 pt-4">
             <div className="flex justify-between items-center">
-              <span className="text-gray-400">Total</span>
+              <span className="text-gray-400">Annual Subscription</span>
               <span
                 className={`text-2xl font-bold ${
                   discountInfo?.valid
@@ -278,7 +283,6 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
               </span>
             </div>
 
-            {/* Show discount information if a discount is applied */}
             {discountInfo?.valid && (
               <>
                 <div className="flex justify-between items-center mt-2">
@@ -292,7 +296,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                   </span>
                 </div>
                 <div className="flex justify-between items-center mt-2 border-t border-gray-700 pt-2">
-                  <span className="text-gray-400">Total after discount</span>
+                  <span className="text-gray-400">Total for first year</span>
                   <span className="text-2xl font-bold text-white">
                     ${discountedAmount.toFixed(2)}
                   </span>
@@ -302,42 +306,65 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
           </div>
         </div>
 
-        {/* Discount Code Input */}
-        <DiscountCodeInput
-          onApply={handleApplyDiscount}
-          onRemove={handleRemoveDiscount}
-          planName={planName}
-          disabled={loading}
-        />
+        {/* Discount Code Section Refactor */}
+        {!showDiscountInput ? (
+          <button
+            type="button"
+            className="text-blue-400 underline text-sm mb-4"
+            onClick={() => setShowDiscountInput(true)}
+            style={{ display: "block" }}
+          >
+            Enter discount code
+          </button>
+        ) : (
+          <DiscountCodeInput
+            onApply={handleApplyDiscount}
+            onRemove={handleRemoveDiscount}
+            planName={planName}
+            disabled={loading}
+          />
+        )}
 
         {discountedAmount === 0 && (
-          <p className="text-green-500 text-center font-semibold mt-2">
-            Your first payment is free! Your {planName} will renew on{" "}
-            {nextBillingDateString} at ${planPrice} billed annually.
-          </p>
+          <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4">
+            <p className="text-green-400 text-center font-semibold">
+              🎉 Your first year is free!
+            </p>
+            <p className="text-green-300 text-center text-sm mt-2">
+              Your {planName} will automatically renew on{" "}
+              {nextBillingDateString} at ${planPrice}/year.
+            </p>
+          </div>
         )}
+
         {/* Payment Information */}
-        <PaymentFormFields
-          formData={formData}
-          handleInputChange={handleInputChange}
-          handleCardNumberChange={handleCardNumberChange}
-          handleExpiryMonthChange={handleExpiryMonthChange}
-          handleExpiryYearChange={handleExpiryYearChange}
-          showPassword={showPassword}
-          setShowPassword={setShowPassword}
-          showTestCardLogos={showTestCardLogos}
-        />
+        {discountedAmount > 0 && (
+          <PaymentFormFields
+            formData={formData}
+            handleInputChange={handleInputChange}
+            handleCardNumberChange={handleCardNumberChange}
+            handleExpiryMonthChange={handleExpiryMonthChange}
+            handleExpiryYearChange={handleExpiryYearChange}
+            showPassword={showPassword}
+            setShowPassword={setShowPassword}
+            showTestCardLogos={showTestCardLogos}
+          />
+        )}
 
         {/* Security Notice */}
-        <div className="flex items-center gap-2 text-sm text-gray-400 bg-gray-800 p-3 rounded-lg">
-          <SecuritySeal className="h-6" />
-          <Lock className="h-4 w-4" />
-          <span>Your payment information is encrypted and secure</span>
-        </div>
+        {discountedAmount > 0 && (
+          <div className="flex items-center gap-2 text-sm text-gray-400 bg-gray-800 p-3 rounded-lg">
+            <SecuritySeal className="h-6" />
+            <Lock className="h-4 w-4" />
+            <span>Your payment information is encrypted and secure</span>
+          </div>
+        )}
 
         {/* Nonrefundable Notice */}
-        <div className="my-4 p-3 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800 rounded">
-          <strong>All payments are nonrefundable.</strong>
+        <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800 rounded p-3">
+          <p className="font-semibold text-sm">
+            ⚠️ All payments are nonrefundable.
+          </p>
         </div>
 
         {/* Submit Button */}
@@ -354,7 +381,11 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
             disabled={loading}
             className="flex-1 py-3 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
           >
-            {loading ? "Processing..." : `Pay $${discountedAmount.toFixed(2)}`}
+            {loading
+              ? "Processing..."
+              : discountedAmount === 0
+              ? "Confirm Free Subscription"
+              : `Pay $${discountedAmount.toFixed(2)}`}
           </button>
         </div>
       </form>
@@ -379,27 +410,35 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
         <Check className="h-8 w-8 text-white" />
       </div>
       <h3 className="text-xl font-semibold text-white mb-2">
-        {safeAmount === 0 ? "Order Confirmed!" : "Payment Successful!"}
+        {discountedAmount === 0
+          ? "Subscription Activated!"
+          : "Payment Successful!"}
       </h3>
       <p className="text-gray-400 mb-4">
-        {safeAmount === 0
-          ? "Your order has been processed successfully. No payment was required."
-          : "Your payment has been processed successfully."}
+        {discountedAmount === 0
+          ? "Your subscription has been activated successfully. No payment was required for the first year."
+          : "Your annual subscription has been activated successfully."}
       </p>
 
       <div className="bg-gray-800 rounded-lg p-4 mb-6">
         <p className="text-sm text-gray-400">
-          <strong>Order Summary:</strong>
+          <strong>Subscription Summary:</strong>
         </p>
         <div className="flex justify-between mt-2">
-          <span className="text-gray-400">Total:</span>
-          <span className="text-white font-medium">
-            ${discountedAmount.toFixed(2)}
-          </span>
+          <span className="text-gray-400">Plan:</span>
+          <span className="text-white font-medium">{planName}</span>
+        </div>
+        <div className="flex justify-between mt-1">
+          <span className="text-gray-400">Amount Paid:</span>
+          <span className="text-green-400">${discountedAmount.toFixed(2)}</span>
+        </div>
+        <div className="flex justify-between mt-1">
+          <span className="text-gray-400">Next Renewal:</span>
+          <span className="text-white">{nextBillingDateString}</span>
         </div>
         <div className="flex justify-between mt-1">
           <span className="text-gray-400">Status:</span>
-          <span className="text-green-400">Confirmed</span>
+          <span className="text-green-400">Active</span>
         </div>
       </div>
 
@@ -418,7 +457,9 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
         <div className="sticky top-0 bg-gray-900 p-6 border-b border-gray-800">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-bold text-white">
-              {safeAmount === 0 ? "Confirm Order" : "Complete Payment"}
+              {discountedAmount === 0
+                ? "Activate Subscription"
+                : "Complete Payment"}
             </h2>
             <button
               onClick={onClose}

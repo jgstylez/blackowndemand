@@ -5,7 +5,7 @@ import {
   Search, 
   CreditCard, 
   DollarSign, 
-  Calendar, 
+  User, 
   CheckCircle, 
   XCircle, 
   AlertCircle,

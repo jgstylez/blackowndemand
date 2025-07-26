@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Wifi, WifiOff, X } from 'lucide-react';
-import { logWarning } from '../../lib/errorLogger';
+import { logError } from '../../lib/errorLogger';
 
 /**
  * A component that displays a notification when the user's network status changes.
@@ -24,7 +24,8 @@ const NetworkStatusIndicator: React.FC = () => {
       setShowNotification(true);
       
       // Log the offline event
-      logWarning('User went offline', {
+      logError('User went offline', {
+        level: 'warning',
         context: 'NetworkStatusIndicator',
         metadata: {
           timestamp: new Date().toISOString(),

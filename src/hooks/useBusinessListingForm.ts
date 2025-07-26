@@ -1,51 +1,89 @@
-import { useState, useEffect, useMemo } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
-import { supabase } from "../lib/supabase";
-import { BusinessCategory, BusinessTag } from "../types";
-import { debounce } from "lodash";
 
-export function useBusinessListingForm() {
-  // All state, handlers, and effects from BusinessListingPage.tsx will go here
-  // ...
+import { useState } from 'react';
 
-  // Example skeleton:
-  const location = useLocation();
-  const navigate = useNavigate();
+export interface BusinessFormData {
+  name: string;
+  tagline: string;
+  description: string;
+  category: string;
+  city: string;
+  state: string;
+  zipCode: string;
+  postalCode: string;
+  country: string;
+  websiteUrl: string;
+  website: string;
+  phone: string;
+  email: string;
+  imageUrl: string;
+  promoVideoUrl: string;
+  socialLinks: {
+    facebook?: string;
+    instagram?: string;
+    twitter?: string;
+    linkedin?: string;
+    theBlackTube?: string;
+    fanbase?: string;
+  };
+  businessHours: {
+    [key: string]: {
+      open: string;
+      close: string;
+      isOpen: boolean;
+    };
+  };
+  amenities: string[];
+  paymentMethods: string[];
+  categories: string[];
+  tags: string[];
+}
 
-  // Example: form state
-  const [formData, setFormData] = useState({
-    name: "",
-    tagline: "",
-    description: "",
-    category: "",
-    tags: [] as BusinessTag[],
-    email: "",
-    phone: "",
-    website: "",
-    city: "",
-    state: "",
-    region: "",
-    country: "",
-    postalCode: "",
-    imageUrl: "",
-    promoVideoUrl: "",
-    socialLinks: {
-      facebook: "",
-      instagram: "",
-      twitter: "",
-      linkedin: "",
-      theBlackTube: "",
-      fanbase: "",
-    },
-  });
+const defaultFormData: BusinessFormData = {
+  name: '',
+  tagline: '',
+  description: '',
+  category: '',
+  city: '',
+  state: '',
+  zipCode: '',
+  postalCode: '',
+  country: 'USA',
+  websiteUrl: '',
+  website: '',
+  phone: '',
+  email: '',
+  imageUrl: '',
+  promoVideoUrl: '',
+  socialLinks: {},
+  businessHours: {},
+  amenities: [],
+  paymentMethods: [],
+  categories: [],
+  tags: []
+};
 
-  // ... more state, handlers, and effects
+export const useBusinessListingForm = () => {
+  const [formData, setFormData] = useState<BusinessFormData>(defaultFormData);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const updateFormData = (updates: Partial<BusinessFormData>) => {
+    setFormData(prev => ({ ...prev, ...updates }));
+  };
+
+  const resetForm = () => {
+    setFormData(defaultFormData);
+    setError(null);
+  };
 
   return {
-    location,
-    navigate,
     formData,
     setFormData,
-    // ...export all other state and handlers
+    updateFormData,
+    loading,
+    setLoading,
+    error,
+    setError,
+    resetForm
   };
-}
+};

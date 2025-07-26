@@ -91,7 +91,7 @@ const ShareModal: React.FC<ShareModalProps> = ({
   ];
 
   // Check if Web Share API is available
-  const canUseWebShare = navigator.share && /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  const canUseWebShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function' && /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
   const handleNativeShare = async () => {
     if (navigator.share) {

@@ -1,41 +1,40 @@
-import React from 'react';
-import { Crown, Shield } from 'lucide-react';
-import Layout from '../components/layout/Layout';
-import AdSection from '../components/ads/AdSection';
-import BusinessCTA from '../components/common/BusinessCTA';
-import HeroSection from '../components/home/HeroSection';
-import BusinessCarouselSection from '../components/home/BusinessCarouselSection';
-import useFeaturedBusinesses from '../hooks/home/useFeaturedBusinesses';
-import useVipBusinesses from '../hooks/home/useVipBusinesses';
-import useLegacyBusinesses from '../hooks/home/useLegacyBusinesses';
-import useErrorHandler from '../hooks/useErrorHandler';
-import ErrorFallback from '../components/common/ErrorFallback';
+import React from "react";
+import { Crown } from "lucide-react";
+import Layout from "../components/layout/Layout";
+import AdSection from "../components/ads/AdSection";
+import BusinessCTA from "../components/common/BusinessCTA";
+import HeroSection from "../components/home/HeroSection";
+import BusinessCarouselSection from "../components/home/BusinessCarouselSection";
+import useFeaturedBusinesses from "../hooks/home/useFeaturedBusinesses";
+import useVipBusinesses from "../hooks/home/useVipBusinesses";
+import useLegacyBusinesses from "../hooks/home/useLegacyBusinesses";
+import useErrorHandler from "../hooks/useErrorHandler";
+import ErrorFallback from "../components/common/ErrorFallback";
 
-const HomePage = () => {
-  const { 
-    businesses: featuredBusinesses, 
-    loading: featuredLoading, 
+const HomePage: React.FC = () => {
+  const {
+    businesses: featuredBusinesses,
+    loading: featuredLoading,
     error: featuredError,
-    refetch: refetchFeatured
+    refetch: refetchFeatured,
   } = useFeaturedBusinesses();
-  
-  const { 
-    businesses: vipBusinesses, 
-    loading: vipLoading, 
+
+  const {
+    businesses: vipBusinesses,
+    loading: vipLoading,
     error: vipError,
-    refetch: refetchVip
+    refetch: refetchVip,
   } = useVipBusinesses();
-  
-  const { 
-    businesses: legacyBusinesses, 
-    loading: legacyLoading, 
+
+  const {
+    loading: legacyLoading,
     error: legacyError,
-    refetch: refetchLegacy
+    refetch: refetchLegacy,
   } = useLegacyBusinesses();
 
   const { error, handleError, clearError } = useErrorHandler({
-    context: 'HomePage',
-    defaultMessage: 'Failed to load businesses'
+    context: "HomePage",
+    defaultMessage: "Failed to load businesses",
   });
 
   // Combine errors from all hooks
@@ -115,7 +114,6 @@ const HomePage = () => {
           isLoading={vipLoading}
         />
       )}
-
 
       {/* Call to Action Section */}
       <BusinessCTA />

@@ -10,7 +10,7 @@ import {
   MapPin, 
   Mail, 
   Phone, 
-  Globe, 
+   
   Calendar, 
   Users 
 } from 'lucide-react';

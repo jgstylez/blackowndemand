@@ -1,130 +1,154 @@
-import React from "react";
-import { Camera, Globe, Mail, Phone } from "lucide-react";
+import React, { useState } from "react";
+import { Upload } from "lucide-react";
+import { BusinessFormData } from "../../../hooks/useBusinessListingForm";
+import PhoneInput, { isValidPhoneNumber } from "react-phone-number-input";
+import "react-phone-number-input/style.css";
+import type { CountryCode } from "react-phone-number-input/types";
 
 interface BusinessMediaStepProps {
-  formData: any;
-  setFormData: (fn: (prev: any) => any) => void;
-  error: string;
-  setError: (err: string | null) => void;
-  handleImageUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  handleChange: (e: React.ChangeEvent<any>) => void;
-  handleSocialLinkChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  formData: BusinessFormData;
+  setFormData: (data: BusinessFormData) => void;
+  updateFormData?: (updates: Partial<BusinessFormData>) => void;
+  // Add this prop:
+  defaultCountryIso?: CountryCode;
+  error?: string;
+  setError?: (msg: string) => void;
+  handleImageUpload?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  handleChange?: (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >
+  ) => void;
+  handleSocialLinkChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }
 
 const BusinessMediaStep: React.FC<BusinessMediaStepProps> = ({
   formData,
   setFormData,
+  updateFormData,
+  defaultCountryIso, // <-- new prop
   error,
   setError,
   handleImageUpload,
   handleChange,
   handleSocialLinkChange,
-}) => (
-  <div className="space-y-6">
-    <div>
-      <label
-        htmlFor="image"
-        className="block text-sm font-medium text-gray-300 mb-2"
-      >
-        Business Image <span className="text-red-500">*</span>
-      </label>
-      <div className="relative">
-        <input
-          type="file"
-          id="image"
-          accept="image/*"
-          onChange={handleImageUpload}
-          className="hidden"
-          required={!formData.imageUrl}
-        />
-        <label
-          htmlFor="image"
-          className="flex items-center justify-center w-full h-48 border-2 border-dashed border-gray-700 rounded-lg cursor-pointer hover:border-white transition-colors"
-        >
-          {formData.imageUrl ? (
-            <img
-              src={formData.imageUrl}
-              alt="Business"
-              className="w-full h-full object-cover rounded-lg"
+}) => {
+  const [uploadingImage, setUploadingImage] = useState(false);
+
+  // Rename the local function:
+  const onImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingImage(true);
+    try {
+      // Image upload logic here
+      console.log("Uploading image:", file.name);
+
+      // Update form data with image URL
+      const imageUrl = URL.createObjectURL(file);
+      if (updateFormData) {
+        updateFormData({ imageUrl });
+      } else {
+        setFormData({ ...formData, imageUrl });
+      }
+    } catch (error) {
+      console.error("Error uploading image:", error);
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  // Phone validation handler
+  const handlePhoneChange = (value: string | undefined) => {
+    setFormData({ ...formData, phone: value || "" });
+    if (setError) {
+      if (value && !isValidPhoneNumber(value)) {
+        setError("Please enter a valid phone number");
+      } else {
+        setError("");
+      }
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold text-white mb-4">Business Media</h2>
+        <p className="text-gray-400">
+          Add photos and videos to showcase your business.
+        </p>
+      </div>
+
+      <div className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">
+            Business Image
+          </label>
+          <div className="border-2 border-dashed border-gray-700 rounded-lg p-6 text-center">
+            <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleImageUpload || onImageUpload}
+              className="hidden"
+              id="image-upload"
             />
-          ) : (
-            <div className="text-center">
-              <Camera className="mx-auto h-12 w-12 text-gray-400" />
-              <span className="mt-2 block text-sm text-gray-400">
-                Upload business image <span className="text-red-500">*</span>
-              </span>
-            </div>
-          )}
-        </label>
-      </div>
-    </div>
+            <label
+              htmlFor="image-upload"
+              className="cursor-pointer text-white hover:text-gray-300"
+            >
+              {uploadingImage ? "Uploading..." : "Click to upload an image"}
+            </label>
+          </div>
+        </div>
 
-    <div>
-      <label
-        htmlFor="website"
-        className="block text-sm font-medium text-gray-300 mb-2"
-      >
-        Website URL <span className="text-red-500">*</span>
-      </label>
-      <div className="relative">
-        <Globe className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-        <input
-          type="url"
-          id="website"
-          name="website"
-          value={formData.website}
-          onChange={handleChange}
-          className="pl-10 w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white focus:border-transparent"
-          placeholder="https://example.com"
-          required
-        />
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">
+            Business Email <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="email"
+            name="email"
+            value={formData.email}
+            onChange={handleChange}
+            className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white"
+            placeholder="e.g. info@yourbusiness.com"
+            required
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">
+            Business Website <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="url"
+            name="website"
+            value={formData.website}
+            onChange={handleChange}
+            className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white"
+            placeholder="e.g. https://yourbusiness.com"
+            required
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">
+            Business Phone <span className="text-red-500">*</span>
+          </label>
+          <PhoneInput
+            international
+            defaultCountry={defaultCountryIso as CountryCode | undefined}
+            value={formData.phone}
+            onChange={handlePhoneChange}
+            inputClassName="PhoneInputInput"
+            placeholder="e.g. +1234567890"
+            required
+          />
+          {error && <div className="text-red-500 text-sm mt-1">{error}</div>}
+        </div>
       </div>
     </div>
-
-    <div>
-      <label
-        htmlFor="email"
-        className="block text-sm font-medium text-gray-300 mb-2"
-      >
-        Business Email <span className="text-red-500">*</span>
-      </label>
-      <div className="relative">
-        <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-        <input
-          type="email"
-          id="email"
-          name="email"
-          value={formData.email}
-          onChange={handleChange}
-          className="pl-10 w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white focus:border-transparent"
-          placeholder="business@example.com"
-          required
-        />
-      </div>
-    </div>
-
-    <div>
-      <label
-        htmlFor="phone"
-        className="block text-sm font-medium text-gray-300 mb-2"
-      >
-        Business Phone <span className="text-red-500">*</span>
-      </label>
-      <div className="relative">
-        <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-        <input
-          type="tel"
-          id="phone"
-          name="phone"
-          value={formData.phone}
-          onChange={handleChange}
-          className="pl-10 w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white focus:border-transparent"
-          placeholder="International format: +1234567890"
-          required
-        />
-      </div>
-    </div>
-  </div>
-);
+  );
+};
 
 export default BusinessMediaStep;

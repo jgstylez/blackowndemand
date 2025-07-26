@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Search, Filter, X } from 'lucide-react';
+import React from 'react';
+import { Search } from 'lucide-react';
 
 interface BusinessFiltersProps {
   searchTerm: string;
@@ -24,7 +24,7 @@ const BusinessFilters: React.FC<BusinessFiltersProps> = ({
   onSearchChange,
   onFilterChange,
   onSortChange,
-  onClearFilters,
+  
   onBulkAction,
   toggleSelectAll
 }) => {

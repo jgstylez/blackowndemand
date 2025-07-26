@@ -42,6 +42,11 @@ import BusinessLocationStep from "../components/business/listing/BusinessLocatio
 import BusinessMediaStep from "../components/business/listing/BusinessMediaStep";
 import BusinessPremiumStep from "../components/business/listing/BusinessPremiumStep";
 import BusinessSummaryStep from "../components/business/listing/BusinessSummaryStep";
+import PhoneInput, { isValidPhoneNumber } from "react-phone-number-input";
+import "react-phone-number-input/style.css";
+
+// Add this import for country name to ISO code mapping
+import { countryNameToIso } from "../utils/countryIsoMap";
 
 // CountriesNow API interfaces
 interface Country {
@@ -1104,28 +1109,73 @@ const BusinessListingPage = () => {
       sessionStorage.getItem("businessIdToUpdate")
     );
 
-    if (!businessIdToUpdate) {
-      console.error("❌ No business ID found. Available data:");
-      console.error("  - businessIdToUpdate state:", businessIdToUpdate);
-      console.error("  - location.state:", location.state);
-      console.error(
-        "  - sessionStorage businessIdToUpdate:",
-        sessionStorage.getItem("businessIdToUpdate")
-      );
-      console.error(
-        "  - sessionStorage paymentCompleted:",
-        sessionStorage.getItem("paymentCompleted")
-      );
-      setError("No business ID found. Please restart the process.");
-      return false;
+    let newBusinessId = businessIdToUpdate;
+
+    if (!newBusinessId) {
+      // --- FALLBACK: Create a new business if ID is missing ---
+      try {
+        setLoading(true);
+        console.warn(
+          "⚠️ No business ID found, creating new business as fallback."
+        );
+
+        // Get authenticated user
+        const { data: userData } = await supabase.auth.getUser();
+        if (!userData?.user) {
+          setError("User not authenticated");
+          throw new Error("User not authenticated");
+        }
+
+        // Insert new business with all form data
+        const { data: newBusiness, error: insertError } = await supabase
+          .from("businesses")
+          .insert({
+            name: formData.name,
+            tagline: formData.tagline,
+            description: formData.description,
+            category: formData.category as any, // or cast to your enum type
+            tags: formData.tags,
+            email: formData.email,
+            phone: formData.phone,
+            website_url: formData.website,
+            city: formData.city,
+            state: formData.state,
+            country: formData.country,
+            zip_code: formData.postalCode,
+            image_url: formData.imageUrl,
+            promo_video_url: formData.promoVideoUrl,
+            social_links: formData.socialLinks,
+            owner_id: userData.user.id,
+            is_active: true,
+            is_verified: true,
+          })
+          .select()
+          .single();
+
+        if (insertError) {
+          console.error("❌ Fallback insert error:", insertError);
+          setError("Failed to create business. Please try again.");
+          return false;
+        }
+
+        newBusinessId = newBusiness.id;
+        setBusinessIdToUpdate(newBusinessId);
+        sessionStorage.setItem("businessIdToUpdate", newBusinessId);
+        console.log("✅ Fallback business created with ID:", newBusinessId);
+      } catch (fallbackError) {
+        console.error("❌ Fallback business creation failed:", fallbackError);
+        setError("Failed to create business. Please try again.");
+        setLoading(false);
+        return false;
+      } finally {
+        setLoading(false);
+      }
     }
 
+    // --- Continue with your existing update logic ---
     try {
       setLoading(true);
-      console.log(
-        "🔵 Starting business data update for ID:",
-        businessIdToUpdate
-      );
+      console.log("🔵 Starting business data update for ID:", newBusinessId);
 
       // Prepare business data with social links and promo video if applicable
       const businessData = {
@@ -1170,7 +1220,7 @@ const BusinessListingPage = () => {
       const { error: updateError } = await supabase
         .from("businesses")
         .update(businessData)
-        .eq("id", businessIdToUpdate);
+        .eq("id", newBusinessId);
 
       if (updateError) {
         console.error("❌ Error updating business:", updateError);
@@ -1189,7 +1239,7 @@ const BusinessListingPage = () => {
       navigate("/dashboard", {
         state: {
           newBusiness: true,
-          businessId: businessIdToUpdate,
+          businessId: newBusinessId,
           businessName: formData.name,
         },
       });
@@ -1251,6 +1301,8 @@ const BusinessListingPage = () => {
             handleTagChange={handleTagChange}
             handleChange={handleChange}
             handleNameBlur={handleNameBlur}
+            sortedCategories={sortedCategories}
+            isPremiumPlan={isPremiumPlan}
           />
         );
 
@@ -1265,6 +1317,9 @@ const BusinessListingPage = () => {
         );
 
       case "media":
+        // Convert country name to ISO code for phone input
+        const defaultCountryIso =
+          countryNameToIso[formData.country || ""] || undefined;
         return (
           <BusinessMediaStep
             formData={formData}
@@ -1274,6 +1329,7 @@ const BusinessListingPage = () => {
             handleImageUpload={handleImageUpload}
             handleChange={handleChange}
             handleSocialLinkChange={handleSocialLinkChange}
+            defaultCountryIso={defaultCountryIso} // <-- pass ISO code here
           />
         );
 

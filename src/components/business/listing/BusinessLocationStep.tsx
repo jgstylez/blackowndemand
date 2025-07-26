@@ -3,27 +3,45 @@ import LocationFields from "../../common/LocationFields";
 
 interface BusinessLocationStepProps {
   formData: any;
-  setFormData: (fn: (prev: any) => any) => void;
-  error: string;
-  setError: (err: string | null) => void;
+  setFormData: (data: any) => void;
+  updateFormData?: (updates: any) => void;
+  nextStep: () => void;
 }
 
 const BusinessLocationStep: React.FC<BusinessLocationStepProps> = ({
   formData,
   setFormData,
-  error,
-  setError,
-}) => (
-  <LocationFields
-    country={formData.country || ""}
-    state={formData.state || ""}
-    city={formData.city || ""}
-    postalCode={formData.postalCode || ""}
-    onChange={(field, value) =>
-      setFormData((prev: any) => ({ ...prev, [field]: value }))
+  updateFormData,
+  nextStep,
+}) => {
+  const handleLocationChange = (field: string, value: string) => {
+    if (updateFormData) {
+      updateFormData({ [field]: value });
+    } else {
+      setFormData((prev: any) => ({ ...prev, [field]: value }));
     }
-    error={error || ""}
-  />
-);
+  };
+
+  const handleNext = () => {
+    nextStep();
+  };
+
+  return (
+    <div className="space-y-6">
+      <h2 className="text-2xl font-bold text-white">Business Location</h2>
+      <p className="text-gray-400">
+        Where is your business located? This helps customers find you.
+      </p>
+
+      <LocationFields
+        country={formData.country}
+        state={formData.state}
+        city={formData.city}
+        postalCode={formData.postalCode || formData.zipCode}
+        onChange={handleLocationChange}
+      />
+    </div>
+  );
+};
 
 export default BusinessLocationStep;

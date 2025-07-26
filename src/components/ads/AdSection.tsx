@@ -5,19 +5,23 @@ import { supabase } from '../../lib/supabase';
 
 interface Ad {
   id: string;
-  title: string;
-  description: string;
-  image_url: string;
-  link_url: string;
-  cta_text: string;
-  background_color: string;
-  text_color: string;
-  is_active: boolean;
-  position: number;
-  size: 'small' | 'medium' | 'large';
-  target_audience: string;
-  impressions: number;
-  clicks: number;
+  name: string;
+  description: string | null;
+  image_url: string | null;
+  link_url: string | null;
+  cta_text: string | null;
+  ad_type: string;
+  is_active: boolean | null;
+  position: number | null;
+  placement_area: string | null;
+  priority: number | null;
+  impressions_count: number | null;
+  clicks_count: number | null;
+  business_id: string | null;
+  start_date: string;
+  end_date: string;
+  created_at: string | null;
+  updated_at: string | null;
 }
 
 const AdSection: React.FC = () => {
@@ -75,7 +79,7 @@ const AdSection: React.FC = () => {
     try {
       // For each ad, increment the impression count
       for (const id of adIds) {
-        await supabase.rpc('increment_ad_impressions', { ad_id: id });
+        await supabase.rpc('increment_ad_impressions' as any, { ad_id: id });
       }
     } catch (error) {
       console.error('Error recording impressions:', error);
@@ -84,7 +88,7 @@ const AdSection: React.FC = () => {
 
   const recordClick = async (adId: string) => {
     try {
-      await supabase.rpc('increment_ad_clicks', { ad_id: adId });
+      await supabase.rpc('increment_ad_clicks' as any, { ad_id: adId });
     } catch (error) {
       console.error('Error recording click:', error);
     }
@@ -92,6 +96,9 @@ const AdSection: React.FC = () => {
 
   const handleAdClick = (ad: Ad) => {
     recordClick(ad.id);
+    if (ad.link_url) {
+      window.open(ad.link_url, '_blank');
+    }
   };
 
   const checkScrollButtons = () => {
@@ -227,14 +234,14 @@ const AdSection: React.FC = () => {
               >
                 <AdSpot
                   id={ad.id}
-                  title={ad.title}
-                  description={ad.description}
-                  imageUrl={ad.image_url}
-                  linkUrl={ad.link_url}
-                  ctaText={ad.cta_text}
-                  backgroundColor={ad.background_color}
-                  textColor={ad.text_color}
-                  size={ad.size}
+                  title={ad.name}
+                  description={ad.description || ''}
+                  imageUrl={ad.image_url || ''}
+                  linkUrl={ad.link_url || ''}
+                  ctaText={ad.cta_text || 'Learn More'}
+                  backgroundColor={ad.ad_type === 'premium' ? '#3b82f6' : '#1f2937'}
+                  textColor="#ffffff"
+                  size="medium"
                   isSponsored={true}
                   onClick={() => handleAdClick(ad)}
                 />

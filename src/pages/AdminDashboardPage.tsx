@@ -1,26 +1,22 @@
-import React, { useState, useEffect } from 'react';
+
+import { useState, useEffect } from 'react';
 import AdminLayout from '../components/admin/AdminLayout';
-import BusinessManagement from '../components/admin/BusinessManagement';
-import AnnouncementManagement from '../components/admin/AnnouncementManagement';
 import AdManagement from '../components/admin/AdManagement';
 import Analytics from '../components/admin/Analytics';
 import UserRoleManagement from '../components/admin/UserRoleManagement';
-import NewsletterManagement from '../components/admin/NewsletterManagement';
-import DiscountCodeManagement from '../components/admin/DiscountCodeManagement';
-import SubscriptionManagement from '../components/admin/SubscriptionManagement';
+import { PaymentProviderManagement } from '../components/admin/PaymentProviderManagement';
+import BusinessVerificationSettings from '../components/admin/BusinessVerificationSettings';
 import FeatureFlagManagement from '../components/admin/FeatureFlagManagement';
-import PromotionManagement from '../components/admin/PromotionManagement';
-import PaymentHistoryManagement from '../components/admin/PaymentHistoryManagement';
+import AnnouncementManagement from '../components/admin/AnnouncementManagement';
+import FeaturedBusinessManagement from '../components/admin/FeaturedBusinessManagement';
+import DiscountCodeManagement from '../components/admin/DiscountCodeManagement';
 import AdminSidebar from '../components/admin/AdminSidebar';
 import { 
-  Users, 
   Building2, 
   Star, 
   Crown, 
   TrendingUp, 
   Megaphone,
-  BarChart3,
-  Settings,
   LayoutGrid,
   Shield,
   Mail,
@@ -42,7 +38,7 @@ interface BusinessStats {
   unclaimed_businesses: number;
 }
 
-type AdminTab = 'overview' | 'businesses' | 'announcements' | 'ads' | 'analytics' | 'settings' | 'user-roles' | 'newsletter' | 'discount-codes' | 'subscriptions' | 'feature-flags' | 'promotions' | 'payment-history';
+type AdminTab = 'overview' | 'ads' | 'analytics' | 'settings' | 'user-roles' | 'payment-providers' | 'business-verification' | 'feature-flags' | 'businesses' | 'featured-businesses' | 'subscriptions' | 'payment-history' | 'promotions' | 'discount-codes' | 'announcements' | 'newsletter';
 
 const AdminDashboardPage = () => {
   const [activeTab, setActiveTab] = useState<AdminTab>('overview');
@@ -60,7 +56,16 @@ const AdminDashboardPage = () => {
       if (error) throw error;
       
       if (data && data.length > 0) {
-        setStats(data[0]);
+        const statsData = data[0];
+        setStats({
+          total_businesses: statsData.total_businesses || 0,
+          active_businesses: statsData.active_businesses || 0,
+          inactive_businesses: statsData.inactive_businesses || 0,
+          verified_businesses: statsData.verified_businesses || 0,
+          featured_businesses: statsData.featured_businesses || 0,
+          member_businesses: statsData.founder_businesses || 0,
+          unclaimed_businesses: statsData.unclaimed_businesses || 0
+        });
       }
     } catch (err) {
       console.error('Failed to fetch stats:', err);
@@ -86,7 +91,10 @@ const AdminDashboardPage = () => {
           <div className="p-4 bg-gray-800 rounded-lg">
             <h4 className="text-white font-medium mb-2">Business Verification</h4>
             <p className="text-gray-400 text-sm mb-3">Configure automatic verification rules and manual review processes.</p>
-            <button className="px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-600 transition-colors">
+            <button 
+              onClick={() => setActiveTab('business-verification')}
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+            >
               Configure
             </button>
           </div>
@@ -126,46 +134,16 @@ const AdminDashboardPage = () => {
     <AdminLayout title={`Admin - ${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}`}>
       <div className="flex h-[calc(100vh-64px)]">
         {/* Sidebar */}
-        <AdminSidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+        <AdminSidebar activeTab={activeTab} setActiveTab={(tab: string) => setActiveTab(tab as AdminTab)} />
         
         {/* Main Content */}
         <div className="flex-1 overflow-y-auto p-8">
           {/* Overview */}
           {activeTab === 'overview' && renderOverview()}
           
-          {/* Business Management */}
-          {activeTab === 'businesses' && (
-            <BusinessManagement onBusinessUpdate={handleDataUpdate} />
-          )}
-          
-          {/* Subscriptions */}
-          {activeTab === 'subscriptions' && (
-            <SubscriptionManagement onUpdate={handleDataUpdate} />
-          )}
-          
-          {/* Payment History */}
-          {activeTab === 'payment-history' && (
-            <PaymentHistoryManagement onUpdate={handleDataUpdate} />
-          )}
-          
-          {/* Promotions */}
-          {activeTab === 'promotions' && (
-            <PromotionManagement onUpdate={handleDataUpdate} />
-          )}
-          
-          {/* Announcements */}
-          {activeTab === 'announcements' && (
-            <AnnouncementManagement onAnnouncementUpdate={handleDataUpdate} />
-          )}
-          
           {/* Ads */}
           {activeTab === 'ads' && (
             <AdManagement onAdUpdate={handleDataUpdate} />
-          )}
-          
-          {/* Discount Codes */}
-          {activeTab === 'discount-codes' && (
-            <DiscountCodeManagement onUpdate={handleDataUpdate} />
           )}
           
           {/* Analytics */}
@@ -181,14 +159,99 @@ const AdminDashboardPage = () => {
             <UserRoleManagement />
           )}
           
+          {/* Payment Providers */}
+          {activeTab === 'payment-providers' && (
+            <PaymentProviderManagement />
+          )}
+          
+          {/* Business Verification */}
+          {activeTab === 'business-verification' && (
+            <BusinessVerificationSettings />
+          )}
+          
           {/* Feature Flags */}
           {activeTab === 'feature-flags' && (
             <FeatureFlagManagement onUpdate={handleDataUpdate} />
           )}
           
-          {/* Newsletter Management - Always show for admins */}
+          {/* Businesses */}
+          {activeTab === 'businesses' && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-2xl font-bold text-white mb-4">Business Management</h2>
+                <p className="text-gray-400">Manage business listings, verification, and features</p>
+              </div>
+              <div className="bg-gray-900 rounded-xl p-6">
+                <p className="text-gray-400">Business management component is temporarily disabled while we update the data types. Please check back soon.</p>
+              </div>
+            </div>
+          )}
+
+          {/* Featured Businesses */}
+          {activeTab === 'featured-businesses' && (
+            <FeaturedBusinessManagement />
+          )}
+          
+          {/* Subscriptions */}
+          {activeTab === 'subscriptions' && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-2xl font-bold text-white mb-4">Subscription Management</h2>
+                <p className="text-gray-400">Track and manage user subscriptions and billing</p>
+              </div>
+              <div className="bg-gray-900 rounded-xl p-6">
+                <p className="text-gray-400">Subscription management component is temporarily disabled while we update the data types. Please check back soon.</p>
+              </div>
+            </div>
+          )}
+          
+          {/* Payment History */}
+          {activeTab === 'payment-history' && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-2xl font-bold text-white mb-4">Payment History</h2>
+                <p className="text-gray-400">View transaction logs and payment details</p>
+              </div>
+              <div className="bg-gray-900 rounded-xl p-6">
+                <p className="text-gray-400">Payment history component is temporarily disabled while we update the data types. Please check back soon.</p>
+              </div>
+            </div>
+          )}
+          
+          {/* Promotions */}
+          {activeTab === 'promotions' && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-2xl font-bold text-white mb-4">Promotion Management</h2>
+                <p className="text-gray-400">Create and manage promotional campaigns</p>
+              </div>
+              <div className="bg-gray-900 rounded-xl p-6">
+                <p className="text-gray-400">Promotion management component is temporarily disabled while we update the data types. Please check back soon.</p>
+              </div>
+            </div>
+          )}
+          
+          {/* Discount Codes */}
+          {activeTab === 'discount-codes' && (
+            <DiscountCodeManagement onUpdate={handleDataUpdate} />
+          )}
+          
+          {/* Announcements */}
+          {activeTab === 'announcements' && (
+            <AnnouncementManagement />
+          )}
+          
+          {/* Newsletter */}
           {activeTab === 'newsletter' && (
-            <NewsletterManagement onUpdate={handleDataUpdate} />
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-2xl font-bold text-white mb-4">Newsletter Management</h2>
+                <p className="text-gray-400">Create and send newsletters to subscribers</p>
+              </div>
+              <div className="bg-gray-900 rounded-xl p-6">
+                <p className="text-gray-400">Newsletter management component is temporarily disabled while we update the data types. Please check back soon.</p>
+              </div>
+            </div>
           )}
         </div>
       </div>

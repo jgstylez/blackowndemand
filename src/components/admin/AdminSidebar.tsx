@@ -14,7 +14,8 @@ import {
   Settings,
   ChevronDown,
   ChevronRight,
-  DollarSign
+  DollarSign,
+  Star
 } from 'lucide-react';
 
 interface AdminSidebarProps {
@@ -53,6 +54,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ activeTab, setActiveTab }) 
       title: 'Business & Finance',
       items: [
         { id: 'businesses', label: 'Businesses', icon: <Building2 className="h-5 w-5" /> },
+        { id: 'featured-businesses', label: 'Featured Businesses', icon: <Star className="h-5 w-5" /> },
         { id: 'subscriptions', label: 'Subscriptions', icon: <CreditCard className="h-5 w-5" /> },
         { id: 'payment-history', label: 'Payment History', icon: <DollarSign className="h-5 w-5" /> },
         { id: 'promotions', label: 'Promotions', icon: <Percent className="h-5 w-5" /> },
@@ -70,8 +72,10 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ activeTab, setActiveTab }) 
     {
       title: 'Platform Settings',
       items: [
+        { id: 'business-verification', label: 'Business Verification', icon: <Shield className="h-5 w-5" /> },
         { id: 'user-roles', label: 'User Roles', icon: <Shield className="h-5 w-5" /> },
         { id: 'feature-flags', label: 'Feature Flags', icon: <Flag className="h-5 w-5" /> },
+        { id: 'payment-providers', label: 'Payment Providers', icon: <CreditCard className="h-5 w-5" /> },
         { id: 'settings', label: 'Settings', icon: <Settings className="h-5 w-5" /> }
       ]
     }

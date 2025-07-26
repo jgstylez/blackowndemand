@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, ArrowRight } from 'lucide-react';
 import BusinessCard from '../business/BusinessCard';
@@ -31,25 +31,35 @@ const BusinessCarouselSection: React.FC<BusinessCarouselSectionProps> = ({
   emptyStateText = "No businesses found"
 }) => {
   const [currentPage, setCurrentPage] = useState(0);
-  
-  // Calculate items per page based on screen size
+
+  // Responsive items per page with resize listener
   const getItemsPerPage = () => {
     if (typeof window !== 'undefined') {
-      if (window.innerWidth >= 1024) return 10; // Desktop: 5 columns × 2 rows
-      if (window.innerWidth >= 768) return 6;   // Tablet: 3 columns × 2 rows
-      return 1; // Mobile: 1 column × 1 row
+      if (window.innerWidth >= 1024) return 10; // Desktop
+      if (window.innerWidth >= 768) return 6;   // Tablet
+      return 1; // Mobile
     }
     return 10; // Default for SSR
   };
-  
-  const itemsPerPage = getItemsPerPage();
-  const totalPages = Math.ceil(businesses.length / itemsPerPage);
-  
-  const currentBusinesses = businesses.slice(
+
+  const [itemsPerPage, setItemsPerPage] = useState(getItemsPerPage());
+
+  useEffect(() => {
+    const handleResize = () => setItemsPerPage(getItemsPerPage());
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Sort businesses by 'order' property before paginating
+  const orderedBusinesses = businesses.slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+  const totalPages = Math.ceil(orderedBusinesses.length / itemsPerPage);
+
+  const currentBusinesses = orderedBusinesses.slice(
     currentPage * itemsPerPage,
     (currentPage + 1) * itemsPerPage
   );
-  
+
   const handlePrevPage = () => {
     setCurrentPage(prev => Math.max(0, prev - 1));
   };

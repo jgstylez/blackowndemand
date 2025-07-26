@@ -56,7 +56,7 @@ const UserRoleManagement: React.FC = () => {
       // Fetch all users with their roles
       const { data: usersData, error: usersError } = await supabase.rpc('get_all_users_with_roles');
       if (usersError) throw usersError;
-      setUsers(usersData || []);
+      setUsers((usersData as unknown as User[]) || []);
 
       // Fetch all available roles
       const { data: rolesData, error: rolesError } = await supabase.from('roles').select('*').order('name');
@@ -120,7 +120,7 @@ const UserRoleManagement: React.FC = () => {
       }
 
       const { data, error } = await supabase.rpc('remove_user_role', {
-        assigned_by_user_id: user.id,
+        removed_by_user_id: user.id,
         role_name: roleName,
         target_user_id: userId,
       });

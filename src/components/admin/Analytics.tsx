@@ -8,13 +8,9 @@ import {
   Calendar,
   MapPin,
   BarChart3,
-  PieChart,
   Activity,
   RefreshCw,
   Download,
-  Filter,
-  Eye,
-  UserPlus,
   CheckCircle
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
@@ -54,7 +50,7 @@ interface AnalyticsProps {
   onDataUpdate?: () => void;
 }
 
-const Analytics: React.FC<AnalyticsProps> = ({ onDataUpdate }) => {
+const Analytics: React.FC<AnalyticsProps> = () => {
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState('30d');
@@ -133,8 +129,10 @@ const Analytics: React.FC<AnalyticsProps> = ({ onDataUpdate }) => {
       const businessGrowth = [];
       let cumulative = 0;
       const groupedByDate = recentBusinesses.reduce((acc, business) => {
-        const date = new Date(business.created_at).toISOString().split('T')[0];
-        acc[date] = (acc[date] || 0) + 1;
+        if (business.created_at) {
+          const date = new Date(business.created_at).toISOString().split('T')[0];
+          acc[date] = (acc[date] || 0) + 1;
+        }
         return acc;
       }, {} as Record<string, number>);
       
@@ -160,6 +158,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ onDataUpdate }) => {
         const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
         
         const monthBusinesses = allBusinesses.filter(b => {
+          if (!b.created_at) return false;
           const createdAt = new Date(b.created_at);
           return createdAt >= monthStart && createdAt <= monthEnd;
         });
@@ -176,7 +175,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ onDataUpdate }) => {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const newBusinessesToday = allBusinesses.filter(b => 
-        new Date(b.created_at) >= today
+        b.created_at && new Date(b.created_at) >= today
       ).length;
       
       // Get this month's new businesses
@@ -184,14 +183,14 @@ const Analytics: React.FC<AnalyticsProps> = ({ onDataUpdate }) => {
       thisMonth.setDate(1);
       thisMonth.setHours(0, 0, 0, 0);
       const newBusinessesThisMonth = allBusinesses.filter(b => 
-        new Date(b.created_at) >= thisMonth
+        b.created_at && new Date(b.created_at) >= thisMonth
       ).length;
       
       setData({
         totalBusinesses: stats.total_businesses || 0,
         verifiedBusinesses: stats.verified_businesses || 0,
         featuredBusinesses: stats.featured_businesses || 0,
-        vipBusinesses: stats.member_businesses || 0,
+        vipBusinesses: stats.founder_businesses || 0,
         activeBusinesses: allBusinesses.length,
         newBusinessesThisMonth,
         newBusinessesToday,
