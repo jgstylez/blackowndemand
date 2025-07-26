@@ -1,14 +1,53 @@
 import React from "react";
 import { Check } from "lucide-react";
-import { BusinessFormData } from "../../../hooks/useBusinessListingForm";
 
 interface BusinessSummaryStepProps {
-  formData: BusinessFormData;
+  formData: any;
+  planName?: string;
+  planPrice?: number;
+  maxTagsAllowed?: number;
+  BusinessTagLabels?: any;
+  handleSubmit?: () => void;
+  loading?: boolean;
+  error?: string;
 }
 
 const BusinessSummaryStep: React.FC<BusinessSummaryStepProps> = ({
   formData,
+  planName,
+  planPrice,
+  maxTagsAllowed,
+  BusinessTagLabels,
+  handleSubmit,
+  loading,
+  error,
 }) => {
+  // Helper function to check if a value is empty
+  const isEmpty = (value: any): boolean => {
+    if (value === null || value === undefined || value === "") return true;
+    if (Array.isArray(value)) return value.length === 0;
+    if (typeof value === "object") return Object.keys(value).length === 0;
+    return false;
+  };
+
+  // Helper function to render a field only if it has a value
+  const renderField = (
+    label: string,
+    value: any,
+    renderValue?: (val: any) => React.ReactNode
+  ) => {
+    if (isEmpty(value)) return null;
+
+    return (
+      <div>
+        <span className="text-gray-400">{label}:</span>{" "}
+        <span className="text-white ml-2">
+          {renderValue ? renderValue(value) : value}
+        </span>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -29,86 +68,40 @@ const BusinessSummaryStep: React.FC<BusinessSummaryStepProps> = ({
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-          <div>
-            <span className="text-gray-400">Name:</span>{" "}
-            <span className="text-white ml-2">{formData.name}</span>
-          </div>
-          <div>
-            <span className="text-gray-400">Tagline:</span>{" "}
-            <span className="text-white ml-2">{formData.tagline}</span>
-          </div>
-          <div>
-            <span className="text-gray-400">Description:</span>{" "}
-            <span className="text-white ml-2">{formData.description}</span>
-          </div>
-          <div>
-            <span className="text-gray-400">Category:</span>{" "}
-            <span className="text-white ml-2">{formData.category}</span>
-          </div>
-          <div>
-            <span className="text-gray-400">Tags:</span>{" "}
-            <span className="text-white ml-2">{formData.tags?.join(", ")}</span>
-          </div>
-          <div>
-            <span className="text-gray-400">Email:</span>{" "}
-            <span className="text-white ml-2">{formData.email}</span>
-          </div>
-          <div>
-            <span className="text-gray-400">Phone:</span>{" "}
-            <span className="text-white ml-2">{formData.phone}</span>
-          </div>
-          <div>
-            <span className="text-gray-400">Website:</span>{" "}
-            <span className="text-white ml-2">{formData.website}</span>
-          </div>
-          <div>
-            <span className="text-gray-400">Country:</span>{" "}
-            <span className="text-white ml-2">{formData.country}</span>
-          </div>
-          <div>
-            <span className="text-gray-400">State:</span>{" "}
-            <span className="text-white ml-2">{formData.state}</span>
-          </div>
-          <div>
-            <span className="text-gray-400">City:</span>{" "}
-            <span className="text-white ml-2">{formData.city}</span>
-          </div>
-          <div>
-            <span className="text-gray-400">Postal Code:</span>{" "}
-            <span className="text-white ml-2">{formData.postalCode}</span>
-          </div>
-          <div>
-            <span className="text-gray-400">Image:</span>{" "}
-            <span className="text-white ml-2">
-              {formData.imageUrl ? (
-                <img
-                  src={formData.imageUrl}
-                  alt="Business"
-                  className="h-12 inline"
-                />
-              ) : (
-                "N/A"
-              )}
-            </span>
-          </div>
-          <div>
-            <span className="text-gray-400">Promo Video:</span>{" "}
-            <span className="text-white ml-2">{formData.promoVideoUrl}</span>
-          </div>
-          <div>
-            <span className="text-gray-400">Social Links:</span>
-            <span className="text-white ml-2">
-              {Object.entries(formData.socialLinks || {}).map(([key, value]) =>
-                value ? (
+          {renderField("Name", formData.name)}
+          {renderField("Tagline", formData.tagline)}
+          {renderField("Description", formData.description)}
+          {renderField("Category", formData.category)}
+          {renderField("Tags", formData.tags, (tags) => tags.join(", "))}
+          {renderField("Email", formData.email)}
+          {renderField("Phone", formData.phone)}
+          {renderField("Website", formData.website)}
+          {renderField("Country", formData.country)}
+          {renderField("State", formData.state)}
+          {renderField("City", formData.city)}
+          {renderField("Postal Code", formData.postalCode)}
+          {renderField("Image", formData.imageUrl, (imageUrl) => (
+            <img src={imageUrl} alt="Business" className="h-12 inline" />
+          ))}
+          {renderField("Promo Video", formData.promoVideoUrl)}
+          {renderField("Social Links", formData.socialLinks, (socialLinks) => (
+            <div>
+              {Object.entries(socialLinks)
+                .filter(([key, value]) => value)
+                .map(([key, value]) => (
                   <div key={key}>
-                    {key}: {value}
+                    {key}: {String(value)}
                   </div>
-                ) : null
-              )}
-            </span>
-          </div>
+                ))}
+            </div>
+          ))}
         </div>
       </div>
+
+      {/* Error message */}
+      {error && (
+        <div className="bg-red-500/20 text-red-500 rounded-md p-4">{error}</div>
+      )}
     </div>
   );
 };

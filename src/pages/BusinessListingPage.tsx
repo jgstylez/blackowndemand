@@ -45,6 +45,7 @@ const BusinessListingPage = () => {
     sortedCategories,
     isPremiumPlan,
     submitBusinessData,
+    steps,
   } = useBusinessListingForm(location, navigate);
 
   // Add missing handlers that aren't in the hook yet
@@ -92,11 +93,10 @@ const BusinessListingPage = () => {
   const handlePaymentSuccess = (paymentData: any) => {
     console.log("Payment success:", paymentData);
 
-    // Mark payment as completed
-    // You'll need to add this to your hook or manage it in state
-    console.log("Payment completed, navigating to next step");
+    // Close payment modal
+    setShowPaymentModal(false);
 
-    // After successful payment, navigate to next step
+    // Navigate to next step after payment
     handleNextStep();
   };
 
@@ -113,29 +113,6 @@ const BusinessListingPage = () => {
     console.log("Name check performed:", value);
     // You can add this to your form state if needed
   };
-
-  // Define steps array dynamically based on plan type and payment status
-  const steps = useMemo(() => {
-    const baseSteps = [];
-
-    // Add payment step first if payment is not completed
-    if (!paymentCompleted) {
-      baseSteps.push("payment");
-    }
-
-    // Add other steps after payment
-    baseSteps.push("info", "location", "media");
-
-    // Add premium_features step only for Enhanced and VIP plans
-    if (isPremiumPlan) {
-      baseSteps.push("premium_features");
-    }
-
-    // Add summary step before payment
-    baseSteps.push("summary");
-
-    return baseSteps;
-  }, [isPremiumPlan, paymentCompleted]);
 
   const renderStep = () => {
     switch (currentStep) {
@@ -350,11 +327,22 @@ const BusinessListingPage = () => {
             </button>
             {currentStep !== "payment" && (
               <button
-                onClick={handleNextStep}
-                className="inline-flex items-center px-4 py-2 rounded-lg bg-white text-black hover:bg-gray-100 transition-colors"
+                onClick={
+                  currentStep === "summary"
+                    ? submitBusinessData
+                    : handleNextStep
+                }
+                disabled={loading}
+                className="inline-flex items-center px-4 py-2 rounded-lg bg-white text-black hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {currentStep === "summary" ? "Submit" : "Next"}
-                <ArrowRight className="h-5 w-5 ml-2" />
+                {loading
+                  ? "Submitting..."
+                  : currentStep === "summary"
+                  ? "Submit"
+                  : "Next"}
+                {currentStep !== "summary" && (
+                  <ArrowRight className="h-5 w-5 ml-2" />
+                )}
               </button>
             )}
           </div>

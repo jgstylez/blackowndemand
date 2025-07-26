@@ -28,7 +28,7 @@ const BusinessLocationStep: React.FC<BusinessLocationStepProps> = ({
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-white">Business Location</h2>
+      {/* <h2 className="text-2xl font-bold text-white">Business Location</h2> */}
       <p className="text-gray-400">
         Where is your business located? This helps customers find you.
       </p>

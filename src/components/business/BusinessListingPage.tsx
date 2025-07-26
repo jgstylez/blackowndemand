@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
@@ -66,7 +65,9 @@ const BusinessListingPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [success] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [duplicateBusinesses, setDuplicateBusinesses] = useState<Business[]>([]);
+  const [duplicateBusinesses, setDuplicateBusinesses] = useState<Business[]>(
+    []
+  );
 
   // Payment Modal State
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -74,9 +75,11 @@ const BusinessListingPage = () => {
   const [planPrice, setPlanPrice] = useState<number | null>(null);
   const [discountedAmount, setDiscountedAmount] = useState<number | null>(null);
   const [appliedDiscountCode] = useState<string | null>(null);
-  const [businessIdToUpdate, setBusinessIdToUpdate] = useState<string | null>(null);
+  const [businessIdToUpdate, setBusinessIdToUpdate] = useState<string | null>(
+    null
+  );
 
-  const { formData, setFormData, updateFormData } = useBusinessListingForm();
+  const { formData, setFormData } = useBusinessListingForm(location, navigate);
 
   useEffect(() => {
     // Check if payment was completed (from location state)
@@ -111,7 +114,10 @@ const BusinessListingPage = () => {
     }
   };
 
-  const startPayment = (selectedPlanName: string, selectedPlanPrice: number) => {
+  const startPayment = (
+    selectedPlanName: string,
+    selectedPlanPrice: number
+  ) => {
     setPlanName(selectedPlanName);
     setPlanPrice(selectedPlanPrice);
     setDiscountedAmount(selectedPlanPrice);
@@ -153,26 +159,36 @@ const BusinessListingPage = () => {
         description: formData.description || null,
         city: formData.city,
         state: formData.state,
-        zip_code: formData.zipCode || formData.postalCode,
+        zip_code: formData.postalCode,
         country: formData.country,
-        website_url: formData.websiteUrl || formData.website,
+        website_url: formData.website,
         phone: formData.phone,
         email: formData.email,
         image_url: formData.imageUrl,
-        tags: Array.isArray(formData.tags) && formData.tags.length > 0 ? formData.tags : [],
+        tags:
+          Array.isArray(formData.tags) && formData.tags.length > 0
+            ? formData.tags
+            : [],
         is_active: true,
         is_verified: true,
       };
 
       // Handle category
-      if (formData.category && Object.values(BusinessCategory).includes(formData.category as BusinessCategory)) {
+      if (
+        formData.category &&
+        Object.values(BusinessCategory).includes(
+          formData.category as BusinessCategory
+        )
+      ) {
         businessData.category = formData.category;
       }
 
       // Only include premium features for Enhanced and VIP plans
-      if (planName === "Enhanced" || planName === "VIP Plan") {
+      if (planName === "Enhanced Plan" || planName === "VIP Plan") {
         if (formData.promoVideoUrl) {
-          businessData.promo_video_url = extractVideoSrc(formData.promoVideoUrl);
+          businessData.promo_video_url = extractVideoSrc(
+            formData.promoVideoUrl
+          );
         }
         if (formData.socialLinks) {
           businessData.social_links = formData.socialLinks;
@@ -239,7 +255,6 @@ const BusinessListingPage = () => {
       <StepComponent
         formData={formData}
         setFormData={setFormData}
-        updateFormData={updateFormData}
         nextStep={nextStep}
         startPayment={startPayment}
         checkDuplicateBusiness={checkDuplicateBusiness}
@@ -253,13 +268,15 @@ const BusinessListingPage = () => {
     try {
       const { data, error } = await supabase
         .from("businesses")
-        .select("id, name, description, email, image_url, migration_source, claimed_at")
+        .select(
+          "id, name, description, email, image_url, migration_source, claimed_at"
+        )
         .or(`name.ilike.%${name}%, email.eq.${email}`)
         .limit(10);
 
       if (error) throw error;
-      
-      setDuplicateBusinesses(data as Business[] || []);
+
+      setDuplicateBusinesses((data as Business[]) || []);
       return data && data.length > 0;
     } catch (error) {
       console.error("Error checking for duplicate businesses:", error);
@@ -332,7 +349,7 @@ const BusinessListingPage = () => {
             ) : null}
           </div>
         </div>
-        
+
         <PaymentModal
           isOpen={showPaymentModal}
           onClose={() => setShowPaymentModal(false)}

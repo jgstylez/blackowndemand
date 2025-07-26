@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import {
   Business,
@@ -6,14 +5,7 @@ import {
   BusinessTag,
   BusinessTagLabels,
 } from "../../types";
-import {
-  Mail,
-  Globe,
-  Phone,
-  Building2,
-  Video,
-  Tags,
-} from "lucide-react";
+import { Mail, Globe, Phone, Building2, Video, Tags } from "lucide-react";
 import Select from "react-select";
 import { supabase } from "../../lib/supabase";
 import { extractVideoSrc } from "../../utils/videoUtils";
@@ -95,7 +87,7 @@ const BusinessForm: React.FC<BusinessFormProps> = ({
             const plan = data.subscription_plans;
 
             // Set max tags allowed based on plan
-            if (plan.name === "Enhanced" || plan.name === "VIP Plan") {
+            if (plan.name === "Enhanced Plan" || plan.name === "VIP Plan") {
               setMaxTagsAllowed(20);
               setIsPremiumPlan(true);
             } else {
@@ -234,7 +226,7 @@ const BusinessForm: React.FC<BusinessFormProps> = ({
                 type="text"
                 id="name"
                 name="name"
-                value={formData.name || ''}
+                value={formData.name || ""}
                 onChange={handleChange}
                 className="w-full pl-10 px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white focus:border-transparent"
                 required
@@ -253,7 +245,7 @@ const BusinessForm: React.FC<BusinessFormProps> = ({
               type="text"
               id="tagline"
               name="tagline"
-              value={formData.tagline || ''}
+              value={formData.tagline || ""}
               onChange={handleChange}
               className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white focus:border-transparent"
             />
@@ -269,7 +261,7 @@ const BusinessForm: React.FC<BusinessFormProps> = ({
             <textarea
               id="description"
               name="description"
-              value={formData.description || ''}
+              value={formData.description || ""}
               onChange={handleChange}
               rows={4}
               className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white focus:border-transparent"
@@ -286,7 +278,7 @@ const BusinessForm: React.FC<BusinessFormProps> = ({
             <select
               id="category"
               name="category"
-              value={formData.category || ''}
+              value={formData.category || ""}
               onChange={handleChange}
               className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white focus:border-transparent"
               required
@@ -364,7 +356,7 @@ const BusinessForm: React.FC<BusinessFormProps> = ({
                 type="url"
                 id="website_url"
                 name="website_url"
-                value={formData.website_url || ''}
+                value={formData.website_url || ""}
                 onChange={handleChange}
                 className="w-full pl-10 px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white focus:border-transparent"
               />
@@ -384,7 +376,7 @@ const BusinessForm: React.FC<BusinessFormProps> = ({
                 type="tel"
                 id="phone"
                 name="phone"
-                value={formData.phone || ''}
+                value={formData.phone || ""}
                 onChange={handleChange}
                 className="w-full pl-10 px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white focus:border-transparent"
               />
@@ -404,7 +396,7 @@ const BusinessForm: React.FC<BusinessFormProps> = ({
                 type="email"
                 id="email"
                 name="email"
-                value={formData.email || ''}
+                value={formData.email || ""}
                 onChange={handleChange}
                 className="w-full pl-10 px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white focus:border-transparent"
                 required

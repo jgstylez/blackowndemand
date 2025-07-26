@@ -51,7 +51,7 @@ const BusinessMediaStep: React.FC<BusinessMediaStepProps> = ({
   formData,
   setFormData,
   updateFormData,
-  defaultCountryIso, // <-- new prop
+  defaultCountryIso,
   error,
   setError,
   handleImageUpload,
@@ -60,14 +60,20 @@ const BusinessMediaStep: React.FC<BusinessMediaStepProps> = ({
 }) => {
   const [uploadingImage, setUploadingImage] = useState(false);
 
-  // Rename the local function:
+  // Use the handleImageUpload prop if provided, otherwise use local function
   const onImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (handleImageUpload) {
+      // Use the parent's image upload handler
+      handleImageUpload(e);
+      return;
+    }
+
+    // Fallback to local implementation
     const file = e.target.files?.[0];
     if (!file) return;
 
     setUploadingImage(true);
     try {
-      // Image upload logic here
       console.log("Uploading image:", file.name);
 
       // Update form data with image URL
@@ -99,7 +105,7 @@ const BusinessMediaStep: React.FC<BusinessMediaStepProps> = ({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-white mb-4">Business Media</h2>
+        {/* <h2 className="text-2xl font-bold text-white mb-4">Business Media</h2> */}
         <p className="text-gray-400">
           Add photos and videos to showcase your business.
         </p>
@@ -111,11 +117,24 @@ const BusinessMediaStep: React.FC<BusinessMediaStepProps> = ({
             Business Image
           </label>
           <div className="border-2 border-dashed border-gray-700 rounded-lg p-6 text-center">
-            <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            {formData.imageUrl ? (
+              <div className="mb-4">
+                <img
+                  src={formData.imageUrl}
+                  alt="Business preview"
+                  className="h-32 w-32 object-cover rounded-lg mx-auto"
+                />
+                <p className="text-green-400 text-sm mt-2">
+                  Image uploaded successfully!
+                </p>
+              </div>
+            ) : (
+              <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            )}
             <input
               type="file"
               accept="image/*"
-              onChange={handleImageUpload || onImageUpload}
+              onChange={onImageUpload}
               className="hidden"
               id="image-upload"
             />
@@ -123,7 +142,11 @@ const BusinessMediaStep: React.FC<BusinessMediaStepProps> = ({
               htmlFor="image-upload"
               className="cursor-pointer text-white hover:text-gray-300"
             >
-              {uploadingImage ? "Uploading..." : "Click to upload an image"}
+              {uploadingImage
+                ? "Uploading..."
+                : formData.imageUrl
+                ? "Change Image"
+                : "Click to upload an image"}
             </label>
           </div>
         </div>
