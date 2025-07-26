@@ -1,16 +1,41 @@
 import React, { useState } from "react";
 import { Upload } from "lucide-react";
-import { BusinessFormData } from "../../../hooks/useBusinessListingForm";
+
+interface BusinessFormData {
+  name: string;
+  tagline: string;
+  description: string;
+  category: string;
+  tags: string[];
+  email: string;
+  phone: string;
+  website: string;
+  city: string;
+  state: string;
+  region: string;
+  country: string;
+  postalCode: string;
+  imageUrl: string;
+  promoVideoUrl: string;
+  socialLinks: {
+    facebook: string;
+    instagram: string;
+    twitter: string;
+    linkedin: string;
+    theBlackTube: string;
+    fanbase: string;
+  };
+}
+
 import PhoneInput, { isValidPhoneNumber } from "react-phone-number-input";
 import "react-phone-number-input/style.css";
-import type { CountryCode } from "react-phone-number-input/types";
 
 interface BusinessMediaStepProps {
   formData: BusinessFormData;
   setFormData: (data: BusinessFormData) => void;
   updateFormData?: (updates: Partial<BusinessFormData>) => void;
   // Add this prop:
-  defaultCountryIso?: CountryCode;
+  defaultCountryIso?: string;
   error?: string;
   setError?: (msg: string) => void;
   handleImageUpload?: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -137,7 +162,7 @@ const BusinessMediaStep: React.FC<BusinessMediaStepProps> = ({
           </label>
           <PhoneInput
             international
-            defaultCountry={defaultCountryIso as CountryCode | undefined}
+            defaultCountry={defaultCountryIso as any}
             value={formData.phone}
             onChange={handlePhoneChange}
             inputClassName="PhoneInputInput"

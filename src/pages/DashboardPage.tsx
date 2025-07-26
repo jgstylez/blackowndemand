@@ -1,43 +1,50 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
-import { User, Settings, LogOut, Building2, Bookmark, CheckCircle } from 'lucide-react';
-import Layout from '../components/layout/Layout';
-import { supabase } from '../lib/supabase';
-import { useAuth } from '../contexts/AuthContext';
-import { Business } from '../types';
-import BusinessForm from '../components/dashboard/BusinessForm';
-import ErrorFallback from '../components/common/ErrorFallback';
-import useErrorHandler from '../hooks/useErrorHandler';
+import React, { useState, useEffect } from "react";
+import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
+import {
+  User,
+  Settings,
+  LogOut,
+  Building2,
+  Bookmark,
+  CheckCircle,
+} from "lucide-react";
+import Layout from "../components/layout/Layout";
+import { supabase } from "../lib/supabase";
+import { useAuth } from "../contexts/AuthContext";
+import { Business } from "../types";
+import BusinessForm from "../components/dashboard/BusinessForm";
+import ErrorFallback from "../components/common/ErrorFallback";
+import useErrorHandler from "../hooks/useErrorHandler";
 
 // Import custom hooks
-import useUserBusinesses from '../hooks/dashboard/useUserBusinesses';
-import useUserBookmarks from '../hooks/dashboard/useUserBookmarks';
-import useUserProfile from '../hooks/dashboard/useUserProfile';
-import useUserSettings from '../hooks/dashboard/useUserSettings';
-import useAccountManagement from '../hooks/dashboard/useAccountManagement';
+import useUserBusinesses from "../hooks/dashboard/useUserBusinesses";
+import useUserBookmarks from "../hooks/dashboard/useUserBookmarks";
+import useUserProfile from "../hooks/dashboard/useUserProfile";
+import useUserSettings from "../hooks/dashboard/useUserSettings";
+import useAccountManagement from "../hooks/dashboard/useAccountManagement";
 
 // Import components
-import MyBusinessesSection from '../components/dashboard/businesses/MyBusinessesSection';
-import MyBookmarksSection from '../components/dashboard/bookmarks/MyBookmarksSection';
-import AccountSettingsSection from '../components/dashboard/account/AccountSettingsSection';
-import UserPreferencesSection from '../components/dashboard/settings/UserPreferencesSection';
-import AccountDeletionModal from '../components/dashboard/account/AccountDeletionModal';
+import MyBusinessesSection from "../components/dashboard/businesses/MyBusinessesSection";
+import MyBookmarksSection from "../components/dashboard/bookmarks/MyBookmarksSection";
+import AccountSettingsSection from "../components/dashboard/account/AccountSettingsSection";
+import UserPreferencesSection from "../components/dashboard/settings/UserPreferencesSection";
+import AccountDeletionModal from "../components/dashboard/account/AccountDeletionModal";
 
-type Tab = 'businesses' | 'bookmarks' | 'account' | 'settings';
+type Tab = "businesses" | "bookmarks" | "account" | "settings";
 
 const DashboardPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
   const [searchParams] = useSearchParams();
-  const [activeTab, setActiveTab] = useState<Tab>('businesses');
+  const [activeTab, setActiveTab] = useState<Tab>("businesses");
   const [success, setSuccess] = useState<string | null>(null);
   const [showBusinessForm, setShowBusinessForm] = useState(false);
   const [editingBusiness, setEditingBusiness] = useState<Business | null>(null);
 
   const { error, clearError } = useErrorHandler({
-    context: 'DashboardPage',
-    defaultMessage: 'An error occurred'
+    context: "DashboardPage",
+    defaultMessage: "An error occurred",
   });
 
   // Initialize hooks
@@ -46,22 +53,25 @@ const DashboardPage = () => {
     loading: businessesLoading,
     error: businessesError,
     refetch: fetchUserBusinesses,
-    deleteBusiness: handleDeleteBusiness
+    deleteBusiness: handleDeleteBusiness,
   } = useUserBusinesses();
 
   const hasBusinesses = businesses.length > 0;
+  const incompleteBusinesses = businesses.filter(
+    (b) => !b.isActive || !b.isVerified
+  );
 
   const {
     bookmarks: bookmarkedBusinesses,
     loading: bookmarksLoading,
     refetch: fetchUserBookmarks,
-    removeBookmark: handleRemoveBookmark
+    removeBookmark: handleRemoveBookmark,
   } = useUserBookmarks();
 
   const {
-    userProfile: profile,
+    profile,
     loading: profileLoading,
-    refetch: fetchUserProfile
+    refetch: fetchUserProfile,
   } = useUserProfile();
 
   const {
@@ -69,7 +79,7 @@ const DashboardPage = () => {
     loading: settingsLoading,
     error: settingsError,
     updateSettings,
-    refetch: fetchUserSettings
+    refetch: fetchUserSettings,
   } = useUserSettings();
 
   const settingsSuccess = null; // Hook doesn't provide success state
@@ -79,14 +89,9 @@ const DashboardPage = () => {
     deletionLoading,
     deletionError,
     prepareAccountDeletion,
-    deleteUserAccount
+    deleteUserAccount,
   } = useAccountManagement();
 
-  // Simulate missing props for AccountSettingsSection
-  const accountData = null;
-  const accountLoading = deletionLoading;
-  const accountSuccess = null;
-  const accountError = deletionError;
   const showDeletionConfirm = !!deletionSummary;
 
   useEffect(() => {
@@ -97,33 +102,33 @@ const DashboardPage = () => {
     }
 
     // Check if user just claimed a business
-    if (searchParams.get('claimed') === 'true') {
-      setSuccess('Business successfully claimed! Welcome to your dashboard.');
-      setActiveTab('businesses');
+    if (searchParams.get("claimed") === "true") {
+      setSuccess("Business successfully claimed! Welcome to your dashboard.");
+      setActiveTab("businesses");
     }
 
     // Check if user just created a new business (from location state)
     if (location.state?.newBusiness) {
-      setSuccess(`Your business "${location.state.businessName}" has been created successfully!`);
-      setActiveTab('businesses');
+      setSuccess(
+        `Your business "${location.state.businessName}" has been created successfully!`
+      );
+      setActiveTab("businesses");
     }
   }, [user, searchParams, location.state]);
 
   useEffect(() => {
     // If the active tab is bookmarks, fetch bookmarks
-    if (activeTab === 'bookmarks') {
+    if (activeTab === "bookmarks") {
       fetchUserBookmarks();
     }
   }, [activeTab, fetchUserBookmarks]);
 
   // Set success message from various sources
   useEffect(() => {
-    if (accountSuccess) {
-      setSuccess(accountSuccess);
-    } else if (settingsSuccess) {
+    if (settingsSuccess) {
       setSuccess(settingsSuccess);
     }
-  }, [accountSuccess, settingsSuccess]);
+  }, [settingsSuccess]);
 
   const handleEditBusiness = (business: Business) => {
     setEditingBusiness(business);
@@ -133,20 +138,30 @@ const DashboardPage = () => {
   const handleBusinessFormSubmit = async (businessData: Partial<Business>) => {
     try {
       if (editingBusiness) {
+        // Transform businessData to match database schema
+        const dbUpdates: any = {
+          ...businessData,
+          tags: businessData.tags
+            ? businessData.tags.map((tag: any) =>
+                typeof tag === "string" ? tag : tag.value
+              )
+            : null,
+        };
+
         const { error: updateError } = await supabase
-          .from('businesses')
-          .update(businessData)
-          .eq('id', editingBusiness.id);
+          .from("businesses")
+          .update(dbUpdates)
+          .eq("id", editingBusiness.id);
 
         if (updateError) {
           throw updateError;
         }
-        
-        setSuccess('Business updated successfully');
+
+        setSuccess("Business updated successfully");
         fetchUserBusinesses();
       }
     } catch (err) {
-      console.error('Error updating business:', err);
+      console.error("Error updating business:", err);
     } finally {
       setShowBusinessForm(false);
       setEditingBusiness(null);
@@ -155,22 +170,28 @@ const DashboardPage = () => {
 
   const handleProfileUpdate = () => {
     fetchUserProfile();
-    setSuccess('Profile updated successfully');
+    setSuccess("Profile updated successfully");
   };
 
   const handleContinueBusinessListing = (business: Business) => {
     // Navigate to the business listing page with the business ID to update
-    navigate('/business/new', {
+    navigate("/business/new", {
       state: {
         paymentCompleted: true,
         businessIdToUpdate: business.id,
         planName: business.subscription_plan_name,
-        planPrice: 0 // Price is already paid
-      }
+        planPrice: 0, // Price is already paid
+      },
     });
   };
 
-  if (error.hasError && !businessesLoading && !bookmarksLoading && !profileLoading && !settingsLoading && !accountLoading) {
+  if (
+    error.hasError &&
+    !businessesLoading &&
+    !bookmarksLoading &&
+    !profileLoading &&
+    !settingsLoading
+  ) {
     return (
       <Layout>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -191,15 +212,15 @@ const DashboardPage = () => {
   const getGreeting = () => {
     const hour = new Date().getHours();
     let greeting = "Welcome";
-    
+
     if (hour < 12) greeting = "Good morning";
     else if (hour < 18) greeting = "Good afternoon";
     else greeting = "Good evening";
-    
+
     if (profile?.first_name) {
       return `${greeting}, ${profile.first_name}`;
     }
-    
+
     return greeting;
   };
 
@@ -223,11 +244,11 @@ const DashboardPage = () => {
         <div className="flex space-x-4 mb-8">
           {hasBusinesses && (
             <button
-              onClick={() => setActiveTab('businesses')}
+              onClick={() => setActiveTab("businesses")}
               className={`px-4 py-2 rounded-lg transition-colors ${
-                activeTab === 'businesses'
-                  ? 'bg-white text-black'
-                  : 'bg-gray-900 text-gray-400 hover:bg-gray-800'
+                activeTab === "businesses"
+                  ? "bg-white text-black"
+                  : "bg-gray-900 text-gray-400 hover:bg-gray-800"
               }`}
             >
               <Building2 className="h-5 w-5 inline-block mr-2" />
@@ -236,35 +257,35 @@ const DashboardPage = () => {
           )}
           <button
             onClick={() => {
-              setActiveTab('bookmarks');
+              setActiveTab("bookmarks");
               fetchUserBookmarks();
             }}
             className={`px-4 py-2 rounded-lg transition-colors ${
-              activeTab === 'bookmarks'
-                ? 'bg-white text-black'
-                : 'bg-gray-900 text-gray-400 hover:bg-gray-800'
+              activeTab === "bookmarks"
+                ? "bg-white text-black"
+                : "bg-gray-900 text-gray-400 hover:bg-gray-800"
             }`}
           >
             <Bookmark className="h-5 w-5 inline-block mr-2" />
             My Bookmarks
           </button>
           <button
-            onClick={() => setActiveTab('account')}
+            onClick={() => setActiveTab("account")}
             className={`px-4 py-2 rounded-lg transition-colors ${
-              activeTab === 'account'
-                ? 'bg-white text-black'
-                : 'bg-gray-900 text-gray-400 hover:bg-gray-800'
+              activeTab === "account"
+                ? "bg-white text-black"
+                : "bg-gray-900 text-gray-400 hover:bg-gray-800"
             }`}
           >
             <User className="h-5 w-5 inline-block mr-2" />
             Account
           </button>
           <button
-            onClick={() => setActiveTab('settings')}
+            onClick={() => setActiveTab("settings")}
             className={`px-4 py-2 rounded-lg transition-colors ${
-              activeTab === 'settings'
-                ? 'bg-white text-black'
-                : 'bg-gray-900 text-gray-400 hover:bg-gray-800'
+              activeTab === "settings"
+                ? "bg-white text-black"
+                : "bg-gray-900 text-gray-400 hover:bg-gray-800"
             }`}
           >
             <Settings className="h-5 w-5 inline-block mr-2" />
@@ -280,41 +301,29 @@ const DashboardPage = () => {
         )}
 
         {/* Render the active tab content */}
-        {activeTab === 'businesses' && (
+        {activeTab === "businesses" && (
           <MyBusinessesSection
-            businesses={businesses}
-            incompleteBusinesses={[]}
+            businesses={businesses as any}
+            incompleteBusinesses={incompleteBusinesses as any}
             loading={businessesLoading}
             hasBusinesses={hasBusinesses}
-            onDeleteBusiness={handleDeleteBusiness}
+            onDeleteBusiness={handleDeleteBusiness as any}
             onEditBusiness={handleEditBusiness}
             onContinueListing={handleContinueBusinessListing}
           />
         )}
 
-        {activeTab === 'bookmarks' && (
+        {activeTab === "bookmarks" && (
           <MyBookmarksSection
-            bookmarkedBusinesses={bookmarkedBusinesses}
+            bookmarkedBusinesses={bookmarkedBusinesses as any}
             loading={bookmarksLoading}
-            onRemoveBookmark={handleRemoveBookmark}
+            onRemoveBookmark={handleRemoveBookmark as any}
           />
         )}
 
-        {activeTab === 'account' && (
-          <AccountSettingsSection />
-        )}
+        {activeTab === "account" && <AccountSettingsSection />}
 
-        {activeTab === 'settings' && (
-          <UserPreferencesSection
-            userSettings={userSettings}
-            loading={settingsLoading}
-            onSettingChange={(setting, value) => {
-              updateSettings({ [setting]: value });
-            }}
-            onSaveSettings={() => {}}
-            success={settingsSuccess}
-          />
-        )}
+        {activeTab === "settings" && <UserPreferencesSection />}
 
         {/* Business Form Modal */}
         {showBusinessForm && editingBusiness && (
