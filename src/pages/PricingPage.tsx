@@ -7,6 +7,8 @@ import { usePaymentProvider } from "../hooks/usePaymentProvider";
 import { useUnifiedPayment } from "../hooks/useUnifiedPayment";
 import PaymentModal from "../components/payment/PaymentModal";
 import PlanPromotion from "../components/pricing/PlanPromotion";
+// Add this import
+import { PAYMENT_CONFIG, getAllPlans } from "../config/paymentConfig";
 
 type PlanName = "Starter Plan" | "Enhanced Plan" | "VIP Plan";
 
@@ -30,6 +32,9 @@ const PricingPage = () => {
     planName: PlanName;
   } | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
+
+  // Get plans from config
+  const plans = getAllPlans();
 
   // Check for Stripe checkout results
   useEffect(() => {
@@ -77,33 +82,38 @@ const PricingPage = () => {
     }
   }
 
-  const handlePlanSelect = async (planPrice: number, planName: PlanName) => {
+  const handlePlanSelect = async (planName: PlanName) => {
+    // Get plan from config instead of hardcoded price
+    const plan = plans.find((p) => p.name === planName);
+    if (!plan) {
+      console.error(`Plan ${planName} not found in config`);
+      return;
+    }
+
     if (!user) {
       // Store selected plan in session storage for after login
       sessionStorage.setItem(
         "selectedPlan",
-        JSON.stringify({ planPrice, planName })
+        JSON.stringify({ planPrice: plan.price, planName })
       );
       navigate("/login");
       return;
     }
 
-    setSelectedPlan({ planPrice, planName });
+    setSelectedPlan({ planPrice: plan.price, planName });
     setLocalError(null);
 
     try {
-      // Use the unified payment system
       const result = await handlePayment({
         planName,
-        planPrice,
-        provider, // Use current provider setting
+        planPrice: plan.price, // Use plan.price from config
+        provider,
+        showPaymentModal: true,
       });
 
-      // If result is returned (Ecom Payments), show PaymentModal
       if (result && result.provider === "ecomPayments") {
         setIsPaymentModalOpen(true);
       }
-      // For Stripe, the redirect will happen automatically
     } catch (error) {
       console.error("Error initiating payment:", error);
       setLocalError("Failed to initiate payment. Please try again.");
@@ -173,43 +183,34 @@ const PricingPage = () => {
             <div className="mb-8">
               <span className="text-sm text-gray-400">Basic Listing</span>
               <h2 className="text-2xl font-bold text-white mt-2 mb-3">
-                Starter Plan
+                {plans[0].name}
               </h2>
-              <p className="text-gray-400 text-sm">
-                Perfect for getting started with your visibility
-              </p>
+              <p className="text-gray-400 text-sm">{plans[0].description}</p>
             </div>
 
             <div className="mb-8">
               <div className="flex items-baseline">
-                <span className="text-5xl font-bold text-white">$1</span>
+                <span className="text-5xl font-bold text-white">
+                  ${(plans[0].price / 12).toFixed(0)}
+                </span>
                 <span className="text-gray-400 ml-2">/month</span>
               </div>
               <p className="text-sm text-gray-500 mt-1">
-                (billed annually at $12)
+                (billed annually at ${plans[0].price})
               </p>
             </div>
 
             <ul className="space-y-4 mb-8">
-              <li className="flex items-center text-gray-300">
-                <Check className="h-5 w-5 text-white mr-3" />
-                Public Directory Access
-              </li>
-              <li className="flex items-center text-gray-300">
-                <Check className="h-5 w-5 text-white mr-3" />
-                Basic Profile
-              </li>
-              <li className="flex items-center text-gray-300">
-                <Check className="h-5 w-5 text-white mr-3" />
-                Basic Analytics
-              </li>
-              <li className="flex items-center text-gray-300">
-                <Check className="h-5 w-5 text-white mr-3" />
-                Image Gallery
-              </li>
+              {plans[0].features.map((feature, index) => (
+                <li key={index} className="flex items-center text-gray-300">
+                  <Check className="h-5 w-5 text-white mr-3" />
+                  {feature}
+                </li>
+              ))}
             </ul>
+
             <button
-              onClick={() => handlePlanSelect(12, "Starter Plan")}
+              onClick={() => handlePlanSelect(plans[0].name as PlanName)}
               className="w-full py-3 px-4 bg-white hover:bg-gray-100 text-black rounded-lg transition-colors"
             >
               Select Plan
@@ -227,105 +228,69 @@ const PricingPage = () => {
             <div className="mb-8">
               <span className="text-sm text-gray-400">More Benefits</span>
               <h2 className="text-2xl font-bold text-white mt-2 mb-3">
-                Enhanced Plan
+                {plans[1].name}
               </h2>
-              <p className="text-gray-400 text-sm">
-                Get more visibility and features for your business
-              </p>
+              <p className="text-gray-400 text-sm">{plans[1].description}</p>
             </div>
 
             <div className="mb-8">
               <div className="flex items-baseline">
-                <span className="text-5xl font-bold text-white">$5</span>
+                <span className="text-5xl font-bold text-white">
+                  ${(plans[1].price / 12).toFixed(0)}
+                </span>
                 <span className="text-gray-400 ml-2">/month</span>
               </div>
               <p className="text-sm text-gray-500 mt-1">
-                (billed annually at $60)
+                (billed annually at ${plans[1].price})
               </p>
             </div>
 
             <ul className="space-y-4 mb-8">
-              <li className="flex items-center text-gray-300">
-                <Check className="h-5 w-5 text-white mr-3" />
-                Everything in Starter Plan
-              </li>
-
-              <li className="flex items-center text-gray-300">
-                <Check className="h-5 w-5 text-white mr-3" />
-                Higher Directory Placement
-              </li>
-              <li className="flex items-center text-gray-300">
-                <Check className="h-5 w-5 text-white mr-3" />
-                Category Prioritization
-              </li>
-              <li className="flex items-center text-gray-300">
-                <Check className="h-5 w-5 text-white mr-3" />
-                Social Media Links
-              </li>
-              <li className="flex items-center text-gray-300">
-                <Check className="h-5 w-5 text-white mr-3" />
-                Promo Video Display
-              </li>
-              <li className="flex items-center text-gray-300">
-                <Check className="h-5 w-5 text-white mr-3" />
-                Promote Special Offers
-              </li>
+              {plans[1].features.map((feature, index) => (
+                <li key={index} className="flex items-center text-gray-300">
+                  <Check className="h-5 w-5 text-white mr-3" />
+                  {feature}
+                </li>
+              ))}
             </ul>
 
             <button
-              onClick={() => handlePlanSelect(60, "Enhanced Plan")}
+              onClick={() => handlePlanSelect(plans[1].name as PlanName)}
               className="w-full py-3 px-4 bg-white hover:bg-gray-100 text-black rounded-lg transition-colors"
             >
               Select Plan
             </button>
           </div>
 
-          {/* VIP Members Plan */}
+          {/* VIP Plan */}
           <div className="bg-gray-900 rounded-2xl p-8">
             <div className="mb-8">
               <span className="text-sm text-gray-400">Exclusive Access</span>
               <h2 className="text-2xl font-bold text-white mt-2 mb-3 flex items-center gap-2">
-                VIP Plan
+                {plans[2].name}
                 <Crown className="h-6 w-6 text-yellow-400" />
               </h2>
-              <p className="text-gray-400 text-sm">
-                Join and gain access to special benefits
-              </p>
+              <p className="text-gray-400 text-sm">{plans[2].description}</p>
             </div>
 
             <div className="mb-8 pt-0">
-              <PlanPromotion planName="VIP Plan" regularPrice={120} />
+              <PlanPromotion
+                planName={plans[2].name}
+                regularPrice={plans[2].price}
+              />
             </div>
 
             <ul className="space-y-4 mb-8">
-              <li className="flex items-center text-gray-300">
-                <Check className="h-5 w-5 text-white mr-3" />
-                Everything in Enhanced Plan
-              </li>
-              <li className="flex items-center text-gray-300">
-                <Check className="h-5 w-5 text-white mr-3" />
-                Exclusive Badge
-              </li>
-              <li className="flex items-center text-gray-300">
-                <Check className="h-5 w-5 text-white mr-3" />
-                Special Recognition
-              </li>
-              <li className="flex items-center text-gray-300">
-                <Check className="h-5 w-5 text-white mr-3" />
-                BOD Credits
-              </li>
-              <li className="flex items-center text-gray-300">
-                <Check className="h-5 w-5 text-white mr-3" />
-                Priority Placement
-              </li>
-              <li className="flex items-center text-gray-300">
-                <Check className="h-5 w-5 text-white mr-3" />
-                Exclusive Benefits
-              </li>
+              {plans[2].features.map((feature, index) => (
+                <li key={index} className="flex items-center text-gray-300">
+                  <Check className="h-5 w-5 text-white mr-3" />
+                  {feature}
+                </li>
+              ))}
             </ul>
 
             <button
-              onClick={() => handlePlanSelect(99, "VIP Plan")}
+              onClick={() => handlePlanSelect(plans[2].name as PlanName)}
               className="w-full py-3 px-4 bg-yellow-400 hover:bg-yellow-300 text-black rounded-lg transition-colors font-semibold"
             >
               Become VIP

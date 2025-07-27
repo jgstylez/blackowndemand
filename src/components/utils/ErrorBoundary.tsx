@@ -11,13 +11,13 @@ interface Props {
 
 interface State {
   hasError: boolean;
-  error?: UnifiedError;
+  error?: UnifiedError | null;
 }
 
 class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
     super(props);
-    this.state = { hasError: false };
+    this.state = { hasError: false, error: null };
   }
 
   static getDerivedStateFromError(error: Error): State {
@@ -42,12 +42,13 @@ class ErrorBoundary extends Component<Props, State> {
   }
 
   render() {
-    if (this.state.hasError) {
+    if (this.state.hasError && this.state.error) {
+      // Check both conditions
       return (
         <ErrorFallback
           error={this.state.error}
-          resetErrorBoundary={() =>
-            this.setState({ hasError: false, error: undefined })
+          resetErrorBoundary={
+            () => this.setState({ hasError: false, error: null }) // Reset to null instead of undefined
           }
         />
       );

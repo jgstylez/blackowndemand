@@ -169,7 +169,7 @@ const DashboardPage = () => {
   };
 
   if (
-    error.hasError &&
+    error && // Remove error.hasError check since error object itself indicates an error
     !businessesLoading &&
     !bookmarksLoading &&
     !profileLoading &&
@@ -179,8 +179,7 @@ const DashboardPage = () => {
       <Layout>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <ErrorFallback
-            error={error.details}
-            message={error.message || "An error occurred"}
+            error={error} // Pass the error object directly
             resetErrorBoundary={() => {
               clearError();
               window.location.reload();

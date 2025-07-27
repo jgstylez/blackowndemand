@@ -8,7 +8,7 @@ import BusinessCarouselSection from "../components/home/BusinessCarouselSection"
 import useFeaturedBusinesses from "../hooks/home/useFeaturedBusinesses";
 import useVipBusinesses from "../hooks/home/useVipBusinesses";
 import useLegacyBusinesses from "../hooks/home/useLegacyBusinesses";
-import useErrorHandler from "../hooks/useErrorHandler";
+import { useUnifiedErrorHandler } from "../utils/unifiedErrorHandler";
 import ErrorFallback from "../components/common/ErrorFallback";
 
 const HomePage: React.FC = () => {
@@ -32,7 +32,7 @@ const HomePage: React.FC = () => {
     refetch: refetchLegacy,
   } = useLegacyBusinesses();
 
-  const { error, handleError, clearError } = useErrorHandler({
+  const { error, handleError, clearError } = useUnifiedErrorHandler({
     context: "HomePage",
     defaultMessage: "Failed to load businesses",
   });
@@ -51,7 +51,7 @@ const HomePage: React.FC = () => {
   }, [featuredError, vipError, legacyError, handleError, clearError]);
 
   // If there's an error, show the error fallback
-  if (error.hasError && !featuredLoading && !vipLoading && !legacyLoading) {
+  if (error && !featuredLoading && !vipLoading && !legacyLoading) {
     return (
       <Layout
         title="BlackOWNDemand - Discover Black-Owned Businesses Worldwide"
@@ -61,8 +61,7 @@ const HomePage: React.FC = () => {
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <ErrorFallback
-            error={error.details}
-            message={error.message || "Failed to load businesses"}
+            error={error}
             resetErrorBoundary={() => {
               clearError();
               refetchFeatured();
@@ -89,7 +88,7 @@ const HomePage: React.FC = () => {
       <AdSection />
 
       {/* Featured Businesses Section */}
-      {(featuredLoading || featuredBusinesses.length > 0) && (
+      {(featuredLoading || featuredBusinesses?.length > 0) && (
         <BusinessCarouselSection
           businesses={featuredBusinesses}
           title="Featured Businesses"
@@ -101,7 +100,7 @@ const HomePage: React.FC = () => {
       )}
 
       {/* VIP Businesses Section */}
-      {(vipLoading || vipBusinesses.length > 0) && (
+      {(vipLoading || vipBusinesses?.length > 0) && (
         <BusinessCarouselSection
           businesses={vipBusinesses}
           title="Our VIP Members"

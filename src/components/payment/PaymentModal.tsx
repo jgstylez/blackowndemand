@@ -66,11 +66,34 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
   ) => {
     e.preventDefault();
 
+    // Use discounted amount if available, otherwise use original amount
+    const finalAmount =
+      discountedAmount !== null ? discountedAmount : safeAmount;
+
+    // Debug logging
+    console.log("PaymentModal sending:", {
+      planName,
+      planPrice: finalAmount, // Use finalAmount instead of safeAmount
+      customerEmail,
+      discountApplied: discountedAmount !== null,
+      originalAmount: safeAmount,
+      finalAmount: finalAmount,
+    });
+
+    // Transform form data to match edge function expectations
+    const paymentMethod: any = {
+      card_number: formData.cardNumber.replace(/\s/g, ""), // Remove spaces
+      expiry_date: formData.expiryDate, // Should be MM/YY format
+      cvv: formData.cvv,
+      cardholder_name: formData.cardholderName,
+      billing_zip: formData.billingZip,
+    };
+
     await handleEcomPaymentsPayment({
       planName,
-      planPrice: safeAmount, // Use safeAmount instead of amount
+      planPrice: finalAmount, // Use finalAmount instead of safeAmount
       customerEmail,
-      paymentMethod: formData,
+      paymentMethod, // Use transformed payment method
     });
   };
 

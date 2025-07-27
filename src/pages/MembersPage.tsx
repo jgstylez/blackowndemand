@@ -20,6 +20,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useUnifiedPayment } from "../hooks/useUnifiedPayment";
 import BusinessCTA from "../components/common/BusinessCTA";
 import PlanPromotion from "../components/pricing/PlanPromotion";
+import { getPlanConfigByName } from "../config/paymentConfig";
 
 interface VIPBusiness {
   id: string;
@@ -128,11 +129,18 @@ const VIPPage = () => {
   const paginatedBusinesses = vipBusinesses.slice(startIndex, endIndex);
 
   const handleBecomeVIPClick = async () => {
+    // Get VIP plan from config instead of hardcoded price
+    const vipPlan = getPlanConfigByName("VIP Plan");
+    if (!vipPlan) {
+      console.error("VIP Plan not found in config");
+      return;
+    }
+
     if (!user) {
       // Store selected plan in session storage for after login
       sessionStorage.setItem(
         "selectedPlan",
-        JSON.stringify({ planPrice: 99, planName: "VIP Plan" })
+        JSON.stringify({ planPrice: vipPlan.price, planName: "VIP Plan" })
       );
       navigate("/login");
       return;
@@ -141,7 +149,7 @@ const VIPPage = () => {
     // Use unified payment hook instead of direct Stripe call
     await handlePayment({
       planName: "VIP Plan",
-      planPrice: 99,
+      planPrice: vipPlan.price, // Use config price instead of hardcoded 99
       successUrl: `${
         window.location.origin
       }/members?success=true&plan=${encodeURIComponent("VIP Plan")}`,
@@ -296,7 +304,7 @@ const VIPPage = () => {
             <div className="bg-white/5 rounded-lg p-6 mb-8">
               <PlanPromotion
                 planName="VIP Plan"
-                regularPrice={120}
+                regularPrice={getPlanConfigByName("VIP Plan")?.price || 99} // Use config price
                 className="flex flex-col items-center"
               />
             </div>

@@ -61,7 +61,7 @@ export const useUnifiedPayment = (options: UseUnifiedPaymentOptions = {}) => {
         }
 
         if (result.provider === "ecomPayments") {
-          if (options.showPaymentModal) {
+          if (paymentOptions.showPaymentModal) {
             return result;
           } else {
             throw new Error("Ecom Payments requires PaymentModal flow");

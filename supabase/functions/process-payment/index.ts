@@ -224,6 +224,25 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Ensure minimum amount for recurring payments
+    const minimumAmount = 100; // $1.00 in cents
+    if (processAmount > 0 && processAmount < minimumAmount) {
+      return new Response(
+        JSON.stringify({
+          error: `Minimum amount for recurring payments is $${
+            minimumAmount / 100
+          }.00`,
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    // Format amount with exactly 2 decimal places
+    const formattedAmount = (processAmount / 100).toFixed(2);
+
     // If a discount code was provided, apply it
     if (discount_code_id) {
       try {
@@ -332,19 +351,42 @@ Deno.serve(async (req) => {
       // For recurring subscriptions
       postData.append("type", "add_subscription");
       postData.append("plan_payments", "0"); // 0 = unlimited recurring payments
-      postData.append("plan_amount", (processAmount / 100).toFixed(2)); // Convert cents to dollars
+      postData.append("plan_amount", formattedAmount); // Use formatted amount
       postData.append("day_frequency", "365"); // Annual billing
       postData.append("month_frequency", "0");
       postData.append("customer_vault", "add_customer"); // Store payment info for future use
     } else {
       // For one-time payments
       postData.append("type", "sale");
-      postData.append("amount", (processAmount / 100).toFixed(2)); // Convert cents to dollars
+      postData.append("amount", formattedAmount); // Use formatted amount
     }
 
     // Add description and currency
     if (description) postData.append("order_description", description);
     postData.append("currency", currency || "USD");
+
+    console.log("=== PAYMENT REQUEST DEBUG ===");
+    console.log(
+      "Gateway URL:",
+      "https://ecompaymentprocessing.transactiongateway.com/api/transact.php"
+    );
+    console.log("Request data being sent:");
+
+    // Log all the form data (but mask sensitive info)
+    const debugData: any = {};
+    for (const [key, value] of postData.entries()) {
+      if (key === "security_key") {
+        debugData[key] = value ? `****${value.slice(-4)}` : "MISSING";
+      } else if (key === "ccnumber") {
+        debugData[key] = value ? `****${value.slice(-4)}` : "MISSING";
+      } else if (key === "cvv") {
+        debugData[key] = value ? "***" : "MISSING";
+      } else {
+        debugData[key] = value;
+      }
+    }
+    console.log("Form data:", JSON.stringify(debugData, null, 2));
+    console.log("=== END DEBUG ===");
 
     console.log("Sending payment request to gateway with data:", {
       type: is_recurring ? "add_subscription" : "sale",
@@ -498,7 +540,7 @@ Deno.serve(async (req) => {
             .update({
               nmi_subscription_id: parsedResponse.subscriptionId,
               nmi_customer_vault_id: parsedResponse.customerVaultId,
-              subscription_status: "active",
+              subscription_status: plan_name, // Use the actual plan name
               next_billing_date: new Date(
                 Date.now() + 365 * 24 * 60 * 60 * 1000
               ).toISOString(),
