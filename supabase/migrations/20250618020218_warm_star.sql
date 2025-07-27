@@ -10,7 +10,7 @@
 CREATE OR REPLACE FUNCTION get_businesses_with_plan_details_v2(
   p_is_featured BOOLEAN DEFAULT NULL,
   p_is_active BOOLEAN DEFAULT NULL,
-  p_subscription_plan_name TEXT DEFAULT NULL,
+  p_subscription_plans TEXT DEFAULT NULL,
   p_limit INTEGER DEFAULT 50
 )
 RETURNS TABLE (
@@ -28,7 +28,7 @@ RETURNS TABLE (
   image_url TEXT,
   created_at TIMESTAMPTZ,
   migration_source TEXT,
-  subscription_plan_name TEXT,
+  subscription_plans TEXT,
   total_count BIGINT
 )
 LANGUAGE plpgsql
@@ -52,7 +52,7 @@ BEGIN
       b.image_url,
       b.created_at,
       b.migration_source,
-      COALESCE(sp.name, 'Free') as subscription_plan_name
+      COALESCE(sp.name, 'Free') as subscription_plans
     FROM businesses b
     LEFT JOIN subscriptions s ON b.subscription_id = s.id
     LEFT JOIN subscription_plans sp ON s.plan_id = sp.id
@@ -63,9 +63,9 @@ BEGIN
       -- Apply optional filters
       AND (p_is_featured IS NULL OR b.is_featured = p_is_featured)
       AND (p_is_active IS NULL OR b.is_active = p_is_active)
-      AND (p_subscription_plan_name IS NULL OR 
-           (p_subscription_plan_name = 'Migrated' AND b.migration_source IS NOT NULL) OR
-           (p_subscription_plan_name != 'Migrated' AND COALESCE(sp.name, 'Free') = p_subscription_plan_name))
+      AND (p_subscription_plans IS NULL OR 
+           (p_subscription_plans = 'Migrated' AND b.migration_source IS NOT NULL) OR
+           (p_subscription_plans != 'Migrated' AND COALESCE(sp.name, 'Free') = p_subscription_plans))
     ORDER BY 
       CASE WHEN b.is_featured THEN 0 ELSE 1 END,
       b.created_at DESC
@@ -82,9 +82,9 @@ BEGIN
       AND (b.is_verified = true OR b.migration_source IS NOT NULL)
       AND (p_is_featured IS NULL OR b.is_featured = p_is_featured)
       AND (p_is_active IS NULL OR b.is_active = p_is_active)
-      AND (p_subscription_plan_name IS NULL OR 
-           (p_subscription_plan_name = 'Migrated' AND b.migration_source IS NOT NULL) OR
-           (p_subscription_plan_name != 'Migrated' AND COALESCE(sp.name, 'Free') = p_subscription_plan_name))
+      AND (p_subscription_plans IS NULL OR 
+           (p_subscription_plans = 'Migrated' AND b.migration_source IS NOT NULL) OR
+           (p_subscription_plans != 'Migrated' AND COALESCE(sp.name, 'Free') = p_subscription_plans))
   )
   SELECT 
     fb.*,

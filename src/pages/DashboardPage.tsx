@@ -7,12 +7,12 @@ import {
   Building2,
   Bookmark,
   CheckCircle,
+  BarChart3,
 } from "lucide-react";
 import Layout from "../components/layout/Layout";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { Business } from "../types";
-import BusinessForm from "../components/dashboard/BusinessForm";
 import ErrorFallback from "../components/common/ErrorFallback";
 import useErrorHandler from "../hooks/useErrorHandler";
 
@@ -22,6 +22,7 @@ import useUserBookmarks from "../hooks/dashboard/useUserBookmarks";
 import useUserProfile from "../hooks/dashboard/useUserProfile";
 import useUserSettings from "../hooks/dashboard/useUserSettings";
 import useAccountManagement from "../hooks/dashboard/useAccountManagement";
+import { useBusinessAnalytics } from "../hooks/dashboard/useBusinessAnalytics";
 
 // Import components
 import MyBusinessesSection from "../components/dashboard/businesses/MyBusinessesSection";
@@ -29,8 +30,9 @@ import MyBookmarksSection from "../components/dashboard/bookmarks/MyBookmarksSec
 import AccountSettingsSection from "../components/dashboard/account/AccountSettingsSection";
 import UserPreferencesSection from "../components/dashboard/settings/UserPreferencesSection";
 import AccountDeletionModal from "../components/dashboard/account/AccountDeletionModal";
+import BusinessAnalyticsSection from "../components/dashboard/analytics/BusinessAnalyticsSection";
 
-type Tab = "businesses" | "bookmarks" | "account" | "settings";
+type Tab = "businesses" | "bookmarks" | "analytics" | "account" | "settings";
 
 const DashboardPage = () => {
   const navigate = useNavigate();
@@ -39,8 +41,6 @@ const DashboardPage = () => {
   const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<Tab>("businesses");
   const [success, setSuccess] = useState<string | null>(null);
-  const [showBusinessForm, setShowBusinessForm] = useState(false);
-  const [editingBusiness, setEditingBusiness] = useState<Business | null>(null);
 
   const { error, clearError } = useErrorHandler({
     context: "DashboardPage",
@@ -57,9 +57,24 @@ const DashboardPage = () => {
   } = useUserBusinesses();
 
   const hasBusinesses = businesses.length > 0;
-  const incompleteBusinesses = businesses.filter(
-    (b) => !b.isActive || !b.isVerified
-  );
+
+  // Fix: Incomplete businesses should be those with subscription but missing essential details
+  const incompleteBusinesses = businesses.filter((b) => {
+    // Business has a subscription (payment completed)
+    const hasSubscription = b.subscription_id || b.subscription_plans;
+
+    // Business is missing essential details
+    const missingEssentialDetails =
+      !b.name ||
+      b.name === "Pending Business Listing" ||
+      !b.description ||
+      !b.category ||
+      !b.email ||
+      !b.city ||
+      !b.state;
+
+    return hasSubscription && missingEssentialDetails;
+  });
 
   const {
     bookmarks: bookmarkedBusinesses,
@@ -93,6 +108,17 @@ const DashboardPage = () => {
   } = useAccountManagement();
 
   const showDeletionConfirm = !!deletionSummary;
+
+  // Get business IDs for analytics
+  const businessIds = businesses.map((b) => b.id);
+
+  // Initialize analytics hook
+  const {
+    analytics,
+    loading: analyticsLoading,
+    error: analyticsError,
+    refetch: fetchAnalytics,
+  } = useBusinessAnalytics(businessIds);
 
   useEffect(() => {
     if (user) {
@@ -130,56 +156,13 @@ const DashboardPage = () => {
     }
   }, [settingsSuccess]);
 
-  const handleEditBusiness = (business: Business) => {
-    setEditingBusiness(business);
-    setShowBusinessForm(true);
-  };
-
-  const handleBusinessFormSubmit = async (businessData: Partial<Business>) => {
-    try {
-      if (editingBusiness) {
-        // Transform businessData to match database schema
-        const dbUpdates: any = {
-          ...businessData,
-          tags: businessData.tags
-            ? businessData.tags.map((tag: any) =>
-                typeof tag === "string" ? tag : tag.value
-              )
-            : null,
-        };
-
-        const { error: updateError } = await supabase
-          .from("businesses")
-          .update(dbUpdates)
-          .eq("id", editingBusiness.id);
-
-        if (updateError) {
-          throw updateError;
-        }
-
-        setSuccess("Business updated successfully");
-        fetchUserBusinesses();
-      }
-    } catch (err) {
-      console.error("Error updating business:", err);
-    } finally {
-      setShowBusinessForm(false);
-      setEditingBusiness(null);
-    }
-  };
-
-  const handleProfileUpdate = () => {
-    fetchUserProfile();
-    setSuccess("Profile updated successfully");
-  };
-
   const handleContinueBusinessListing = (business: Business) => {
     // Navigate to the business listing page with the business ID to update
     navigate("/business/new", {
       state: {
         paymentCompleted: true,
         businessIdToUpdate: business.id,
-        planName: business.subscription_plan_name,
+        planName: business.subscription_plans,
         planPrice: 0, // Price is already paid
       },
     });
@@ -225,7 +208,10 @@ const DashboardPage = () => {
   };
 
   return (
-    <Layout>
+    <Layout
+      title="Dashboard | BlackOWNDemand"
+      description="Manage your businesses, bookmarks, and account settings"
+    >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="flex items-center justify-between mb-8">
           <div>
@@ -241,10 +227,14 @@ const DashboardPage = () => {
           </button>
         </div>
 
-        <div className="flex space-x-4 mb-8">
+        {/* Tab Navigation */}
+        <div className="flex flex-wrap gap-2 mb-8">
           {hasBusinesses && (
             <button
-              onClick={() => setActiveTab("businesses")}
+              onClick={() => {
+                setActiveTab("businesses");
+                fetchUserBusinesses();
+              }}
               className={`px-4 py-2 rounded-lg transition-colors ${
                 activeTab === "businesses"
                   ? "bg-white text-black"
@@ -255,6 +245,24 @@ const DashboardPage = () => {
               My Businesses
             </button>
           )}
+
+          {hasBusinesses && (
+            <button
+              onClick={() => {
+                setActiveTab("analytics");
+                fetchAnalytics();
+              }}
+              className={`px-4 py-2 rounded-lg transition-colors ${
+                activeTab === "analytics"
+                  ? "bg-white text-black"
+                  : "bg-gray-900 text-gray-400 hover:bg-gray-800"
+              }`}
+            >
+              <BarChart3 className="h-5 w-5 inline-block mr-2" />
+              Analytics
+            </button>
+          )}
+
           <button
             onClick={() => {
               setActiveTab("bookmarks");
@@ -308,8 +316,15 @@ const DashboardPage = () => {
             loading={businessesLoading}
             hasBusinesses={hasBusinesses}
             onDeleteBusiness={handleDeleteBusiness as any}
-            onEditBusiness={handleEditBusiness}
             onContinueListing={handleContinueBusinessListing}
+          />
+        )}
+
+        {activeTab === "analytics" && (
+          <BusinessAnalyticsSection
+            analytics={analytics}
+            loading={analyticsLoading}
+            hasBusinesses={hasBusinesses}
           />
         )}
 
@@ -324,18 +339,6 @@ const DashboardPage = () => {
         {activeTab === "account" && <AccountSettingsSection />}
 
         {activeTab === "settings" && <UserPreferencesSection />}
-
-        {/* Business Form Modal */}
-        {showBusinessForm && editingBusiness && (
-          <BusinessForm
-            business={editingBusiness}
-            onSubmit={handleBusinessFormSubmit}
-            onCancel={() => {
-              setShowBusinessForm(false);
-              setEditingBusiness(null);
-            }}
-          />
-        )}
 
         {/* Account Deletion Confirmation Modal */}
         <AccountDeletionModal

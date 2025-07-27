@@ -1,38 +1,56 @@
-import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '../../lib/supabase';
-import { logError } from '../../lib/errorLogger';
+import { useState, useEffect, useCallback } from "react";
+import { supabase } from "../../lib/supabase";
+import { logError } from "../../lib/errorLogger";
 
 export const useVipBusinesses = (limit: number = 50) => {
   const [businesses, setBusinesses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-  const [totalCount, setTotalCount] = useState(0);
 
   const fetchBusinesses = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      
-      // Fetch VIP businesses using the RPC function
+
+      // Simple direct query to businesses table
       const { data, error: fetchError } = await supabase
-        .rpc('get_businesses_with_plan_details_v2', {
-          p_subscription_plan_name: 'VIP Plan',
-          p_is_active: true,
-          p_limit: limit
-        });
+        .from("businesses")
+        .select(
+          `
+          id,
+          name,
+          tagline,
+          description,
+          category,
+          is_verified,
+          is_featured,
+          city,
+          state,
+          image_url,
+          website_url,
+          phone,
+          email,
+          featured_position,
+          subscription_status
+        `
+        )
+        .eq("is_active", true)
+        .eq("subscription_status", "VIP Plan")
+        .order("featured_position", { ascending: true, nullsFirst: false })
+        .order("created_at", { ascending: false })
+        .limit(limit);
 
       if (fetchError) {
         throw fetchError;
       }
-      
+
       setBusinesses(data || []);
-      setTotalCount(data && data.length > 0 ? data[0].total_count : 0);
     } catch (err) {
       const error = err as Error;
       setError(error);
-      logError('Error fetching VIP businesses', {
-        context: 'useVipBusinesses',
-        metadata: { error: err }
+      logError("Error fetching VIP businesses", {
+        context: "useVipBusinesses",
+        metadata: { error: err },
       });
     } finally {
       setLoading(false);
@@ -47,8 +65,7 @@ export const useVipBusinesses = (limit: number = 50) => {
     businesses,
     loading,
     error,
-    totalCount,
-    refetch: fetchBusinesses
+    refetch: fetchBusinesses,
   };
 };
 

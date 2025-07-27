@@ -214,7 +214,7 @@ const BusinessListingPage = () => {
       } else {
         // Create new business
         businessData.owner_id = user.id;
-        businessData.subscription_plan_name = planName;
+        businessData.subscription_plans = planName;
         businessData.is_claimed = true;
         businessData.claimed_at = new Date().toISOString();
 

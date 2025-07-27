@@ -1,8 +1,8 @@
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Bookmark, Trash2, CheckCircle, Crown } from 'lucide-react';
-import { Business } from '../../../types';
-import { getBusinessImageUrl } from '../../../lib/supabase';
+import React from "react";
+import { useNavigate } from "react-router-dom";
+import { Bookmark, Trash2, CheckCircle, Crown } from "lucide-react";
+import { Business } from "../../../types";
+import { getBusinessImageUrl } from "../../../lib/supabase";
 
 interface MyBookmarksSectionProps {
   bookmarkedBusinesses: Business[];
@@ -13,7 +13,7 @@ interface MyBookmarksSectionProps {
 const MyBookmarksSection: React.FC<MyBookmarksSectionProps> = ({
   bookmarkedBusinesses,
   loading,
-  onRemoveBookmark
+  onRemoveBookmark,
 }) => {
   const navigate = useNavigate();
 
@@ -44,18 +44,19 @@ const MyBookmarksSection: React.FC<MyBookmarksSectionProps> = ({
 
       {bookmarkedBusinesses.length > 0 ? (
         <div className="grid grid-cols-1 gap-6">
-          {bookmarkedBusinesses.map(business => (
+          {bookmarkedBusinesses.map((business) => (
             <div key={business.id} className="bg-gray-900 rounded-xl p-6">
               <div className="flex items-start gap-4">
                 <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
-                  <img 
-                    src={getBusinessImageUrl(business.image_url)} 
+                  <img
+                    src={getBusinessImageUrl(business.image_url)}
                     alt={business.name}
                     className="w-full h-full object-cover"
                     loading="lazy"
                     onError={(e) => {
                       const target = e.target as HTMLImageElement;
-                      target.src = 'https://images.pexels.com/photos/3184292/pexels-photo-3184292.jpeg';
+                      target.src =
+                        "https://images.pexels.com/photos/3184292/pexels-photo-3184292.jpeg";
                     }}
                   />
                 </div>
@@ -63,24 +64,30 @@ const MyBookmarksSection: React.FC<MyBookmarksSectionProps> = ({
                   <div className="flex items-center justify-between">
                     <div>
                       <div className="flex items-center gap-2 mb-2">
-                        <h3 className="text-xl font-semibold text-white">{business.name}</h3>
-                         {business.isVerified && (
-                           <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-500/10 text-green-500">
-                             <CheckCircle className="h-3 w-3 mr-1" />
-                             Verified
-                           </span>
-                         )}
-                        {business.subscription_plan_name === 'VIP Plan' && (
+                        <h3 className="text-xl font-semibold text-white">
+                          {business.name}
+                        </h3>
+                        {business.isVerified && (
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-500/10 text-green-500">
+                            <CheckCircle className="h-3 w-3 mr-1" />
+                            Verified
+                          </span>
+                        )}
+                        {business.subscription_plans === "VIP Plan" && (
                           <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-yellow-400/20 text-yellow-400">
                             <Crown className="h-3 w-3 mr-1" />
                             VIP
                           </span>
                         )}
                       </div>
-                      <p className="text-gray-400 text-sm mb-2">{business.tagline}</p>
+                      <p className="text-gray-400 text-sm mb-2">
+                        {business.tagline}
+                      </p>
                       <div className="flex items-center gap-4 text-sm text-gray-500">
                         {business.city && business.state && (
-                          <span>{business.city}, {business.state}</span>
+                          <span>
+                            {business.city}, {business.state}
+                          </span>
                         )}
                         {business.category && (
                           <>
@@ -113,12 +120,15 @@ const MyBookmarksSection: React.FC<MyBookmarksSectionProps> = ({
       ) : (
         <div className="text-center py-12">
           <Bookmark className="h-12 w-12 text-gray-600 mx-auto mb-4" />
-          <h3 className="text-xl font-semibold text-white mb-2">No bookmarks yet</h3>
+          <h3 className="text-xl font-semibold text-white mb-2">
+            No bookmarks yet
+          </h3>
           <p className="text-gray-400 mb-6">
-            You haven't bookmarked any businesses yet. Browse the directory and save businesses you're interested in.
+            You haven't bookmarked any businesses yet. Browse the directory and
+            save businesses you're interested in.
           </p>
           <button
-            onClick={() => navigate('/browse')}
+            onClick={() => navigate("/browse")}
             className="px-4 py-2 bg-white text-black rounded-lg hover:bg-gray-100 transition-colors"
           >
             Browse Businesses

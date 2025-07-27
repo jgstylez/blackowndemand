@@ -1,7 +1,18 @@
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Building2, Plus, Edit2, Trash2, Clock, Crown, CheckCircle } from 'lucide-react';
-import { Business } from '../../../types';
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  Building2,
+  Plus,
+  Edit2,
+  Trash2,
+  Clock,
+  Crown,
+  CheckCircle,
+  Eye,
+} from "lucide-react";
+import { Business } from "../../../types";
+import InlineBusinessEdit from "./InlineBusinessEdit";
+import { supabase } from "../../../lib/supabase";
 
 interface MyBusinessesSectionProps {
   businesses: Business[];
@@ -9,7 +20,6 @@ interface MyBusinessesSectionProps {
   loading: boolean;
   hasBusinesses: boolean;
   onDeleteBusiness: (businessId: string) => Promise<boolean>;
-  onEditBusiness: (business: Business) => void;
   onContinueListing: (business: Business) => void;
 }
 
@@ -19,10 +29,90 @@ const MyBusinessesSection: React.FC<MyBusinessesSectionProps> = ({
   loading,
   hasBusinesses,
   onDeleteBusiness,
-  onEditBusiness,
-  onContinueListing
+  onContinueListing,
 }) => {
   const navigate = useNavigate();
+  const [editingBusinessId, setEditingBusinessId] = useState<string | null>(
+    null
+  );
+
+  const handleEditClick = (business: Business) => {
+    setEditingBusinessId(business.id);
+  };
+
+  const handleViewClick = (businessId: string) => {
+    navigate(`/business/${businessId}`);
+  };
+
+  // Add specific debugging for promo video in handleSaveEdit
+  const handleSaveEdit = async (businessData: Partial<Business>) => {
+    try {
+      if (!editingBusinessId) {
+        throw new Error("No business selected for editing");
+      }
+
+      console.log("🔍 handleSaveEdit received data:", businessData);
+      console.log("🔍 Category value:", businessData.category);
+      console.log("🔍 Promo video URL:", businessData.promo_video_url);
+
+      // Transform businessData to match database schema
+      const dbUpdates: any = {
+        name: businessData.name,
+        tagline: businessData.tagline,
+        description: businessData.description,
+        category: businessData.category,
+        website_url: businessData.website_url,
+        phone: businessData.phone,
+        email: businessData.email,
+        city: businessData.city,
+        state: businessData.state,
+        zip_code: businessData.zip_code,
+        country: businessData.country,
+        tags: businessData.tags
+          ? businessData.tags.map((tag: any) =>
+              typeof tag === "string" ? tag : tag.value
+            )
+          : null,
+        promo_video_url: businessData.promo_video_url,
+        social_links: businessData.social_links,
+        image_url: businessData.image_url,
+        business_hours: businessData.business_hours,
+        updated_at: new Date().toISOString(),
+      };
+
+      console.log("🔍 Database updates:", dbUpdates);
+      console.log(
+        "🔍 Promo video URL in dbUpdates:",
+        dbUpdates.promo_video_url
+      );
+
+      // Update the business in the database
+      const { error } = await supabase
+        .from("businesses")
+        .update(dbUpdates)
+        .eq("id", editingBusinessId);
+
+      if (error) {
+        console.error("🔍 Database update error:", error);
+        throw new Error("Failed to update business");
+      }
+
+      console.log("🔍 Database update successful");
+
+      // Close the edit form
+      setEditingBusinessId(null);
+
+      // Refresh the page to show updated data
+      window.location.reload();
+    } catch (err) {
+      console.error("Error updating business:", err);
+      throw err;
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingBusinessId(null);
+  };
 
   if (loading) {
     return (
@@ -51,7 +141,7 @@ const MyBusinessesSection: React.FC<MyBusinessesSectionProps> = ({
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-semibold text-white">My Businesses</h2>
         <button
-          onClick={() => navigate('/pricing')}
+          onClick={() => navigate("/pricing")}
           className="inline-flex items-center px-4 py-2 rounded-lg bg-white text-black hover:bg-gray-100 transition-colors"
         >
           <Plus className="h-5 w-5 mr-2" />
@@ -67,13 +157,18 @@ const MyBusinessesSection: React.FC<MyBusinessesSectionProps> = ({
             Incomplete Listings
           </h3>
           <div className="grid grid-cols-1 gap-6">
-            {incompleteBusinesses.map(business => (
-              <div key={business.id} className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-6">
+            {incompleteBusinesses.map((business) => (
+              <div
+                key={business.id}
+                className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-6"
+              >
                 <div className="flex items-start justify-between">
                   <div>
                     <div className="flex items-center gap-2 mb-2">
                       <h3 className="text-xl font-semibold text-white">
-                        {business.name === 'Pending Business Listing' ? 'Complete Your Business Listing' : business.name}
+                        {business.name === "Pending Business Listing"
+                          ? "Complete Your Business Listing"
+                          : business.name}
                       </h3>
                       <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-yellow-500/20 text-yellow-400">
                         <Clock className="h-3 w-3 mr-1" />
@@ -81,12 +176,18 @@ const MyBusinessesSection: React.FC<MyBusinessesSectionProps> = ({
                       </span>
                     </div>
                     <p className="text-gray-400 mb-4">
-                      You've started the process of listing your business. Complete your listing to make it visible in our directory.
+                      You've started the process of listing your business.
+                      Complete your listing to make it visible in our directory.
                     </p>
                     <div className="flex items-center gap-4 text-sm text-gray-500">
-                      <span>Plan: {business.subscription_plan_name || 'Basic'}</span>
+                      <span>
+                        Plan: {business.subscription_plans || "Basic"}
+                      </span>
                       <span>•</span>
-                      <span>Created: {new Date(business.created_at).toLocaleDateString()}</span>
+                      <span>
+                        Created:{" "}
+                        {new Date(business.created_at).toLocaleDateString()}
+                      </span>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -113,64 +214,89 @@ const MyBusinessesSection: React.FC<MyBusinessesSectionProps> = ({
       {/* Active Businesses */}
       {businesses.length > 0 ? (
         <div className="grid grid-cols-1 gap-6">
-          {businesses.map(business => (
-            <div key={business.id} className="bg-gray-900 rounded-xl p-6">
-              <div className="flex items-start justify-between">
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <h3 className="text-xl font-semibold text-white">{business.name}</h3>
-                    {business.isVerified ? (
-                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-500/10 text-green-500">
-                        <CheckCircle className="h-3 w-3 mr-1" />
-                        Verified
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-yellow-500/10 text-yellow-500">
-                        <Clock className="h-3 w-3 mr-1" />
-                        Pending
-                      </span>
-                    )}
-                    {business.subscription_plan_name === 'VIP Plan' && (
-                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-yellow-400/20 text-yellow-400">
-                        <Crown className="h-3 w-3 mr-1" />
-                        VIP
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-gray-400 text-sm mb-4">{business.tagline}</p>
-                  <div className="flex items-center gap-4 text-sm text-gray-500">
-                    {business.city && business.state && (
-                      <span>{business.city}, {business.state}</span>
-                    )}
-                    {business.category && (
-                      <>
-                        <span>•</span>
-                        <span>{business.category}</span>
-                      </>
-                    )}
-                    {business.subscription_plan_name && (
-                      <>
-                        <span>•</span>
-                        <span>Plan: {business.subscription_plan_name}</span>
-                      </>
-                    )}
+          {businesses.map((business) => (
+            <div key={business.id}>
+              {editingBusinessId === business.id ? (
+                <InlineBusinessEdit
+                  business={business}
+                  onSave={handleSaveEdit}
+                  onCancel={handleCancelEdit}
+                />
+              ) : (
+                <div className="bg-gray-900 rounded-xl p-6">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <h3 className="text-xl font-semibold text-white">
+                          {business.name}
+                        </h3>
+                        {business.isVerified ? (
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-500/10 text-green-500">
+                            <CheckCircle className="h-3 w-3 mr-1" />
+                            Verified
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-yellow-500/10 text-yellow-500">
+                            <Clock className="h-3 w-3 mr-1" />
+                            Pending
+                          </span>
+                        )}
+                        {business.subscription_plans === "VIP Plan" && (
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-yellow-400/20 text-yellow-400">
+                            <Crown className="h-3 w-3 mr-1" />
+                            VIP
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-gray-400 text-sm mb-4">
+                        {business.tagline}
+                      </p>
+                      <div className="flex items-center gap-4 text-sm text-gray-500">
+                        {business.city && business.state && (
+                          <span>
+                            {business.city}, {business.state}
+                          </span>
+                        )}
+                        {business.category && (
+                          <>
+                            <span>•</span>
+                            <span>{business.category}</span>
+                          </>
+                        )}
+                        {business.subscription_plans && (
+                          <>
+                            <span>•</span>
+                            <span>Plan: {business.subscription_plans}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleViewClick(business.id)}
+                        className="p-2 rounded-lg bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-colors"
+                        title="View business page"
+                      >
+                        <Eye className="h-5 w-5" />
+                      </button>
+                      <button
+                        onClick={() => handleEditClick(business)}
+                        className="p-2 rounded-lg bg-gray-800 text-white hover:bg-gray-700 transition-colors"
+                        title="Edit business"
+                      >
+                        <Edit2 className="h-5 w-5" />
+                      </button>
+                      <button
+                        onClick={() => onDeleteBusiness(business.id)}
+                        className="p-2 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors"
+                        title="Delete business"
+                      >
+                        <Trash2 className="h-5 w-5" />
+                      </button>
+                    </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => onEditBusiness(business)}
-                    className="p-2 rounded-lg bg-gray-800 text-white hover:bg-gray-700 transition-colors"
-                  >
-                    <Edit2 className="h-5 w-5" />
-                  </button>
-                  <button
-                    onClick={() => onDeleteBusiness(business.id)}
-                    className="p-2 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors"
-                  >
-                    <Trash2 className="h-5 w-5" />
-                  </button>
-                </div>
-              </div>
+              )}
             </div>
           ))}
         </div>
@@ -182,23 +308,25 @@ const MyBusinessesSection: React.FC<MyBusinessesSectionProps> = ({
             <div className="flex items-center gap-4">
               <Building2 className="h-12 w-12 text-gray-600" />
               <div className="flex-grow">
-                <h3 className="text-lg font-semibold text-white mb-2">List Your Business</h3>
+                <h3 className="text-lg font-semibold text-white mb-2">
+                  List Your Business
+                </h3>
                 <p className="text-gray-400 mb-4">
-                  Join hundreds of Black-owned businesses on our platform. Get discovered by customers looking for your services.
+                  Join hundreds of Black-owned businesses on our platform. Get
+                  discovered by customers looking for your services.
                 </p>
                 <div className="flex gap-4">
                   <button
-                    onClick={() => navigate('/pricing')}
+                    onClick={() => navigate("/pricing")}
                     className="inline-flex items-center px-4 py-2 rounded-lg bg-white text-black hover:bg-gray-100 transition-colors"
                   >
                     <Plus className="h-5 w-5 mr-2" />
                     List Your Business
                   </button>
                   <button
-                    onClick={() => navigate('/claim-business')}
+                    onClick={() => navigate("/claim-business")}
                     className="inline-flex items-center px-4 py-2 rounded-lg bg-gray-800 text-white hover:bg-gray-700 transition-colors"
                   >
-                    <Crown className="h-5 w-5 mr-2" />
                     Claim Existing Business
                   </button>
                 </div>

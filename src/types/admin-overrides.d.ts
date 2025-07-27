@@ -50,7 +50,7 @@ declare global {
     claimed_at?: string | null;
     migration_source?: string | null;
     is_resource?: boolean;
-    subscription_plan_name?: string;
+    subscription_plans?: string;
     total_count?: number;
     vip_member?: any;
   }

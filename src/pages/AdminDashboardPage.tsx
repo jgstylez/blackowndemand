@@ -1,21 +1,25 @@
-
-import { useState, useEffect } from 'react';
-import AdminLayout from '../components/admin/AdminLayout';
-import AdManagement from '../components/admin/AdManagement';
-import Analytics from '../components/admin/Analytics';
-import UserRoleManagement from '../components/admin/UserRoleManagement';
-import { PaymentProviderManagement } from '../components/admin/PaymentProviderManagement';
-import BusinessVerificationSettings from '../components/admin/BusinessVerificationSettings';
-import FeatureFlagManagement from '../components/admin/FeatureFlagManagement';
-import AnnouncementManagement from '../components/admin/AnnouncementManagement';
-import FeaturedBusinessManagement from '../components/admin/FeaturedBusinessManagement';
-import DiscountCodeManagement from '../components/admin/DiscountCodeManagement';
-import AdminSidebar from '../components/admin/AdminSidebar';
-import { 
-  Building2, 
-  Star, 
-  Crown, 
-  TrendingUp, 
+import { useState, useEffect } from "react";
+import AdminLayout from "../components/admin/AdminLayout";
+import AdManagement from "../components/admin/AdManagement";
+import Analytics from "../components/admin/Analytics";
+import UserRoleManagement from "../components/admin/UserRoleManagement";
+import { PaymentProviderManagement } from "../components/admin/PaymentProviderManagement";
+import BusinessVerificationSettings from "../components/admin/BusinessVerificationSettings";
+import FeatureFlagManagement from "../components/admin/FeatureFlagManagement";
+import AnnouncementManagement from "../components/admin/AnnouncementManagement";
+import FeaturedBusinessManagement from "../components/admin/FeaturedBusinessManagement";
+import DiscountCodeManagement from "../components/admin/DiscountCodeManagement";
+import SubscriptionManagement from "../components/admin/SubscriptionManagement";
+import PromotionManagement from "../components/admin/PromotionManagement";
+import NewsletterManagement from "../components/admin/NewsletterManagement";
+import PaymentHistoryManagement from "../components/admin/PaymentHistoryManagement";
+import BusinessManagement from "../components/admin/BusinessManagement";
+import AdminSidebar from "../components/admin/AdminSidebar";
+import {
+  Building2,
+  Star,
+  Crown,
+  TrendingUp,
   Megaphone,
   LayoutGrid,
   Shield,
@@ -24,9 +28,9 @@ import {
   CreditCard,
   Flag,
   Percent,
-  DollarSign
-} from 'lucide-react';
-import { supabase } from '../lib/supabase';
+  DollarSign,
+} from "lucide-react";
+import { supabase } from "../lib/supabase";
 
 interface BusinessStats {
   total_businesses: number;
@@ -38,10 +42,26 @@ interface BusinessStats {
   unclaimed_businesses: number;
 }
 
-type AdminTab = 'overview' | 'ads' | 'analytics' | 'settings' | 'user-roles' | 'payment-providers' | 'business-verification' | 'feature-flags' | 'businesses' | 'featured-businesses' | 'subscriptions' | 'payment-history' | 'promotions' | 'discount-codes' | 'announcements' | 'newsletter';
+type AdminTab =
+  | "overview"
+  | "ads"
+  | "analytics"
+  | "settings"
+  | "user-roles"
+  | "payment-providers"
+  | "business-verification"
+  | "feature-flags"
+  | "businesses"
+  | "featured-businesses"
+  | "subscriptions"
+  | "payment-history"
+  | "promotions"
+  | "discount-codes"
+  | "announcements"
+  | "newsletter";
 
 const AdminDashboardPage = () => {
-  const [activeTab, setActiveTab] = useState<AdminTab>('overview');
+  const [activeTab, setActiveTab] = useState<AdminTab>("overview");
   const [stats, setStats] = useState<BusinessStats | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -51,10 +71,10 @@ const AdminDashboardPage = () => {
 
   const fetchStats = async () => {
     try {
-      const { data, error } = await supabase.rpc('get_business_stats');
-      
+      const { data, error } = await supabase.rpc("get_business_stats");
+
       if (error) throw error;
-      
+
       if (data && data.length > 0) {
         const statsData = data[0];
         setStats({
@@ -64,11 +84,11 @@ const AdminDashboardPage = () => {
           verified_businesses: statsData.verified_businesses || 0,
           featured_businesses: statsData.featured_businesses || 0,
           member_businesses: statsData.founder_businesses || 0,
-          unclaimed_businesses: statsData.unclaimed_businesses || 0
+          unclaimed_businesses: statsData.unclaimed_businesses || 0,
         });
       }
     } catch (err) {
-      console.error('Failed to fetch stats:', err);
+      console.error("Failed to fetch stats:", err);
     } finally {
       setLoading(false);
     }
@@ -84,42 +104,60 @@ const AdminDashboardPage = () => {
         <h2 className="text-2xl font-bold text-white mb-4">Settings</h2>
         <p className="text-gray-400">Platform settings and configuration</p>
       </div>
-      
+
       <div className="bg-gray-900 rounded-xl p-6">
-        <h3 className="text-xl font-bold text-white mb-4">Platform Configuration</h3>
+        <h3 className="text-xl font-bold text-white mb-4">
+          Platform Configuration
+        </h3>
         <div className="space-y-4">
           <div className="p-4 bg-gray-800 rounded-lg">
-            <h4 className="text-white font-medium mb-2">Business Verification</h4>
-            <p className="text-gray-400 text-sm mb-3">Configure automatic verification rules and manual review processes.</p>
-            <button 
-              onClick={() => setActiveTab('business-verification')}
+            <h4 className="text-white font-medium mb-2">
+              Business Verification
+            </h4>
+            <p className="text-gray-400 text-sm mb-3">
+              Configure automatic verification rules and manual review
+              processes.
+            </p>
+            <button
+              onClick={() => setActiveTab("business-verification")}
               className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
             >
               Configure
             </button>
           </div>
-          
+
           <div className="p-4 bg-gray-800 rounded-lg">
-            <h4 className="text-white font-medium mb-2">Featured Business Rules</h4>
-            <p className="text-gray-400 text-sm mb-3">Set criteria for featuring businesses and promotional guidelines.</p>
+            <h4 className="text-white font-medium mb-2">
+              Featured Business Rules
+            </h4>
+            <p className="text-gray-400 text-sm mb-3">
+              Set criteria for featuring businesses and promotional guidelines.
+            </p>
             <button className="px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-600 transition-colors">
               Configure
             </button>
           </div>
-          
+
           <div className="p-4 bg-gray-800 rounded-lg">
             <h4 className="text-white font-medium mb-2">Content Moderation</h4>
-            <p className="text-gray-400 text-sm mb-3">Manage content filtering, approval workflows, and community guidelines.</p>
+            <p className="text-gray-400 text-sm mb-3">
+              Manage content filtering, approval workflows, and community
+              guidelines.
+            </p>
             <button className="px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-600 transition-colors">
               Configure
             </button>
           </div>
-          
+
           <div className="p-4 bg-gray-800 rounded-lg">
-            <h4 className="text-white font-medium mb-2">User Role Definitions</h4>
-            <p className="text-gray-400 text-sm mb-3">Define and manage custom roles and their associated permissions.</p>
-            <button 
-              onClick={() => setActiveTab('user-roles')}
+            <h4 className="text-white font-medium mb-2">
+              User Role Definitions
+            </h4>
+            <p className="text-gray-400 text-sm mb-3">
+              Define and manage custom roles and their associated permissions.
+            </p>
+            <button
+              onClick={() => setActiveTab("user-roles")}
               className="px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-600 transition-colors"
             >
               Manage Roles
@@ -131,133 +169,88 @@ const AdminDashboardPage = () => {
   );
 
   return (
-    <AdminLayout title={`Admin - ${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}`}>
-      <div className="flex h-[calc(100vh-64px)]">
+    <AdminLayout
+      title={`Admin - ${
+        activeTab.charAt(0).toUpperCase() + activeTab.slice(1)
+      }`}
+    >
+      <div className="flex h-full">
         {/* Sidebar */}
-        <AdminSidebar activeTab={activeTab} setActiveTab={(tab: string) => setActiveTab(tab as AdminTab)} />
-        
+        <AdminSidebar
+          activeTab={activeTab}
+          setActiveTab={(tab: string) => setActiveTab(tab as AdminTab)}
+        />
+
         {/* Main Content */}
-        <div className="flex-1 overflow-y-auto p-8">
+        <div className="flex-1 overflow-y-auto p-6">
           {/* Overview */}
-          {activeTab === 'overview' && renderOverview()}
-          
-          {/* Ads */}
-          {activeTab === 'ads' && (
-            <AdManagement onAdUpdate={handleDataUpdate} />
-          )}
-          
+          {activeTab === "overview" && renderOverview()}
+
           {/* Analytics */}
-          {activeTab === 'analytics' && (
-            <Analytics onDataUpdate={handleDataUpdate} />
-          )}
-          
-          {/* Settings */}
-          {activeTab === 'settings' && renderSettings()}
-          
-          {/* User Roles */}
-          {activeTab === 'user-roles' && (
-            <UserRoleManagement />
-          )}
-          
-          {/* Payment Providers */}
-          {activeTab === 'payment-providers' && (
-            <PaymentProviderManagement />
-          )}
-          
-          {/* Business Verification */}
-          {activeTab === 'business-verification' && (
-            <BusinessVerificationSettings />
-          )}
-          
-          {/* Feature Flags */}
-          {activeTab === 'feature-flags' && (
-            <FeatureFlagManagement onUpdate={handleDataUpdate} />
-          )}
-          
+          {activeTab === "analytics" && <Analytics />}
+
           {/* Businesses */}
-          {activeTab === 'businesses' && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-2xl font-bold text-white mb-4">Business Management</h2>
-                <p className="text-gray-400">Manage business listings, verification, and features</p>
-              </div>
-              <div className="bg-gray-900 rounded-xl p-6">
-                <p className="text-gray-400">Business management component is temporarily disabled while we update the data types. Please check back soon.</p>
-              </div>
-            </div>
+          {activeTab === "businesses" && (
+            <BusinessManagement onBusinessUpdate={handleDataUpdate} />
           )}
 
           {/* Featured Businesses */}
-          {activeTab === 'featured-businesses' && (
+          {activeTab === "featured-businesses" && (
             <FeaturedBusinessManagement />
           )}
-          
+
           {/* Subscriptions */}
-          {activeTab === 'subscriptions' && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-2xl font-bold text-white mb-4">Subscription Management</h2>
-                <p className="text-gray-400">Track and manage user subscriptions and billing</p>
-              </div>
-              <div className="bg-gray-900 rounded-xl p-6">
-                <p className="text-gray-400">Subscription management component is temporarily disabled while we update the data types. Please check back soon.</p>
-              </div>
-            </div>
+          {activeTab === "subscriptions" && (
+            <SubscriptionManagement onUpdate={handleDataUpdate} />
           )}
-          
+
           {/* Payment History */}
-          {activeTab === 'payment-history' && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-2xl font-bold text-white mb-4">Payment History</h2>
-                <p className="text-gray-400">View transaction logs and payment details</p>
-              </div>
-              <div className="bg-gray-900 rounded-xl p-6">
-                <p className="text-gray-400">Payment history component is temporarily disabled while we update the data types. Please check back soon.</p>
-              </div>
-            </div>
+          {activeTab === "payment-history" && (
+            <PaymentHistoryManagement onUpdate={handleDataUpdate} />
           )}
-          
+
           {/* Promotions */}
-          {activeTab === 'promotions' && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-2xl font-bold text-white mb-4">Promotion Management</h2>
-                <p className="text-gray-400">Create and manage promotional campaigns</p>
-              </div>
-              <div className="bg-gray-900 rounded-xl p-6">
-                <p className="text-gray-400">Promotion management component is temporarily disabled while we update the data types. Please check back soon.</p>
-              </div>
-            </div>
+          {activeTab === "promotions" && (
+            <PromotionManagement onUpdate={handleDataUpdate} />
           )}
-          
+
           {/* Discount Codes */}
-          {activeTab === 'discount-codes' && (
+          {activeTab === "discount-codes" && (
             <DiscountCodeManagement onUpdate={handleDataUpdate} />
           )}
-          
+
+          {/* Advertisements */}
+          {activeTab === "ads" && (
+            <AdManagement onAdUpdate={handleDataUpdate} />
+          )}
+
           {/* Announcements */}
-          {activeTab === 'announcements' && (
-            <AnnouncementManagement />
-          )}
-          
+          {activeTab === "announcements" && <AnnouncementManagement />}
+
           {/* Newsletter */}
-          {activeTab === 'newsletter' && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-2xl font-bold text-white mb-4">Newsletter Management</h2>
-                <p className="text-gray-400">Create and send newsletters to subscribers</p>
-              </div>
-              <div className="bg-gray-900 rounded-xl p-6">
-                <p className="text-gray-400">Newsletter management component is temporarily disabled while we update the data types. Please check back soon.</p>
-              </div>
-            </div>
+          {activeTab === "newsletter" && <NewsletterManagement />}
+
+          {/* Business Verification */}
+          {activeTab === "business-verification" && (
+            <BusinessVerificationSettings />
           )}
+
+          {/* User Roles */}
+          {activeTab === "user-roles" && <UserRoleManagement />}
+
+          {/* Feature Flags */}
+          {activeTab === "feature-flags" && <FeatureFlagManagement />}
+
+          {/* Payment Providers */}
+          {activeTab === "payment-providers" && <PaymentProviderManagement />}
+
+          {/* Settings */}
+          {activeTab === "settings" && renderSettings()}
         </div>
       </div>
     </AdminLayout>
   );
-  
+
   function renderOverview() {
     return (
       <div className="space-y-8">
@@ -268,7 +261,9 @@ const AdminDashboardPage = () => {
               <div>
                 <p className="text-gray-400 text-sm">Total Businesses</p>
                 <p className="text-3xl font-bold text-white">
-                  {loading ? '...' : stats?.total_businesses?.toLocaleString() || 0}
+                  {loading
+                    ? "..."
+                    : stats?.total_businesses?.toLocaleString() || 0}
                 </p>
               </div>
               <Building2 className="h-8 w-8 text-blue-500" />
@@ -280,7 +275,9 @@ const AdminDashboardPage = () => {
               <div>
                 <p className="text-gray-400 text-sm">Verified</p>
                 <p className="text-3xl font-bold text-white">
-                  {loading ? '...' : stats?.verified_businesses?.toLocaleString() || 0}
+                  {loading
+                    ? "..."
+                    : stats?.verified_businesses?.toLocaleString() || 0}
                 </p>
               </div>
               <Star className="h-8 w-8 text-green-500" />
@@ -292,7 +289,9 @@ const AdminDashboardPage = () => {
               <div>
                 <p className="text-gray-400 text-sm">Featured</p>
                 <p className="text-3xl font-bold text-white">
-                  {loading ? '...' : stats?.featured_businesses?.toLocaleString() || 0}
+                  {loading
+                    ? "..."
+                    : stats?.featured_businesses?.toLocaleString() || 0}
                 </p>
               </div>
               <TrendingUp className="h-8 w-8 text-purple-500" />
@@ -304,7 +303,9 @@ const AdminDashboardPage = () => {
               <div>
                 <p className="text-gray-400 text-sm">VIP Members</p>
                 <p className="text-3xl font-bold text-white">
-                  {loading ? '...' : stats?.member_businesses?.toLocaleString() || 0}
+                  {loading
+                    ? "..."
+                    : stats?.member_businesses?.toLocaleString() || 0}
                 </p>
               </div>
               <Crown className="h-8 w-8 text-yellow-500" />
@@ -317,93 +318,113 @@ const AdminDashboardPage = () => {
           <h3 className="text-xl font-bold text-white mb-6">Quick Actions</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <button
-              onClick={() => setActiveTab('businesses')}
+              onClick={() => setActiveTab("businesses")}
               className="p-4 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors text-left"
             >
               <Building2 className="h-6 w-6 text-blue-500 mb-2" />
               <h4 className="text-white font-medium">Manage Businesses</h4>
-              <p className="text-gray-400 text-sm">Verify, feature, and manage business listings</p>
+              <p className="text-gray-400 text-sm">
+                Verify, feature, and manage business listings
+              </p>
             </button>
 
             <button
-              onClick={() => setActiveTab('announcements')}
+              onClick={() => setActiveTab("announcements")}
               className="p-4 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors text-left"
             >
               <Megaphone className="h-6 w-6 text-green-500 mb-2" />
               <h4 className="text-white font-medium">Announcements</h4>
-              <p className="text-gray-400 text-sm">Create and manage homepage announcements</p>
+              <p className="text-gray-400 text-sm">
+                Create and manage homepage announcements
+              </p>
             </button>
 
             <button
-              onClick={() => setActiveTab('ads')}
+              onClick={() => setActiveTab("ads")}
               className="p-4 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors text-left"
             >
               <LayoutGrid className="h-6 w-6 text-purple-500 mb-2" />
               <h4 className="text-white font-medium">Manage Ads</h4>
-              <p className="text-gray-400 text-sm">Create and manage platform advertisements</p>
+              <p className="text-gray-400 text-sm">
+                Create and manage platform advertisements
+              </p>
             </button>
-            
+
             <button
-              onClick={() => setActiveTab('subscriptions')}
+              onClick={() => setActiveTab("subscriptions")}
               className="p-4 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors text-left"
             >
               <CreditCard className="h-6 w-6 text-green-500 mb-2" />
               <h4 className="text-white font-medium">Subscriptions</h4>
-              <p className="text-gray-400 text-sm">Track paid subscriptions and revenue</p>
+              <p className="text-gray-400 text-sm">
+                Track paid subscriptions and revenue
+              </p>
             </button>
-            
+
             <button
-              onClick={() => setActiveTab('payment-history')}
+              onClick={() => setActiveTab("payment-history")}
               className="p-4 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors text-left"
             >
               <DollarSign className="h-6 w-6 text-blue-500 mb-2" />
               <h4 className="text-white font-medium">Payment History</h4>
-              <p className="text-gray-400 text-sm">View transaction logs and payment details</p>
+              <p className="text-gray-400 text-sm">
+                View transaction logs and payment details
+              </p>
             </button>
-            
+
             <button
-              onClick={() => setActiveTab('promotions')}
+              onClick={() => setActiveTab("promotions")}
               className="p-4 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors text-left"
             >
               <Percent className="h-6 w-6 text-yellow-500 mb-2" />
               <h4 className="text-white font-medium">Promotions</h4>
-              <p className="text-gray-400 text-sm">Manage promotional pricing and offers</p>
+              <p className="text-gray-400 text-sm">
+                Manage promotional pricing and offers
+              </p>
             </button>
-            
+
             <button
-              onClick={() => setActiveTab('user-roles')}
+              onClick={() => setActiveTab("user-roles")}
               className="p-4 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors text-left"
             >
               <Shield className="h-6 w-6 text-yellow-500 mb-2" />
               <h4 className="text-white font-medium">User Roles</h4>
-              <p className="text-gray-400 text-sm">Manage user roles and permissions</p>
+              <p className="text-gray-400 text-sm">
+                Manage user roles and permissions
+              </p>
             </button>
 
             <button
-              onClick={() => setActiveTab('discount-codes')}
+              onClick={() => setActiveTab("discount-codes")}
               className="p-4 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors text-left"
             >
               <Tag className="h-6 w-6 text-orange-500 mb-2" />
               <h4 className="text-white font-medium">Discount Codes</h4>
-              <p className="text-gray-400 text-sm">Create and manage promotional discount codes</p>
+              <p className="text-gray-400 text-sm">
+                Create and manage promotional discount codes
+              </p>
             </button>
 
             <button
-              onClick={() => setActiveTab('feature-flags')}
+              onClick={() => setActiveTab("feature-flags")}
               className="p-4 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors text-left"
             >
               <Flag className="h-6 w-6 text-blue-500 mb-2" />
               <h4 className="text-white font-medium">Feature Flags</h4>
-              <p className="text-gray-400 text-sm">Control which features are enabled in production</p>
+              <p className="text-gray-400 text-sm">
+                Control which features are enabled in production
+              </p>
             </button>
 
             <button
-              onClick={() => setActiveTab('newsletter')}
+              onClick={() => setActiveTab("newsletter")}
               className="p-4 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors text-left relative overflow-hidden"
             >
               <Mail className="h-6 w-6 text-blue-400 mb-2" />
               <h4 className="text-white font-medium">Newsletter</h4>
-              <p className="text-gray-400 text-sm">Create and send newsletters</p>
+              <p className="text-gray-400 text-sm">
+                Create and send newsletters
+              </p>
             </button>
           </div>
         </div>
@@ -415,20 +436,30 @@ const AdminDashboardPage = () => {
             <div className="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
               <div>
                 <p className="text-white font-medium">Active Businesses</p>
-                <p className="text-gray-400 text-sm">Businesses currently visible to users</p>
+                <p className="text-gray-400 text-sm">
+                  Businesses currently visible to users
+                </p>
               </div>
               <span className="text-2xl font-bold text-green-500">
-                {loading ? '...' : stats?.active_businesses?.toLocaleString() || 0}
+                {loading
+                  ? "..."
+                  : stats?.active_businesses?.toLocaleString() || 0}
               </span>
             </div>
 
             <div className="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
               <div>
-                <p className="text-white font-medium">Unclaimed VIP Businesses</p>
-                <p className="text-gray-400 text-sm">VIP businesses waiting to be claimed</p>
+                <p className="text-white font-medium">
+                  Unclaimed VIP Businesses
+                </p>
+                <p className="text-gray-400 text-sm">
+                  VIP businesses waiting to be claimed
+                </p>
               </div>
               <span className="text-2xl font-bold text-yellow-500">
-                {loading ? '...' : stats?.unclaimed_businesses?.toLocaleString() || 0}
+                {loading
+                  ? "..."
+                  : stats?.unclaimed_businesses?.toLocaleString() || 0}
               </span>
             </div>
 
@@ -436,7 +467,9 @@ const AdminDashboardPage = () => {
               <div className="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
                 <div>
                   <p className="text-white font-medium">Inactive Businesses</p>
-                  <p className="text-gray-400 text-sm">Businesses hidden from public view</p>
+                  <p className="text-gray-400 text-sm">
+                    Businesses hidden from public view
+                  </p>
                 </div>
                 <span className="text-2xl font-bold text-red-500">
                   {stats.inactive_businesses.toLocaleString()}

@@ -10,8 +10,10 @@
  */
 export const shouldShowPremiumContent = (business: any): boolean => {
   // Show premium content based on subscription plan
-  return business?.subscription_plan_name === 'Enhanced' || 
-         business?.subscription_plan_name === 'VIP Plan';
+  return (
+    business?.subscription_plans === "Enhanced Plan" ||
+    business?.subscription_plans === "VIP Plan"
+  );
 };
 
 /**
@@ -20,10 +22,12 @@ export const shouldShowPremiumContent = (business: any): boolean => {
  * @returns boolean indicating if image gallery should be shown
  */
 export const shouldShowImageGallery = (business: any): boolean => {
-  return business?.subscription_plan_name === 'Starter Plan' || 
-         business?.subscription_plan_name === 'Enhanced' || 
-         business?.subscription_plan_name === 'VIP Plan' || 
-         business?.subscription_plan_name === 'Migrated';
+  return (
+    business?.subscription_plans === "Starter Plan" ||
+    business?.subscription_plans === "Enhanced Plan" ||
+    business?.subscription_plans === "VIP Plan" ||
+    business?.subscription_plans === "Migrated"
+  );
 };
 
 /**
@@ -32,9 +36,11 @@ export const shouldShowImageGallery = (business: any): boolean => {
  * @returns boolean indicating if contact info should be shown
  */
 export const shouldShowContactInfo = (business: any): boolean => {
-  return business?.subscription_plan_name === 'Starter Plan' || 
-         business?.subscription_plan_name === 'Enhanced' || 
-         business?.subscription_plan_name === 'VIP Plan';
+  return (
+    business?.subscription_plans === "Starter Plan" ||
+    business?.subscription_plans === "Enhanced Plan" ||
+    business?.subscription_plans === "VIP Plan"
+  );
 };
 
 /**
@@ -52,7 +58,7 @@ export const isUnclaimedMigratedBusiness = (business: any): boolean => {
  * @returns boolean indicating if the business is a VIP member
  */
 export const isVipMember = (business: any): boolean => {
-  return business?.subscription_plan_name === 'VIP Plan';
+  return business?.subscription_plans === "VIP Plan";
 };
 
 /**
@@ -61,5 +67,5 @@ export const isVipMember = (business: any): boolean => {
  * @returns boolean indicating if the business is a legacy member
  */
 export const isLegacyMember = (business: any): boolean => {
-  return business?.subscription_plan_name === 'Migrated';
+  return business?.subscription_plans === "Migrated";
 };

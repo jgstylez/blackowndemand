@@ -4,6 +4,111 @@
 
 This document outlines the email system architecture for the BlackOWNDemand platform. The system uses Supabase Edge Functions to handle all email communications, ensuring consistent delivery and proper recipient management.
 
+## Database Schema Reference
+
+### Businesses Table
+
+The `businesses` table contains all business listing information:
+
+**Core Fields:**
+
+- `id` (uuid) - Primary key
+- `name` (text) - Business name
+- `tagline` (text) - Business tagline
+- `description` (text) - Business description
+- `category` (USER-DEFINED) - Business category enum
+- `is_verified` (boolean) - Verification status
+- `is_featured` (boolean) - Featured status
+- `is_active` (boolean) - Active status (NOT NULL)
+
+**Location Fields:**
+
+- `city` (text) - City
+- `state` (text) - State/Province
+- `zip_code` (text) - Postal code
+- `country` (text) - Country
+
+**Contact Fields:**
+
+- `website_url` (text) - Website URL
+- `phone` (text) - Phone number
+- `email` (text) - Email address
+- `image_url` (text) - Business image URL
+
+**Subscription Fields:**
+
+- `subscription_id` (uuid) - Foreign key to subscription_plans.id
+- `subscription_status` (text) - Current subscription status
+- `nmi_subscription_id` (text) - NMI subscription ID
+- `nmi_customer_vault_id` (text) - NMI customer vault ID
+- `next_billing_date` (timestamp) - Next billing date
+- `last_payment_date` (timestamp) - Last payment date
+- `payment_method_last_four` (text) - Last 4 digits of payment method
+
+**Analytics Fields:**
+
+- `views_count` (bigint) - Total page views
+- `last_viewed_at` (timestamp) - Last view timestamp
+- `total_actions` (bigint) - Total contact actions (clicks)
+- `analytics_data` (jsonb) - Additional analytics data
+
+**Additional Fields:**
+
+- `social_links` (jsonb) - Social media links
+- `business_hours` (jsonb) - Operating hours
+- `amenities` (ARRAY) - Business amenities
+- `payment_methods` (ARRAY) - Accepted payment methods
+- `categories` (ARRAY) - Additional categories
+- `tags` (ARRAY) - Business tags
+- `promo_video_url` (text) - Promotional video URL
+- `featured_position` (integer) - Featured listing position
+- `is_claimed` (boolean) - Claimed status
+- `claimed_at` (timestamp) - Claim timestamp
+- `migration_source` (text) - Migration source
+- `is_resource` (boolean) - Resource flag
+- `owner_id` (uuid) - Business owner user ID
+- `created_at` (timestamp) - Creation timestamp
+- `updated_at` (timestamp) - Last update timestamp
+
+### Subscription Plans Table
+
+The `subscription_plans` table defines available subscription tiers:
+
+**Core Fields:**
+
+- `id` (uuid) - Primary key
+- `name` (text) - Plan name (e.g., "Enhanced Plan", "VIP Plan")
+- `price` (numeric) - Plan price
+- `interval` (text) - Billing interval
+- `features` (jsonb) - Plan features
+
+**Limits:**
+
+- `image_limit` (integer) - Maximum images allowed
+- `category_limit` (integer) - Maximum categories allowed
+
+**Timestamps:**
+
+- `created_at` (timestamp) - Creation timestamp
+- `updated_at` (timestamp) - Last update timestamp
+
+### Key Relationships
+
+- `businesses.subscription_id` → `subscription_plans.id`
+- `businesses.owner_id` → `profiles.id` (users table)
+
+### Important Notes
+
+1. **No `subscription_plan_name` column**: The businesses table uses `subscription_id` (foreign key) to reference the plan, not a direct plan name string.
+
+2. **Analytics fields**: The `views_count`, `last_viewed_at`, `total_actions`, and `analytics_data` fields are used for business analytics tracking.
+
+3. **Social links**: Stored as JSONB to allow flexible social media platform additions.
+
+4. **Arrays**: Tags, amenities, payment_methods, and categories are stored as PostgreSQL arrays.
+
+5. **Timestamps**: All timestamp fields use `timestamp with time zone` for proper timezone handling.
+
 ## Email Configuration
 
 ### Environment Variables

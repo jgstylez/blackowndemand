@@ -133,7 +133,7 @@ export function useBusinessListingForm(location: any, navigate: any) {
         throw new Error("User not authenticated");
       }
 
-      // Prepare business data (without subscription_plan_name)
+      // Prepare business data (without subscription_plans)
       const businessData: any = {
         name: formData.name,
         tagline: formData.tagline,

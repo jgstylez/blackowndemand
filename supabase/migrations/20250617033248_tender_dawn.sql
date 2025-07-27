@@ -23,7 +23,7 @@
 CREATE OR REPLACE FUNCTION public.get_businesses_with_plan_details(
   p_is_active boolean DEFAULT NULL,
   p_is_featured boolean DEFAULT NULL,
-  p_subscription_plan_name text DEFAULT NULL,
+  p_subscription_plans text DEFAULT NULL,
   p_business_id uuid DEFAULT NULL,
   p_search_term text DEFAULT NULL,
   p_category text DEFAULT NULL,
@@ -62,7 +62,7 @@ RETURNS TABLE (
   claimed_at timestamptz,
   migration_source text,
   is_resource boolean,
-  subscription_plan_name text,
+  subscription_plans text,
   total_count bigint
 )
 LANGUAGE plpgsql
@@ -82,7 +82,7 @@ BEGIN
     (p_is_active IS NULL OR b.is_active = p_is_active)
     AND (p_is_featured IS NULL OR b.is_featured = p_is_featured)
     AND (p_business_id IS NULL OR b.id = p_business_id)
-    AND (p_subscription_plan_name IS NULL OR sp.name = p_subscription_plan_name)
+    AND (p_subscription_plans IS NULL OR sp.name = p_subscription_plans)
     AND (
       p_search_term IS NULL OR 
       b.name ILIKE '%' || p_search_term || '%' OR
@@ -134,7 +134,7 @@ BEGIN
     b.claimed_at,
     b.migration_source,
     b.is_resource,
-    COALESCE(sp.name, 'Free') as subscription_plan_name,
+    COALESCE(sp.name, 'Free') as subscription_plans,
     total_records as total_count
   FROM businesses b
   LEFT JOIN subscriptions s ON b.subscription_id = s.id
@@ -143,7 +143,7 @@ BEGIN
     (p_is_active IS NULL OR b.is_active = p_is_active)
     AND (p_is_featured IS NULL OR b.is_featured = p_is_featured)
     AND (p_business_id IS NULL OR b.id = p_business_id)
-    AND (p_subscription_plan_name IS NULL OR sp.name = p_subscription_plan_name)
+    AND (p_subscription_plans IS NULL OR sp.name = p_subscription_plans)
     AND (
       p_search_term IS NULL OR 
       b.name ILIKE '%' || p_search_term || '%' OR
