@@ -7,6 +7,7 @@ import { supabase } from "../lib/supabase";
 import { usePaymentProvider } from "../hooks/usePaymentProvider";
 import PaymentModal from "../components/payment/PaymentModal";
 import PlanPromotion from "../components/pricing/PlanPromotion";
+import { PAYMENT_CONFIG } from "../config/paymentConfig";
 
 type PlanName = "Starter Plan" | "Enhanced Plan" | "VIP Plan";
 
@@ -67,8 +68,6 @@ const PricingPage = () => {
 
     console.log("Payment provider:", provider, "isStripe:", isStripe);
 
-    // --- FORCE STRIPE FOR LOCAL DEV ---
-    // if (isStripe) {
     try {
       // Create Stripe checkout session with annual billing
       const { data, error } = await supabase.functions.invoke(
@@ -78,9 +77,9 @@ const PricingPage = () => {
             planPrice,
             planName,
             successUrl: `${
-              window.location.origin
-            }/pricing?success=true&plan=${encodeURIComponent(planName)}`,
-            cancelUrl: `${window.location.origin}/pricing?canceled=true`,
+              PAYMENT_CONFIG.stripeConfig.successUrl
+            }${encodeURIComponent(planName)}`,
+            cancelUrl: PAYMENT_CONFIG.stripeConfig.cancelUrl,
           },
         }
       );
@@ -107,13 +106,9 @@ const PricingPage = () => {
       console.error("Error creating checkout session:", error);
       setError("Failed to initiate payment. Please try again.");
     }
-    // } else {
-    //   // Use Ecom Payments payment modal
-    //   setIsPaymentModalOpen(true);
-    // }
   };
 
-  const handlePaymentSuccess = (paymentData: any) => {
+  const handlePaymentSuccess = () => {
     // Close payment modal
     setIsPaymentModalOpen(false);
 

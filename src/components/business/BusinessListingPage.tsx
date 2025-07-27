@@ -12,7 +12,7 @@ import BusinessLocationStep from "./listing/BusinessLocationStep";
 import BusinessMediaStep from "./listing/BusinessMediaStep";
 import BusinessPremiumStep from "./listing/BusinessPremiumStep";
 import BusinessSummaryStep from "./listing/BusinessSummaryStep";
-import PaymentModal from "../payment/PaymentModal";
+import { useUnifiedPayment } from "../../hooks/useUnifiedPayment";
 
 interface Step {
   id: number;
@@ -69,8 +69,6 @@ const BusinessListingPage = () => {
     []
   );
 
-  // Payment Modal State
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [planName, setPlanName] = useState<string | null>(null);
   const [planPrice, setPlanPrice] = useState<number | null>(null);
   const [discountedAmount, setDiscountedAmount] = useState<number | null>(null);
@@ -81,6 +79,17 @@ const BusinessListingPage = () => {
 
   const { formData, setFormData } = useBusinessListingForm(location, navigate);
 
+  // Use unified payment hook
+  const { handlePayment } = useUnifiedPayment({
+    onSuccess: async () => {
+      // Handle post-payment business creation/update
+      await handlePaymentSuccess();
+    },
+    onError: (errorMessage) => {
+      setError(errorMessage);
+    },
+  });
+
   useEffect(() => {
     // Check if payment was completed (from location state)
     if (location.state?.paymentCompleted) {
@@ -88,11 +97,6 @@ const BusinessListingPage = () => {
       setPlanPrice(location.state.planPrice || 0);
       setDiscountedAmount(location.state.planPrice || 0);
       setBusinessIdToUpdate(location.state.businessIdToUpdate || null);
-      setShowPaymentModal(false);
-      setCurrentStep(5);
-    } else {
-      // Reset form if no payment completed
-      setCurrentStep(1);
     }
 
     // Check if businessIdToUpdate is passed as search parameter
@@ -114,14 +118,23 @@ const BusinessListingPage = () => {
     }
   };
 
-  const startPayment = (
+  const startPayment = async (
     selectedPlanName: string,
     selectedPlanPrice: number
   ) => {
     setPlanName(selectedPlanName);
     setPlanPrice(selectedPlanPrice);
     setDiscountedAmount(selectedPlanPrice);
-    setShowPaymentModal(true);
+
+    // Use unified payment hook instead of showing modal
+    await handlePayment({
+      planName: selectedPlanName,
+      planPrice: selectedPlanPrice,
+      successUrl: `${
+        window.location.origin
+      }/business/new?success=true&plan=${encodeURIComponent(selectedPlanName)}`,
+      cancelUrl: `${window.location.origin}/business/new?canceled=true`,
+    });
   };
 
   const handlePaymentSuccess = async () => {
@@ -240,7 +253,6 @@ const BusinessListingPage = () => {
       }
 
       // Payment successful
-      setShowPaymentModal(false);
     } catch (error) {
       console.error("❌ Error in payment success handler:", error);
       setError("Failed to create business listing. Please try again.");
@@ -349,15 +361,6 @@ const BusinessListingPage = () => {
             ) : null}
           </div>
         </div>
-
-        <PaymentModal
-          isOpen={showPaymentModal}
-          onClose={() => setShowPaymentModal(false)}
-          onSuccess={handlePaymentSuccess}
-          amount={discountedAmount}
-          description={`Annual ${planName || "Business Listing"} subscription`}
-          planName={planName || "Business Listing"}
-        />
       </div>
     </Layout>
   );

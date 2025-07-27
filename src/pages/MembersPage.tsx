@@ -1,9 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import Layout from "../components/layout/Layout";
 import {
-  ExternalLink,
   Crown,
-  Building2,
   Users,
   Zap,
   Star,
@@ -19,22 +17,9 @@ import {
 import { supabase, getBusinessImageUrl } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { useNavigate, useLocation } from "react-router-dom";
-import { usePaymentProvider } from "../hooks/usePaymentProvider";
+import { useUnifiedPayment } from "../hooks/useUnifiedPayment";
 import BusinessCTA from "../components/common/BusinessCTA";
 import PlanPromotion from "../components/pricing/PlanPromotion";
-
-const categories = [
-  "All",
-  "Funding",
-  "Business Planning",
-  "Marketing",
-  "Legal",
-  "Technology",
-  "Operations",
-  "Growth",
-  "Community",
-  "Mentorship",
-];
 
 interface VIPBusiness {
   id: string;
@@ -57,15 +42,26 @@ const BUSINESSES_PER_PAGE = 12;
 
 const VIPPage = () => {
   const { user } = useAuth();
-  const paymentProvider = usePaymentProvider();
   const navigate = useNavigate();
   const location = useLocation();
-  const [loading, setLoading] = useState(false);
+  const [loading] = useState(false);
   const [vipBusinesses, setVIPBusinesses] = useState<VIPBusiness[]>([]);
   const [businessesLoading, setBusinessesLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalBusinesses, setTotalBusinesses] = useState(0);
   const [error, setError] = useState<string | null>(null);
+
+  // Use unified payment hook
+  const { handlePayment } = useUnifiedPayment({
+    onSuccess: (result) => {
+      console.log("Payment successful:", result);
+      // Payment success is handled by URL redirect
+    },
+    onError: (errorMessage) => {
+      setError(errorMessage);
+      setTimeout(() => setError(null), 5000);
+    },
+  });
 
   // Check for Stripe checkout results (same as pricing page)
   useEffect(() => {
@@ -142,49 +138,15 @@ const VIPPage = () => {
       return;
     }
 
-    try {
-      setLoading(true);
-      setError(null);
-
-      // Create Stripe checkout session with annual billing (same as pricing page)
-      const { data, error } = await supabase.functions.invoke(
-        "create-checkout-session",
-        {
-          body: {
-            planPrice: 99,
-            planName: "VIP Plan",
-            successUrl: `${
-              window.location.origin
-            }/members?success=true&plan=${encodeURIComponent("VIP Plan")}`,
-            cancelUrl: `${window.location.origin}/members?canceled=true`,
-          },
-        }
-      );
-
-      if (error) throw error;
-
-      if (data?.free_transaction) {
-        // Handle $0 transactions
-        navigate("/business/new", {
-          state: {
-            planPrice: 0,
-            planName: "VIP Plan",
-            paymentCompleted: true,
-          },
-        });
-        return;
-      }
-
-      if (!data?.url) throw new Error("No checkout URL received");
-
-      // Redirect to Stripe Checkout
-      window.location.href = data.url;
-    } catch (error) {
-      console.error("Error creating checkout session:", error);
-      setError("Failed to initiate payment. Please try again.");
-    } finally {
-      setLoading(false);
-    }
+    // Use unified payment hook instead of direct Stripe call
+    await handlePayment({
+      planName: "VIP Plan",
+      planPrice: 99,
+      successUrl: `${
+        window.location.origin
+      }/members?success=true&plan=${encodeURIComponent("VIP Plan")}`,
+      cancelUrl: `${window.location.origin}/members?canceled=true`,
+    });
   };
 
   const handlePageChange = (page: number) => {

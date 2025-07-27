@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
-import { X, Crown, Star, Check, ArrowRight, Shield } from 'lucide-react';
-import PaymentModal from '../payment/PaymentModal';
+import { X, Crown, Star, Check, ArrowRight } from "lucide-react";
+import { useUnifiedPayment } from "../../hooks/useUnifiedPayment";
 
 interface Promotion {
   id: string;
@@ -27,24 +26,37 @@ const PromotionOfferModal: React.FC<PromotionOfferModalProps> = ({
   onClose,
   promotion,
   onAccept,
-  onDecline
+  onDecline,
 }) => {
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  
+  const { handlePromotionalPayment, loading, error } = useUnifiedPayment({
+    onSuccess: () => {
+      onAccept(promotion.id);
+    },
+    onError: (errorMessage) => {
+      console.error("Payment error:", errorMessage);
+    },
+  });
+
   if (!isOpen) return null;
 
-  const handleAccept = () => {
-    setShowPaymentModal(true);
-  };
-
-  const handlePaymentSuccess = (paymentData: any) => {
-    setShowPaymentModal(false);
-    onAccept(promotion.id);
+  const handleAccept = async () => {
+    await handlePromotionalPayment({
+      planName: promotion.originalPlanName,
+      planPrice: promotion.promotionalPrice,
+      promotionId: promotion.id,
+      metadata: {
+        original_price: promotion.originalPrice,
+        promotional_price: promotion.promotionalPrice,
+        promotion_id: promotion.id,
+      },
+    });
   };
 
   // Calculate savings
   const savings = promotion.originalPrice - promotion.promotionalPrice;
-  const savingsPercentage = Math.round((savings / promotion.originalPrice) * 100);
+  const savingsPercentage = Math.round(
+    (savings / promotion.originalPrice) * 100
+  );
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -75,9 +87,16 @@ const PromotionOfferModal: React.FC<PromotionOfferModalProps> = ({
                 Upgrade to VIP at a Special Price!
               </h3>
               <p className="text-gray-400">
-                As a thank you for claiming your business, we're offering you our premium VIP plan at a special price.
+                As a thank you for claiming your business, we're offering you
+                our premium VIP plan at a special price.
               </p>
             </div>
+
+            {error && (
+              <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4">
+                <p className="text-red-400 text-sm">{error}</p>
+              </div>
+            )}
 
             <div className="bg-gray-800 rounded-lg p-6">
               <div className="flex justify-between items-center mb-4">
@@ -86,8 +105,12 @@ const PromotionOfferModal: React.FC<PromotionOfferModalProps> = ({
                   <h4 className="text-lg font-semibold text-white">VIP Plan</h4>
                 </div>
                 <div className="text-right">
-                  <span className="text-gray-400">${promotion.originalPrice}</span>
-                  <span className="text-2xl font-bold text-white ml-2">${promotion.promotionalPrice}</span>
+                  <span className="text-gray-400">
+                    ${promotion.originalPrice}
+                  </span>
+                  <span className="text-2xl font-bold text-white ml-2">
+                    ${promotion.promotionalPrice}
+                  </span>
                 </div>
               </div>
 
@@ -119,38 +142,40 @@ const PromotionOfferModal: React.FC<PromotionOfferModalProps> = ({
               </div>
 
               <p className="text-xs text-gray-500">
-                Annual subscription. Offer valid until {promotion.endDate ? new Date(promotion.endDate).toLocaleDateString() : 'limited time only'}.
+                Annual subscription. Offer valid until{" "}
+                {promotion.endDate
+                  ? new Date(promotion.endDate).toLocaleDateString()
+                  : "limited time only"}
+                .
               </p>
             </div>
 
             <div className="flex gap-4">
               <button
                 onClick={onDecline}
-                className="flex-1 py-3 px-4 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                disabled={loading}
+                className="flex-1 py-3 px-4 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50"
               >
                 No Thanks
               </button>
               <button
                 onClick={handleAccept}
-                className="flex-1 py-3 px-4 bg-yellow-400 hover:bg-yellow-300 text-black rounded-lg transition-colors font-semibold flex items-center justify-center"
+                disabled={loading}
+                className="flex-1 py-3 px-4 bg-yellow-400 hover:bg-yellow-300 text-black rounded-lg transition-colors font-semibold flex items-center justify-center disabled:opacity-50"
               >
-                Get VIP
-                <ArrowRight className="ml-2 h-4 w-4" />
+                {loading ? (
+                  "Processing..."
+                ) : (
+                  <>
+                    Get VIP
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </>
+                )}
               </button>
             </div>
           </div>
         </div>
       </div>
-
-      {/* Payment Modal */}
-      <PaymentModal
-        isOpen={showPaymentModal}
-        onClose={() => setShowPaymentModal(false)}
-        onSuccess={handlePaymentSuccess}
-        amount={promotion.promotionalPrice}
-        description={`Annual VIP Membership - Special Offer (${savingsPercentage}% off)`}
-        planName="VIP Membership"
-      />
     </div>
   );
 };
