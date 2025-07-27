@@ -1087,13 +1087,13 @@ const InlineBusinessEdit: React.FC<InlineBusinessEditProps> = ({
                 >
                   {day.charAt(0).toUpperCase() + day.slice(1)}
                 </label>
-                <input
-                  type="text"
+                <select
                   id={`hours_${day}`}
                   name={`business_hours.${day}`}
                   value={(formData.business_hours as any)?.[day] || ""}
                   onChange={(e) => {
                     const { value } = e.target;
+                    console.log(`🔍 Setting ${day} hours to:`, value);
                     setFormData((prev) => ({
                       ...prev,
                       business_hours: {
@@ -1102,56 +1102,35 @@ const InlineBusinessEdit: React.FC<InlineBusinessEditProps> = ({
                       },
                     }));
                   }}
-                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white focus:border-transparent"
-                  placeholder="9:00 AM - 5:00 PM"
-                />
+                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-white focus:border-transparent"
+                >
+                  <option value="">Select hours</option>
+                  <option value="Closed">Closed</option>
+                  <option value="24 Hours">24 Hours</option>
+                  <option value="6:00 AM - 2:00 PM">6:00 AM - 2:00 PM</option>
+                  <option value="7:00 AM - 3:00 PM">7:00 AM - 3:00 PM</option>
+                  <option value="8:00 AM - 4:00 PM">8:00 AM - 4:00 PM</option>
+                  <option value="9:00 AM - 5:00 PM">9:00 AM - 5:00 PM</option>
+                  <option value="10:00 AM - 6:00 PM">10:00 AM - 6:00 PM</option>
+                  <option value="11:00 AM - 7:00 PM">11:00 AM - 7:00 PM</option>
+                  <option value="12:00 PM - 8:00 PM">12:00 PM - 8:00 PM</option>
+                  <option value="1:00 PM - 9:00 PM">1:00 PM - 9:00 PM</option>
+                  <option value="2:00 PM - 10:00 PM">2:00 PM - 10:00 PM</option>
+                  <option value="3:00 PM - 11:00 PM">3:00 PM - 11:00 PM</option>
+                  <option value="4:00 PM - 12:00 AM">4:00 PM - 12:00 AM</option>
+                  <option value="5:00 PM - 1:00 AM">5:00 PM - 1:00 AM</option>
+                  <option value="6:00 PM - 2:00 AM">6:00 PM - 2:00 AM</option>
+                  <option value="7:00 PM - 3:00 AM">7:00 PM - 3:00 AM</option>
+                  <option value="8:00 PM - 4:00 AM">8:00 PM - 4:00 AM</option>
+                  <option value="9:00 PM - 5:00 AM">9:00 PM - 5:00 AM</option>
+                  <option value="10:00 PM - 6:00 AM">10:00 PM - 6:00 AM</option>
+                  <option value="11:00 PM - 7:00 AM">11:00 PM - 7:00 AM</option>
+                  <option value="12:00 AM - 8:00 AM">12:00 AM - 8:00 AM</option>
+                </select>
               </div>
             ))}
           </div>
         </div>
-
-        {/* Payment Methods Section - REMOVE THIS ENTIRE SECTION */}
-        {/* <div className="mt-6">
-          <label className="block text-sm font-medium text-gray-300 mb-4">
-            Payment Methods (Optional)
-          </label>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            {[
-              "Cash",
-              "Credit Card",
-              "Debit Card",
-              "Digital Wallet",
-              "Bank Transfer",
-              "Check",
-              "PayPal",
-              "Venmo",
-              "Apple Pay",
-              "Google Pay",
-              "Crypto",
-              "Gift Cards",
-            ].map((method) => (
-              <label key={method} className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  checked={(formData.payment_methods || []).includes(method)}
-                  onChange={(e) => {
-                    const { checked } = e.target;
-                    setFormData((prev) => ({
-                      ...prev,
-                      payment_methods: checked
-                        ? [...(prev.payment_methods || []), method]
-                        : (prev.payment_methods || []).filter(
-                            (m) => m !== method
-                          ),
-                    }));
-                  }}
-                  className="rounded border-gray-600 bg-gray-800 text-white focus:ring-white"
-                />
-                <span className="text-sm text-gray-300">{method}</span>
-              </label>
-            ))}
-          </div>
-        </div> */}
 
         <div className="flex justify-end space-x-4 pt-6 border-t border-gray-700">
           <button
