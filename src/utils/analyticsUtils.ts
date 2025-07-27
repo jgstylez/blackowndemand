@@ -121,13 +121,30 @@ export const fetchUserBusinessAnalytics = async (businessIds: string[]) => {
   try {
     if (businessIds.length === 0) return [];
 
-    const { data, error } = await supabase
-      .from("business_analytics")
-      .select("*")
-      .in("business_id", businessIds);
+    // First, get basic business data with analytics fields
+    const { data: businesses, error: businessesError } = await supabase
+      .from("businesses")
+      .select("id, name, views_count, last_viewed_at, total_actions")
+      .in("id", businessIds);
 
-    if (error) throw error;
-    return data || [];
+    if (businessesError) throw businessesError;
+
+    // Transform to match BusinessAnalytics interface
+    const analytics =
+      businesses?.map((business) => ({
+        business_id: business.id,
+        business_name: business.name,
+        views_count: business.views_count || 0,
+        last_viewed_at: business.last_viewed_at,
+        total_actions: business.total_actions || 0,
+        total_views: business.views_count || 0,
+        total_actions_count: business.total_actions || 0,
+        contact_clicks: 0, // Will be calculated from business_actions table
+        website_clicks: 0, // Will be calculated from business_actions table
+        phone_clicks: 0, // Will be calculated from business_actions table
+      })) || [];
+
+    return analytics;
   } catch (error) {
     console.error("Error fetching user business analytics:", error);
     return [];

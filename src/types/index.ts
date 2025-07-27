@@ -27,6 +27,9 @@ export interface Business {
   subscription_id?: string | null;
   subscription_status?: string | null;
   plan_name?: string | null;
+  views_count?: number;
+  last_viewed_at?: string | null;
+  total_actions?: number;
   is_claimed: boolean;
   claimed_at?: string | null;
   migration_source?: string | null;

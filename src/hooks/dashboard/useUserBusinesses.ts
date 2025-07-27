@@ -52,7 +52,7 @@ const useUserBusinesses = () => {
           subscription_status: business.subscription_status || undefined,
           plan_name: business.plan_name || undefined,
           views_count: business.views_count || 0,
-          last_viewed_at: business.last_viewed_at || undefined,
+          last_viewed_at: business.last_viewed_at || null,
           total_actions: business.total_actions || 0,
           created_at: business.created_at || new Date().toISOString(),
           updated_at: business.updated_at || new Date().toISOString(),
