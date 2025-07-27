@@ -95,7 +95,7 @@ const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({
         throw error;
       }
 
-      setSubscriptions(data || []);
+      setSubscriptions((data as Subscription[]) || []);
     } catch (err) {
       console.error("Error fetching subscriptions:", err);
       setError("Failed to load subscription data");
@@ -469,7 +469,7 @@ const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({
             >
               <option value="all">All Plans</option>
               <option value="Starter Plan">Starter Plan</option>
-              <option value="Enhanced">Enhanced</option>
+              <option value="Enhanced Plan">Enhanced Plan</option>
               <option value="VIP Plan">VIP Plan</option>
             </select>
           </div>
@@ -569,7 +569,7 @@ const SubscriptionManagement: React.FC<SubscriptionManagementProps> = ({
                             className={`inline-block w-2 h-2 rounded-full mr-2 ${
                               sub.plan_name === "VIP Plan"
                                 ? "bg-yellow-500"
-                                : sub.plan_name === "Enhanced"
+                                : sub.plan_name === "Enhanced Plan"
                                 ? "bg-purple-500"
                                 : "bg-blue-500"
                             }`}

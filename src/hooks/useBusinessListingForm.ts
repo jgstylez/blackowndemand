@@ -133,6 +133,24 @@ export function useBusinessListingForm(location: any, navigate: any) {
         throw new Error("User not authenticated");
       }
 
+      // Check for existing business with same name
+      const { data: existingBusiness, error: checkError } = await supabase
+        .from("businesses")
+        .select("id, name")
+        .eq("owner_id", user.id)
+        .eq("name", formData.name)
+        .single();
+
+      if (checkError && checkError.code !== "PGRST116") {
+        throw checkError;
+      }
+
+      if (existingBusiness) {
+        throw new Error(
+          `A business with the name "${formData.name}" already exists. Please choose a different name.`
+        );
+      }
+
       // Prepare business data (without subscription_plans)
       const businessData: any = {
         name: formData.name,
@@ -198,8 +216,11 @@ export function useBusinessListingForm(location: any, navigate: any) {
 
       console.log("✅ Business created:", newBusiness);
 
-      // If this is a paid plan, create a subscription record
-      if (planName && planName !== "Starter Plan") {
+      // Update the subscription creation logic
+      // All new businesses (after payment) are paid plans: Starter, Enhanced, or VIP
+      if (planName) {
+        console.log("🔍 Creating subscription for paid plan:", planName);
+
         // Get the subscription plan ID
         const { data: subscriptionPlan, error: planError } = await supabase
           .from("subscription_plans")
@@ -208,8 +229,11 @@ export function useBusinessListingForm(location: any, navigate: any) {
           .single();
 
         if (planError) {
-          console.warn("Could not find subscription plan:", planError);
+          console.error("❌ Could not find subscription plan:", planError);
+          throw new Error(`Subscription plan '${planName}' not found`);
         } else {
+          console.log("✅ Found subscription plan:", subscriptionPlan);
+
           // Create subscription record
           const subscriptionData = {
             business_id: newBusiness.id,
@@ -229,15 +253,40 @@ export function useBusinessListingForm(location: any, navigate: any) {
             .single();
 
           if (subError) {
-            console.warn("Could not create subscription:", subError);
+            console.error("❌ Could not create subscription:", subError);
+            throw new Error(
+              `Failed to create subscription: ${subError.message}`
+            );
           } else {
-            // Update business with subscription_id
-            await supabase
-              .from("businesses")
-              .update({ subscription_id: subscription.id })
-              .eq("id", newBusiness.id);
+            console.log("✅ Subscription created:", subscription);
+
+            // Update business with subscription_id AND subscription_status
+            if (subscription) {
+              const { error: updateError } = await supabase
+                .from("businesses")
+                .update({
+                  subscription_id: subscription.id,
+                  subscription_status: planName, // Will be "Starter Plan", "Enhanced Plan", or "VIP Plan"
+                })
+                .eq("id", newBusiness.id);
+
+              if (updateError) {
+                console.error(
+                  "❌ Error updating business subscription:",
+                  updateError
+                );
+                throw new Error(
+                  `Failed to update business subscription: ${updateError.message}`
+                );
+              } else {
+                console.log("✅ Business subscription updated successfully");
+              }
+            }
           }
         }
+      } else {
+        console.error("❌ No plan name provided for business creation");
+        throw new Error("No subscription plan specified");
       }
 
       // Navigate to dashboard with success message

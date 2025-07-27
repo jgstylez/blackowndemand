@@ -1,16 +1,16 @@
-# BlackOWNDemand Email System Documentation
+# BlackOWNDemand Database Schema Documentation
 
 ## Overview
 
-This document outlines the email system architecture for the BlackOWNDemand platform. The system uses Supabase Edge Functions to handle all email communications, ensuring consistent delivery and proper recipient management.
+This document outlines the complete database schema for the BlackOWNDemand platform, including all tables, fields, and their relationships.
 
-## Database Schema Reference
+## Database Tables
 
-### Businesses Table
+### 1. Businesses Table (`businesses`)
 
-The `businesses` table contains all business listing information:
+The core table containing all business listing information:
 
-**Core Fields:**
+**Primary Fields:**
 
 - `id` (uuid) - Primary key
 - `name` (text) - Business name
@@ -35,24 +35,24 @@ The `businesses` table contains all business listing information:
 - `email` (text) - Email address
 - `image_url` (text) - Business image URL
 
-**Subscription Fields:**
+**Subscription & Payment Fields:**
 
-- `subscription_id` (uuid) - Foreign key to subscription_plans.id
+- `subscription_id` (uuid) - Foreign key to subscriptions.id
 - `subscription_status` (text) - Current subscription status
 - `nmi_subscription_id` (text) - NMI subscription ID
 - `nmi_customer_vault_id` (text) - NMI customer vault ID
-- `next_billing_date` (timestamp) - Next billing date
-- `last_payment_date` (timestamp) - Last payment date
+- `next_billing_date` (timestamp with time zone) - Next billing date
+- `last_payment_date` (timestamp with time zone) - Last payment date
 - `payment_method_last_four` (text) - Last 4 digits of payment method
 
 **Analytics Fields:**
 
 - `views_count` (bigint) - Total page views
-- `last_viewed_at` (timestamp) - Last view timestamp
+- `last_viewed_at` (timestamp with time zone) - Last view timestamp
 - `total_actions` (bigint) - Total contact actions (clicks)
 - `analytics_data` (jsonb) - Additional analytics data
 
-**Additional Fields:**
+**Content Fields:**
 
 - `social_links` (jsonb) - Social media links
 - `business_hours` (jsonb) - Operating hours
@@ -61,302 +61,384 @@ The `businesses` table contains all business listing information:
 - `categories` (ARRAY) - Additional categories
 - `tags` (ARRAY) - Business tags
 - `promo_video_url` (text) - Promotional video URL
+
+**Management Fields:**
+
 - `featured_position` (integer) - Featured listing position
 - `is_claimed` (boolean) - Claimed status
-- `claimed_at` (timestamp) - Claim timestamp
+- `claimed_at` (timestamp with time zone) - Claim timestamp
 - `migration_source` (text) - Migration source
 - `is_resource` (boolean) - Resource flag
 - `owner_id` (uuid) - Business owner user ID
-- `created_at` (timestamp) - Creation timestamp
-- `updated_at` (timestamp) - Last update timestamp
 
-### Subscription Plans Table
+**Timestamps:**
 
-The `subscription_plans` table defines available subscription tiers:
+- `created_at` (timestamp with time zone) - Creation timestamp
+- `updated_at` (timestamp with time zone) - Last update timestamp
+
+### 2. Subscription Plans Table (`subscription_plans`)
+
+Defines available subscription tiers:
 
 **Core Fields:**
 
 - `id` (uuid) - Primary key
-- `name` (text) - Plan name (e.g., "Enhanced Plan", "VIP Plan")
+- `name` (text) - Plan name ("Starter Plan", "Enhanced Plan", "VIP Plan")
 - `price` (numeric) - Plan price
 - `interval` (text) - Billing interval
 - `features` (jsonb) - Plan features
-
-**Limits:**
-
 - `image_limit` (integer) - Maximum images allowed
 - `category_limit` (integer) - Maximum categories allowed
 
 **Timestamps:**
 
-- `created_at` (timestamp) - Creation timestamp
-- `updated_at` (timestamp) - Last update timestamp
+- `created_at` (timestamp with time zone) - Creation timestamp
+- `updated_at` (timestamp with time zone) - Last update timestamp
+
+### 3. Subscriptions Table (`subscriptions`)
 
-### Key Relationships
-
-- `businesses.subscription_id` → `subscription_plans.id`
-- `businesses.owner_id` → `profiles.id` (users table)
-
-### Important Notes
-
-1. **No `subscription_plan_name` column**: The businesses table uses `subscription_id` (foreign key) to reference the plan, not a direct plan name string.
-
-2. **Analytics fields**: The `views_count`, `last_viewed_at`, `total_actions`, and `analytics_data` fields are used for business analytics tracking.
-
-3. **Social links**: Stored as JSONB to allow flexible social media platform additions.
-
-4. **Arrays**: Tags, amenities, payment_methods, and categories are stored as PostgreSQL arrays.
-
-5. **Timestamps**: All timestamp fields use `timestamp with time zone` for proper timezone handling.
-
-## Email Configuration
-
-### Environment Variables
-
-The following environment variables are used to configure email recipients:
-
-```
-VITE_PRIMARY_SUPPORT_EMAIL=support@blackdollarnetwork.com
-VITE_SECONDARY_SUPPORT_EMAIL=jlgreen@blackdollarnetwork.com
-```
-
-These variables are used in the frontend to display email addresses and in Edge Functions to determine email recipients.
-
-### Server-Side Environment Variables
-
-The Edge Functions also use these environment variables:
-
-```
-PRIMARY_SUPPORT_EMAIL=support@blackdollarnetwork.com
-SECONDARY_SUPPORT_EMAIL=jlgreen@blackdollarnetwork.com
-```
-
-These should be set in your Supabase project's Edge Function environment.
-
-## Email Handling Architecture
-
-### Centralized Configuration
-
-All email addresses are managed through the `src/lib/emailConfig.ts` module, which provides:
-
-- `PRIMARY_SUPPORT_EMAIL`: Main recipient for all communications
-- `SECONDARY_SUPPORT_EMAIL`: Secondary recipient (BCC) for all communications
-- Helper functions for formatting and retrieving email addresses
-
-### Edge Functions
-
-1. **send-contact-email**
-
-   - Handles all contact form submissions
-   - Automatically BCCs the secondary support email
-   - Validates input data before sending
-   - Returns standardized success/error responses
-
-2. **subscribe**
-
-   - Manages newsletter subscriptions
-   - Stores subscriber information in the database
-   - Handles duplicate subscriptions gracefully
-
-3. **process-payment**
-   - Handles payment processing for business listings
-   - Integrates with payment gateway for secure transactions
-   - Supports both live and test environments
-   - Handles discount code application
-
-## Email Flow
-
-### Contact Form Submission
-
-1. User fills out a contact form on the website
-2. Form data is sent to the `send-contact-email` Edge Function
-3. The function validates the data and formats the email
-4. Email is sent to the primary support email with BCC to the secondary email
-5. Success/error response is returned to the user
-
-### Newsletter Subscription
-
-1. User enters their email in a newsletter subscription form
-2. Email is sent to the `subscribe` Edge Function
-3. The function validates the email and checks for duplicates
-4. Subscriber is added to the database
-5. Success/error response is returned to the user
-
-## Business Listing Process
-
-### Payment-First Approach
-
-The business listing process follows a payment-first approach, where users complete payment before entering business details. This approach has several benefits:
-
-1. **Reduced Abandonment**: By collecting payment upfront, we ensure that only serious users proceed with the listing process
-2. **Streamlined Experience**: Users who have already paid are more likely to complete the entire listing process
-3. **Immediate Access**: Upon payment, users gain immediate access to all features of their chosen plan
-
-### Business Listing Steps
-
-The business listing process follows these steps in order:
-
-1. **Payment**: User selects a plan and completes payment
-2. **Business Information**: Basic details like name, description, category
-3. **Location**: Address and geographic information
-4. **Media & Contact**: Upload images and provide contact details
-5. **Premium Features** (for Enhanced and VIP plans only): Add social media links and promotional videos
-6. **Summary**: Review all information before final submission
-
-## Category Filtering and URL Parameters
-
-### How Category Filtering Works
-
-- When a user clicks a category on the Categories page, the app links to `/browse?category=Category+Label` (e.g., `/browse?category=Arts%2C%20Crafts%20%26%20Party%20Supplies`).
-- The Browse page reads the `category` parameter from the URL and attempts to match it to either the human-readable label (e.g., "Arts, Crafts & Party Supplies") or the enum value (e.g., `ARTS_CRAFTS_PARTY_SUPPLIES`).
-- This means both formats are supported in the URL, and the Browse page will correctly filter businesses by category regardless of which is used.
-- The code is robust to both, but for future-proofing, consider migrating to using slugs (e.g., `arts-crafts-party-supplies`) in URLs and decoding them in BrowsePage.
-
-### Developer Note
-
-- See `CategoriesPage.tsx` and `BrowsePage.tsx` for the relevant logic and comments.
-- If you update category handling or want to use slugs, update both the link generation and the URL parsing logic accordingly.
-
-## Deployment Instructions
-
-### Edge Functions Deployment
-
-1. Navigate to the Supabase Edge Functions directory:
-
-   ```bash
-   cd supabase/functions
-   ```
-
-2. Deploy the Edge Functions:
-
-   ```bash
-   supabase functions deploy send-contact-email --project-ref your-project-ref
-   supabase functions deploy subscribe --project-ref your-project-ref
-   supabase functions deploy process-payment --project-ref your-project-ref
-   supabase functions deploy send-newsletter --project-ref your-project-ref
-   supabase functions deploy generate-newsletter-content --project-ref your-project-ref
-   supabase functions deploy send-account-deletion-email --project-ref your-project-ref
-   supabase functions deploy send-email --project-ref your-project-ref
-   ```
-
-3. Set environment variables for payment processing:
-   ```bash
-   supabase secrets set PRIMARY_SUPPORT_EMAIL=support@blackdollarnetwork.com --project-ref your-project-ref
-   supabase secrets set SECONDARY_SUPPORT_EMAIL=jlgreen@blackdollarnetwork.com --project-ref your-project-ref
-   supabase secrets set ECOM_LIVE_SECURITY_KEY=your-live-security-key --project-ref your-project-ref
-   supabase secrets set ECOM_TEST_SECURITY_KEY=your-test-security-key --project-ref your-project-ref
-   supabase secrets set NODE_ENV=production --project-ref your-project-ref
-   ```
-
-### Frontend Deployment
-
-1. Set environment variables in your deployment platform (Netlify, Vercel, etc.):
-
-   ```
-   VITE_PRIMARY_SUPPORT_EMAIL=support@blackdollarnetwork.com
-   VITE_SECONDARY_SUPPORT_EMAIL=jlgreen@blackdollarnetwork.com
-   VITE_SUPABASE_URL=https://your-project-ref.supabase.co
-   VITE_SUPABASE_ANON_KEY=your-anon-key
-   ```
-
-2. Deploy the frontend application as usual.
-
-## Testing and Verification
-
-### Testing Contact Form
-
-1. Navigate to the Contact page
-2. Fill out the form with test data
-3. Submit the form
-4. Verify that:
-   - The primary email receives the message
-   - The secondary email is BCC'd on the message
-   - The form shows a success message
-
-### Testing Newsletter Subscription
-
-1. Navigate to any page with a newsletter subscription form
-2. Enter a test email address
-3. Submit the form
-4. Verify that:
-   - The email is added to the `newsletter_subscribers` table
-   - The form shows a success message
-
-### Testing Business Listing Process
-
-1. Navigate to the Pricing page
-2. Select a plan
-3. Verify that:
-   - The payment step appears first
-   - After payment, the business information form appears
-   - All required steps are presented in the correct order
-   - The business is properly created in the database after completion
-
-### Testing Payment Processing
-
-1. Navigate to the Pricing page
-2. Select a paid plan
-3. Fill out payment information
-4. Submit the payment form
-5. Verify that:
-   - Payment is processed successfully
-   - Transaction ID is returned
-   - User is redirected to business listing form
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Emails not being sent**
-
-   - Check that SMTP is properly configured in your Supabase project
-   - Verify that the Edge Functions have the correct environment variables
-   - Check the Edge Function logs for any errors
-
-2. **Edge Functions returning errors**
-
-   - Verify that the function has been deployed correctly
-   - Check that the function has the necessary permissions
-   - Review the function logs for specific error messages
-
-3. **Payment processing failures**
-
-   - Ensure the `process-payment` Edge Function is deployed
-   - Verify payment gateway credentials are set correctly
-   - Check that `VITE_SUPABASE_URL` points to your deployed Supabase project
-   - Review Edge Function logs for payment gateway responses
-
-4. **Environment variables not working**
-
-   - Ensure variables are set in both the frontend and Edge Functions
-   - Restart the application after changing environment variables
-   - Check for typos in variable names
-
-5. **"Failed to fetch" errors**
-   - Verify that Edge Functions are deployed to your Supabase project
-   - Check that `VITE_SUPABASE_URL` is set to your deployed project URL
-   - Ensure CORS headers are properly configured in Edge Functions
-
-## Maintenance and Updates
-
-To update email recipients:
-
-1. Update the environment variables in your Supabase project
-2. Update the environment variables in your frontend deployment
-3. No code changes are required as all email addresses are pulled from environment variables
-
-To update payment processing:
-
-1. Update payment gateway credentials in Supabase secrets
-2. Redeploy the `process-payment` Edge Function if code changes are made
-3. Test payment processing in both development and production environments
-
-## Security Considerations
-
-- Email addresses are never hardcoded in the application code
-- All user input is validated before processing
-- CORS headers are properly configured on Edge Functions
-- Authentication is required for sensitive operations
-- Payment processing uses secure HTTPS connections
-- Sensitive payment data is never logged or stored
-- Payment gateway credentials are stored as encrypted secrets
+Tracks active business subscriptions:
+
+**Core Fields:**
+
+- `id` (uuid) - Primary key
+- `business_id` (uuid) - Foreign key to businesses.id
+- `plan_id` (uuid) - Foreign key to subscription_plans.id
+- `status` (text) - Subscription status
+- `payment_status` (text) - Payment status
+- `current_period_start` (timestamp with time zone) - Current period start
+- `current_period_end` (timestamp with time zone) - Current period end
+- `cancel_at_period_end` (boolean) - Cancel at period end flag
+- `stripe_subscription_id` (text) - Stripe subscription ID
+
+**Timestamps:**
+
+- `created_at` (timestamp with time zone) - Creation timestamp
+- `updated_at` (timestamp with time zone) - Last update timestamp
+
+### 4. Profiles Table (`profiles`)
+
+User profile information:
+
+**Core Fields:**
+
+- `id` (uuid) - Primary key (matches auth.users.id)
+- `first_name` (text) - First name
+- `last_name` (text) - Last name
+
+**Timestamps:**
+
+- `created_at` (timestamp with time zone) - Creation timestamp
+- `updated_at` (timestamp with time zone) - Last update timestamp
+
+### 5. Analytics Tables
+
+#### Business Views (`business_views`)
+
+- `id` (uuid) - Primary key
+- `business_id` (uuid) - Foreign key to businesses.id
+- `viewer_ip` (text) - Viewer IP address
+- `user_agent` (text) - User agent string
+- `referrer` (text) - Referrer URL
+- `created_at` (timestamp with time zone) - View timestamp
+
+#### Business Actions (`business_actions`)
+
+- `id` (uuid) - Primary key
+- `business_id` (uuid) - Foreign key to businesses.id
+- `action_type` (text) - Action type (click, contact, etc.)
+- `created_at` (timestamp with time zone) - Action timestamp
+
+### 6. Business Analytics View (`business_analytics`)
+
+Aggregated analytics data:
+
+- `business_id` (uuid) - Business ID
+- `business_name` (text) - Business name
+- `views_count` (bigint) - Total views
+- `last_viewed_at` (timestamp with time zone) - Last view
+- `total_actions` (bigint) - Total actions
+- `total_views` (bigint) - Total views (duplicate)
+- `total_actions_count` (bigint) - Total actions count
+- `contact_clicks` (bigint) - Contact clicks
+- `website_clicks` (bigint) - Website clicks
+- `phone_clicks` (bigint) - Phone clicks
+
+### 7. Paid Subscriptions Overview View (`paid_subscriptions_overview`)
+
+Subscription management view:
+
+- `subscription_id` (uuid) - Subscription ID
+- `plan_name` (text) - Plan name
+- `plan_price` (numeric) - Plan price
+- `subscription_status` (text) - Subscription status
+- `payment_status` (text) - Payment status
+- `current_period_start` (timestamp with time zone) - Period start
+- `current_period_end` (timestamp with time zone) - Period end
+- `cancel_at_period_end` (boolean) - Cancel flag
+- `business_id` (uuid) - Business ID
+- `business_name` (text) - Business name
+- `is_verified` (boolean) - Verification status
+- `is_featured` (boolean) - Featured status
+- `city` (text) - City
+- `state` (text) - State
+- `country` (text) - Country
+- `owner_id` (uuid) - Owner ID
+- `owner_email` (character varying) - Owner email
+- `owner_first_name` (text) - Owner first name
+- `owner_last_name` (text) - Owner last name
+- `owner_full_name` (text) - Owner full name
+- `subscription_created_at` (timestamp with time zone) - Subscription created
+- `subscription_updated_at` (timestamp with time zone) - Subscription updated
+
+### 8. Admin Management Tables
+
+#### Ads (`ads`)
+
+- `id` (uuid) - Primary key
+- `name` (text) - Ad name
+- `ad_type` (text) - Ad type
+- `image_url` (text) - Ad image URL
+- `link_url` (text) - Ad link URL
+- `cta_text` (text) - Call-to-action text
+- `description` (text) - Ad description
+- `start_date` (timestamp with time zone) - Start date
+- `end_date` (timestamp with time zone) - End date
+- `is_active` (boolean) - Active status
+- `placement_area` (text) - Placement area
+- `priority` (integer) - Priority
+- `impressions_count` (bigint) - Impressions count
+- `clicks_count` (bigint) - Clicks count
+- `business_id` (uuid) - Associated business
+- `position` (integer) - Position
+- `created_at` (timestamp with time zone) - Creation timestamp
+- `updated_at` (timestamp with time zone) - Update timestamp
+
+#### Announcements (`announcements`)
+
+- `id` (uuid) - Primary key
+- `title` (text) - Announcement title
+- `message` (text) - Announcement message
+- `link_url` (text) - Link URL
+- `link_text` (text) - Link text
+- `is_active` (boolean) - Active status
+- `background_color` (text) - Background color
+- `text_color` (text) - Text color
+- `created_by` (uuid) - Created by user
+- `created_at` (timestamp with time zone) - Creation timestamp
+- `updated_at` (timestamp with time zone) - Update timestamp
+
+#### Feature Flags (`feature_flags`)
+
+- `id` (uuid) - Primary key
+- `name` (text) - Feature name
+- `description` (text) - Feature description
+- `is_enabled` (boolean) - Enabled status
+- `created_at` (timestamp with time zone) - Creation timestamp
+- `updated_at` (timestamp with time zone) - Update timestamp
+
+### 9. User Management Tables
+
+#### User Bookmarks (`user_bookmarks`)
+
+- `id` (uuid) - Primary key
+- `user_id` (uuid) - User ID
+- `business_id` (uuid) - Business ID
+- `created_at` (timestamp with time zone) - Creation timestamp
+
+#### User Roles (`user_roles`)
+
+- `id` (uuid) - Primary key
+- `user_id` (uuid) - User ID
+- `role_id` (uuid) - Role ID
+- `assigned_by` (uuid) - Assigned by user
+- `assigned_at` (timestamp with time zone) - Assignment timestamp
+
+#### User Settings (`user_settings`)
+
+- `user_id` (uuid) - User ID
+- `settings` (jsonb) - User settings
+- `updated_at` (timestamp with time zone) - Update timestamp
+
+#### Roles (`roles`)
+
+- `id` (uuid) - Primary key
+- `name` (text) - Role name
+- `description` (text) - Role description
+- `permissions` (jsonb) - Role permissions
+- `created_at` (timestamp with time zone) - Creation timestamp
+
+### 10. Newsletter System Tables
+
+#### Newsletter Subscribers (`newsletter_subscribers`)
+
+- `id` (uuid) - Primary key
+- `email` (text) - Email address
+- `first_name` (text) - First name
+- `last_name` (text) - Last name
+- `status` (text) - Subscription status
+- `source` (text) - Subscription source
+- `preferences` (jsonb) - User preferences
+- `last_sent_at` (timestamp with time zone) - Last sent timestamp
+- `created_at` (timestamp with time zone) - Creation timestamp
+- `updated_at` (timestamp with time zone) - Update timestamp
+
+#### Newsletter Issues (`newsletter_issues`)
+
+- `id` (uuid) - Primary key
+- `subject` (text) - Newsletter subject
+- `preview_text` (text) - Preview text
+- `status` (text) - Issue status
+- `scheduled_for` (timestamp with time zone) - Scheduled date
+- `sent_at` (timestamp with time zone) - Sent timestamp
+- `html_content` (text) - HTML content
+- `text_content` (text) - Text content
+- `created_by` (uuid) - Created by user
+- `created_at` (timestamp with time zone) - Creation timestamp
+- `updated_at` (timestamp with time zone) - Update timestamp
+
+#### Newsletter Content Items (`newsletter_content_items`)
+
+- `id` (uuid) - Primary key
+- `newsletter_id` (uuid) - Newsletter ID
+- `type` (text) - Content type
+- `position` (integer) - Position
+- `title` (text) - Content title
+- `content` (text) - Content text
+- `image_url` (text) - Image URL
+- `link_url` (text) - Link URL
+- `business_id` (uuid) - Associated business
+- `ad_id` (uuid) - Associated ad
+- `is_ai_generated` (boolean) - AI generated flag
+- `ai_prompt` (text) - AI prompt used
+- `created_at` (timestamp with time zone) - Creation timestamp
+- `updated_at` (timestamp with time zone) - Update timestamp
+
+### 11. Payment & Discount Tables
+
+#### Payment History (`payment_history`)
+
+- `id` (uuid) - Primary key
+- `business_id` (uuid) - Business ID
+- `nmi_transaction_id` (text) - NMI transaction ID
+- `amount` (numeric) - Payment amount
+- `status` (text) - Payment status
+- `type` (text) - Payment type
+- `response_text` (text) - Response text
+- `created_at` (timestamp with time zone) - Creation timestamp
+
+#### Discount Codes (`discount_codes`)
+
+- `id` (uuid) - Primary key
+- `code` (text) - Discount code
+- `description` (text) - Code description
+- `discount_type` (text) - Discount type
+- `discount_value` (numeric) - Discount value
+- `max_uses` (integer) - Maximum uses
+- `current_uses` (integer) - Current uses
+- `valid_from` (timestamp with time zone) - Valid from date
+- `valid_until` (timestamp with time zone) - Valid until date
+- `is_active` (boolean) - Active status
+- `applies_to_plan` (text) - Applies to plan
+- `created_at` (timestamp with time zone) - Creation timestamp
+- `updated_at` (timestamp with time zone) - Update timestamp
+
+#### Promotions (`promotions`)
+
+- `id` (uuid) - Primary key
+- `name` (text) - Promotion name
+- `description` (text) - Promotion description
+- `original_plan_id` (uuid) - Original plan ID
+- `promotional_price` (numeric) - Promotional price
+- `start_date` (timestamp with time zone) - Start date
+- `end_date` (timestamp with time zone) - End date
+- `target_audience` (text) - Target audience
+- `is_active` (boolean) - Active status
+- `created_at` (timestamp with time zone) - Creation timestamp
+- `updated_at` (timestamp with time zone) - Update timestamp
+
+### 12. Support Tables
+
+#### Business Amenities (`business_amenities`)
+
+- `id` (uuid) - Primary key
+- `name` (text) - Amenity name
+- `created_at` (timestamp with time zone) - Creation timestamp
+
+#### Business Payment Methods (`business_payment_methods`)
+
+- `id` (uuid) - Primary key
+- `name` (text) - Payment method name
+- `created_at` (timestamp with time zone) - Creation timestamp
+
+#### Business Images (`business_images`)
+
+- `id` (uuid) - Primary key
+- `business_id` (uuid) - Business ID
+- `url` (text) - Image URL
+- `created_at` (timestamp with time zone) - Creation timestamp
+
+#### Verification Codes (`verification_codes`)
+
+- `id` (uuid) - Primary key
+- `business_id` (uuid) - Business ID
+- `email` (text) - Email address
+- `code` (text) - Verification code
+- `created_at` (timestamp with time zone) - Creation timestamp
+- `expires_at` (timestamp with time zone) - Expiration timestamp
+- `used` (boolean) - Used status
+
+#### VIP Member (`vip_member`)
+
+- `business_id` (uuid) - Business ID
+- `joined_at` (timestamp with time zone) - Join timestamp
+- `benefits` (jsonb) - VIP benefits
+- `created_at` (timestamp with time zone) - Creation timestamp
+
+### 13. Migration & Logging Tables
+
+#### Migration Sources (`migration_sources`)
+
+- `id` (uuid) - Primary key
+- `name` (text) - Source name
+- `description` (text) - Source description
+- `created_at` (timestamp with time zone) - Creation timestamp
+
+#### Image Migration Log (`image_migration_log`)
+
+- `id` (uuid) - Primary key
+- `old_url` (text) - Old image URL
+- `new_url` (text) - New image URL
+- `business_id` (uuid) - Business ID
+- `table_name` (text) - Table name
+- `column_name` (text) - Column name
+- `status` (text) - Migration status
+- `error_message` (text) - Error message
+- `migrated_at` (timestamp with time zone) - Migration timestamp
+- `created_at` (timestamp with time zone) - Creation timestamp
+
+### 14. Views
+
+#### Business Category Enum Values (`business_category_enum_values`)
+
+- `category_value` (name) - Category value
+- `sort_order` (real) - Sort order
+
+## Key Relationships
+
+1. **Businesses → Subscriptions**: `businesses.subscription_id` → `subscriptions.id`
+2. **Subscriptions → Subscription Plans**: `subscriptions.plan_id` → `subscription_plans.id`
+3. **Businesses → Profiles**: `businesses.owner_id` → `profiles.id`
+4. **Business Views → Businesses**: `business_views.business_id` → `businesses.id`
+5. **Business Actions → Businesses**: `business_actions.business_id` → `businesses.id`
+6. **User Bookmarks → Businesses**: `user_bookmarks.business_id` → `businesses.id`
+7. **User Bookmarks → Profiles**: `user_bookmarks.user_id` → `profiles.id`
+
+## Important Notes
+
+- All timestamps use `timestamp with time zone` for consistency
+- The `businesses.category` field is a USER-DEFINED enum type
+- Array fields (`amenities`, `payment_methods`, `categories`, `tags`) store text arrays
+- JSONB fields (`social_links`, `business_hours`, `analytics_data`) store structured JSON data
+- The `paid_subscriptions_overview` view provides a comprehensive view of all active subscriptions with business and owner details
+- The `business_analytics` view aggregates analytics data for dashboard display

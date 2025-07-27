@@ -57,7 +57,7 @@ const BusinessDetailPage = () => {
     promoVideoUrl: business?.promo_video_url,
     subscriptionPlan: business?.subscription_plans,
     shouldShowPremium: shouldShowPremiumContent(business),
-    shouldShowContact: shouldShowContactInfo(business), // Add this line
+    shouldShowContact: shouldShowContactInfo(business),
     isUnclaimed: isUnclaimedMigratedBusiness(business),
     hasVideoUrl: !!business?.promo_video_url,
     businessHours: business?.business_hours,
@@ -65,6 +65,31 @@ const BusinessDetailPage = () => {
     businessHoursKeys: business?.business_hours
       ? Object.keys(business.business_hours)
       : [],
+  });
+
+  // Add more detailed debugging right after the existing debug log
+  console.log("🔍 Business Detail Debug:", {
+    businessName: business?.name,
+    promoVideoUrl: business?.promo_video_url,
+    subscriptionPlan: business?.subscription_plans,
+    shouldShowPremium: shouldShowPremiumContent(business),
+    shouldShowContact: shouldShowContactInfo(business),
+    isUnclaimed: isUnclaimedMigratedBusiness(business),
+    hasVideoUrl: !!business?.promo_video_url,
+    // Add contact info debugging
+    hasCity: !!business?.city,
+    hasWebsite: !!business?.website_url,
+    hasPhone: !!business?.phone,
+    hasEmail: !!business?.email,
+    contactInfoCondition: !!(
+      business?.city ||
+      business?.website_url ||
+      business?.phone ||
+      business?.email
+    ),
+    // Add business data debugging
+    businessId: business?.id,
+    businessData: business,
   });
 
   // Create gallery images based on available data
@@ -348,9 +373,9 @@ const BusinessDetailPage = () => {
             ) : shouldShowPremiumContent(business) ? (
               // Business has premium plan - show video or placeholder
               <div className="mb-8">
-                <h2 className="text-xl font-semibold text-white mb-4">
+                {/* <h2 className="text-xl font-semibold text-white mb-4">
                   Promo Video
-                </h2>
+                </h2> */}
                 <div className="aspect-video w-full bg-gray-800 rounded-lg overflow-hidden">
                   {business.promo_video_url ? (
                     <iframe
@@ -420,31 +445,6 @@ const BusinessDetailPage = () => {
                 business.phone ||
                 business.email) && (
                 <BusinessContactSocial business={business} />
-              )}
-
-            {/* Social Links */}
-            {business.social_links &&
-              Object.values(business.social_links).some(Boolean) && (
-                <div className="mb-8">
-                  <h2 className="text-xl font-semibold text-white mb-4">
-                    Social Links
-                  </h2>
-                  <div className="flex flex-col gap-2">
-                    {Object.entries(business.social_links)
-                      .filter(([_, value]) => value)
-                      .map(([platform, value]) => (
-                        <a
-                          key={platform}
-                          href={String(value)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-400 hover:text-blue-300 transition-colors"
-                        >
-                          {platform.charAt(0).toUpperCase() + platform.slice(1)}
-                        </a>
-                      ))}
-                  </div>
-                </div>
               )}
           </div>
         </div>
