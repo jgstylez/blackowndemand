@@ -1,0 +1,53 @@
+-- Previous content remains the same until the categories insertion
+
+-- Update default categories to match the enum
+DELETE FROM business_categories;
+INSERT INTO business_categories (name, slug) VALUES
+  ('Arts, Crafts & Party Supplies', 'arts-crafts-party-supplies'),
+  ('Auto, Tires & Industrial', 'auto-tires-industrial'),
+  ('Baby', 'baby'),
+  ('Beauty & Cosmetics', 'beauty-cosmetics'),
+  ('Clothing, Shoes & Accessories', 'clothing-shoes-accessories'),
+  ('Electronics', 'electronics'),
+  ('Exercise & Fitness', 'exercise-fitness'),
+  ('Food & Beverage', 'food-beverage'),
+  ('Furniture & Appliances', 'furniture-appliances'),
+  ('Grocery', 'grocery'),
+  ('Home Improvements & Decor', 'home-improvements-decor'),
+  ('Household Essentials', 'household-essentials'),
+  ('Jewelry & Watches', 'jewelry-watches'),
+  ('Miscellaneous', 'miscellaneous'),
+  ('Music, Movies & Books', 'music-movies-books'),
+  ('Patio & Garden', 'patio-garden'),
+  ('Personal Care', 'personal-care'),
+  ('Pets', 'pets'),
+  ('Pharmacy, Health & Wellness', 'pharmacy-health-wellness'),
+  ('Sports & Outdoors', 'sports-outdoors'),
+  ('Stationery & Office Supplies', 'stationery-office-supplies'),
+  ('Toys & Games', 'toys-games'),
+  ('Travel', 'travel'),
+  ('Wine, Spirits & Liquor', 'wine-spirits-alcohol-liquor'),
+  ('Cell Phones & Accessories', 'cell-phones-accessories'),
+  ('Tools & Hardware', 'tools-hardware'),
+  ('Digital Products', 'digital-products'),
+  ('Luggage & Bags', 'luggage-bags'),
+  ('Outdoor & Camping Equipment', 'outdoor-camping-equipment'),
+  ('Home Security & Smart Devices', 'home-security-smart-devices'),
+  ('Subscription Boxes', 'subscription-boxes'),
+  ('Event Tickets & Experiences', 'event-tickets-experiences'),
+  ('Seasonal & Holiday Items', 'seasonal-holiday-items'),
+  ('Vintage & Collectibles', 'vintage-collectibles'),
+  ('Craft Kits & DIY Projects', 'craft-kits-diy-projects'),
+  ('Religious & Spiritual Items', 'religious-spiritual-items'),
+  ('Office Furniture', 'office-furniture'),
+  ('Cleaning Supplies', 'cleaning-supplies'),
+  ('Bedding & Linens', 'bedding-linens'),
+  ('Kitchenware & Cookware', 'kitchenware-cookware'),
+  ('Mobile Apps & Software Licenses', 'mobile-apps-software-licenses'),
+  ('Educational Materials & Supplies', 'educational-materials-supplies'),
+  ('Gardening Tools & Supplies', 'gardening-tools-supplies'),
+  ('Directory', 'directory'),
+  ('Content Creation', 'content-creation')
+ON CONFLICT (name) DO NOTHING;
+
+-- ... rest of the file remains the same
