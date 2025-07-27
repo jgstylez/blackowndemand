@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+// Import all icons in a single statement to avoid conflicts
 import {
   Mail,
   Globe,
@@ -12,7 +13,6 @@ import {
   Image,
   Trash2,
   Plus,
-  Image as ImageIcon,
 } from "lucide-react";
 import Select from "react-select";
 import { supabase } from "../../../lib/supabase";
@@ -479,7 +479,13 @@ const InlineBusinessEdit: React.FC<InlineBusinessEditProps> = ({
               Business Name <span className="text-red-500">*</span>
             </label>
             <div className="relative">
-              <Building2 className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+              {typeof Building2 !== "undefined" ? (
+                <Building2 className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+              ) : (
+                <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5">
+                  🏢
+                </div>
+              )}
               <input
                 type="text"
                 id="name"
@@ -734,7 +740,7 @@ const InlineBusinessEdit: React.FC<InlineBusinessEditProps> = ({
             </div>
           ) : (
             <div className="text-center py-8 border-2 border-dashed border-gray-700 rounded-lg">
-              <ImageIcon className="h-12 w-12 text-gray-600 mx-auto mb-2" />
+              <Image className="h-12 w-12 text-gray-600 mx-auto mb-2" />
               <p className="text-gray-500 text-sm">
                 No gallery images yet. Add up to {imageLimit} images.
               </p>
