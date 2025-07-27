@@ -91,28 +91,68 @@ const VIPPage = () => {
         setBusinessesLoading(true);
         console.log("🔍 Fetching VIP businesses...");
 
-        // Get businesses with VIP status
-        const { data, error, count } = await supabase
+        // Use the correct foreign key relationship
+        const { data, error } = await supabase
           .from("businesses")
           .select(
             `
-            *,
-            vip_member!inner(*)
-          `,
-            { count: "exact" }
+          *,
+          subscriptions!businesses_subscription_id_fkey(
+            id,
+            status,
+            subscription_plans(
+              id,
+              name
+            )
           )
+        `
+          )
+          .eq("is_active", true)
+          .not("subscription_id", "is", null)
           .order("created_at", { ascending: false });
+
+        console.log("🔍 Raw query result:", data);
 
         if (error) {
           console.error("❌ Error fetching VIP businesses:", error);
-          throw error;
+          setError("Failed to load VIP businesses");
+          return;
         }
 
-        console.log("👑 Found VIP businesses:", count);
-        setVIPBusinesses((data as VIPBusiness[]) || []);
-        setTotalBusinesses(count || 0);
+        // Filter for VIP businesses on the client side
+        const vipBusinesses = (data || [])
+          .filter((business: any) => {
+            // Check if business has an active VIP subscription
+            return (
+              business.subscriptions &&
+              business.subscriptions.status === "active" &&
+              business.subscriptions.subscription_plans &&
+              business.subscriptions.subscription_plans.name === "VIP Plan"
+            );
+          })
+          .map((business: any) => ({
+            id: business.id,
+            name: business.name,
+            tagline: business.tagline || "",
+            description: business.description || "",
+            category: business.category || "",
+            is_verified: business.is_verified || false,
+            is_featured: business.is_featured || false,
+            city: business.city || "",
+            state: business.state || "",
+            zip_code: business.zip_code || "",
+            country: business.country || "USA",
+            image_url: business.image_url || "",
+            migration_source: business.migration_source || "",
+            created_at: business.created_at,
+          }));
+
+        console.log("👑 Filtered VIP businesses:", vipBusinesses);
+        setVIPBusinesses(vipBusinesses);
+        setTotalBusinesses(vipBusinesses.length);
       } catch (error) {
         console.error("💥 Error fetching VIP businesses:", error);
+        setError("Failed to load VIP businesses");
       } finally {
         setBusinessesLoading(false);
       }
@@ -166,6 +206,15 @@ const VIPPage = () => {
     if (description.length <= maxLength) return description;
     return description.substring(0, maxLength).trim() + "...";
   };
+
+  console.log(" Render state:", {
+    businessesLoading,
+    vipBusinessesLength: vipBusinesses.length,
+    totalBusinesses,
+    paginatedBusinessesLength: paginatedBusinesses.length,
+    currentPage,
+    totalPages,
+  });
 
   return (
     <Layout>
@@ -400,7 +449,12 @@ const VIPPage = () => {
                             {truncateDescription(business.description, 250)}
                           </p>
                           <div className="flex gap-4">
-                            <button className="inline-flex items-center px-4 py-2 rounded-lg bg-gray-800 text-white hover:bg-gray-700 transition-colors">
+                            <button
+                              onClick={() =>
+                                navigate(`/business/${business.id}`)
+                              }
+                              className="inline-flex items-center px-4 py-2 rounded-lg bg-gray-800 text-white hover:bg-gray-700 transition-colors"
+                            >
                               View Details
                             </button>
                           </div>
