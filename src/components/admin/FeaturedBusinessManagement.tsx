@@ -100,7 +100,16 @@ const FeaturedBusinessManagement: React.FC = () => {
     if (oldIndex === -1 || newIndex === -1) return;
 
     setUpdating(true);
+    setError(null); // Clear previous errors
+
     try {
+      console.log("🔍 Starting drag reorder:", {
+        oldIndex,
+        newIndex,
+        activeId: active.id,
+        overId: over.id,
+      });
+
       // Create new array with reordered items
       const newBusinesses = [...businesses];
       const [movedItem] = newBusinesses.splice(oldIndex, 1);
@@ -112,34 +121,44 @@ const FeaturedBusinessManagement: React.FC = () => {
         featured_position: index + 1,
       }));
 
-      // Batch update all positions in database using Promise.all
-      const updateResults = await Promise.all(
-        updatedBusinesses.map((business) =>
-          supabase
-            .from("businesses")
-            .update({ featured_position: business.featured_position } as any)
-            .eq("id", business.id)
-        )
+      console.log(
+        "🔍 Updated positions:",
+        updatedBusinesses.map((b) => ({
+          id: b.id,
+          name: b.name,
+          position: b.featured_position,
+        }))
       );
+
+      // Batch update all positions in database using Promise.all
+      const updatePromises = updatedBusinesses.map((business) =>
+        supabase
+          .from("businesses")
+          .update({ featured_position: business.featured_position })
+          .eq("id", business.id)
+      );
+
+      const updateResults = await Promise.all(updatePromises);
 
       // Check for any errors in the batch update
       const errors = updateResults.filter((res) => res.error);
       if (errors.length > 0) {
-        console.error("Error(s) updating business positions:", errors);
-        setError("Failed to update some business positions. Please try again.");
-        return; // Do not fetch if there was an error
+        console.error("❌ Error(s) updating business positions:", errors);
+        const errorMessages = errors.map((e) => e.error?.message).join(", ");
+        setError(`Failed to update some business positions: ${errorMessages}`);
+        return;
       }
 
-      // Re-fetch businesses to confirm persistence
-      await fetchBusinesses();
+      // Update local state immediately for better UX
+      setBusinesses(updatedBusinesses);
 
-      console.log(
-        "Featured business positions updated and persisted successfully"
-      );
+      console.log("✅ Featured business positions updated successfully");
+
+      // Optional: Re-fetch to confirm persistence
+      // await fetchBusinesses();
     } catch (err: any) {
-      console.error("Error updating business positions (catch):", err);
-      setError(err.message);
-      // Do not fetch here, as update failed
+      console.error("❌ Error updating business positions:", err);
+      setError(err.message || "Failed to update business positions");
     } finally {
       setUpdating(false);
     }
