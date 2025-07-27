@@ -51,10 +51,6 @@ export const validateMediaStep = (
     setError("Business image is required");
     return false;
   }
-  if (!formData.website.trim()) {
-    setError("Website URL is required");
-    return false;
-  }
   if (!formData.email.trim()) {
     setError("Business email is required");
     return false;
@@ -63,13 +59,18 @@ export const validateMediaStep = (
     setError("Business phone is required");
     return false;
   }
-  if (
-    !formData.website.startsWith("http://") &&
-    !formData.website.startsWith("https://")
-  ) {
-    setError("Website URL must start with http:// or https://");
-    return false;
+
+  // Website is now optional, but if provided, validate the format
+  if (formData.website && formData.website.trim()) {
+    if (
+      !formData.website.startsWith("http://") &&
+      !formData.website.startsWith("https://")
+    ) {
+      setError("Website URL must start with http:// or https://");
+      return false;
+    }
   }
+
   const emailRegex = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
   if (!emailRegex.test(formData.email)) {
     setError("Please enter a valid email address");

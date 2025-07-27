@@ -118,7 +118,7 @@ const BusinessMediaStep: React.FC<BusinessMediaStepProps> = ({
     if (handleChange) {
       handleChange(e);
     } else {
-      setFormData((prev) => ({ ...prev, email }));
+      setFormData({ ...formData, email });
     }
   };
 
@@ -192,7 +192,7 @@ const BusinessMediaStep: React.FC<BusinessMediaStepProps> = ({
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-300 mb-2">
-            Business Website <span className="text-red-500">*</span>
+            Business Website
           </label>
           <input
             type="url"
@@ -200,8 +200,7 @@ const BusinessMediaStep: React.FC<BusinessMediaStepProps> = ({
             value={formData.website}
             onChange={handleChange}
             className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white"
-            placeholder="e.g. https://yourbusiness.com"
-            required
+            placeholder="e.g. https://yourbusiness.com (optional)"
           />
         </div>
         <div>
