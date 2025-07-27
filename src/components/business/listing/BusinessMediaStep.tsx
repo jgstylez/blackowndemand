@@ -1,5 +1,8 @@
 import React, { useState } from "react";
 import { Upload } from "lucide-react";
+import PhoneInput, { isValidPhoneNumber } from "react-phone-number-input";
+import "react-phone-number-input/style.css";
+import { isValidEmail } from "../../../utils/emailUtils";
 
 interface BusinessFormData {
   name: string;
@@ -26,9 +29,6 @@ interface BusinessFormData {
     fanbase: string;
   };
 }
-
-import PhoneInput, { isValidPhoneNumber } from "react-phone-number-input";
-import "react-phone-number-input/style.css";
 
 interface BusinessMediaStepProps {
   formData: BusinessFormData;
@@ -59,6 +59,7 @@ const BusinessMediaStep: React.FC<BusinessMediaStepProps> = ({
   handleSocialLinkChange,
 }) => {
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
 
   // Use the handleImageUpload prop if provided, otherwise use local function
   const onImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -99,6 +100,25 @@ const BusinessMediaStep: React.FC<BusinessMediaStepProps> = ({
       } else {
         setError("");
       }
+    }
+  };
+
+  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const email = e.target.value;
+
+    // Clear previous email error
+    setEmailError(null);
+
+    // Validate email if it's not empty
+    if (email && !isValidEmail(email)) {
+      setEmailError("Please enter a valid email address");
+    }
+
+    // Call the original handleChange
+    if (handleChange) {
+      handleChange(e);
+    } else {
+      setFormData((prev) => ({ ...prev, email }));
     }
   };
 
@@ -159,11 +179,16 @@ const BusinessMediaStep: React.FC<BusinessMediaStepProps> = ({
             type="email"
             name="email"
             value={formData.email}
-            onChange={handleChange}
-            className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white"
+            onChange={handleEmailChange}
+            className={`w-full px-4 py-3 bg-gray-900 border rounded-lg text-white ${
+              emailError ? "border-red-500" : "border-gray-700"
+            }`}
             placeholder="e.g. info@yourbusiness.com"
             required
           />
+          {emailError && (
+            <div className="text-red-500 text-sm mt-1">{emailError}</div>
+          )}
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-300 mb-2">

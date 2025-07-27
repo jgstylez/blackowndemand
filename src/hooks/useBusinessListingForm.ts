@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback } from "react";
 import { BusinessCategory, BusinessTag, BusinessTagLabels } from "../types";
 import { supabase } from "../lib/supabase";
+import { isValidEmail } from "../utils/emailUtils";
 
 export function useBusinessListingForm(location: any, navigate: any) {
   // Plan and payment state
@@ -79,7 +80,9 @@ export function useBusinessListingForm(location: any, navigate: any) {
   }, [formData.category]);
   const sortedCategories = useMemo(
     () =>
-      Object.entries(BusinessCategory).sort((a, b) => a[1].localeCompare(b[1])),
+      Object.entries(BusinessCategory)
+        .map(([key, value]) => [value, value]) // Use value for both key and display
+        .sort((a, b) => a[0].localeCompare(b[0])),
     []
   );
 
@@ -123,6 +126,11 @@ export function useBusinessListingForm(location: any, navigate: any) {
 
     try {
       console.log("Submitting business data:", formData);
+
+      // Validate email format
+      if (formData.email && !isValidEmail(formData.email)) {
+        throw new Error("Invalid email format");
+      }
 
       // Get current user
       const {
