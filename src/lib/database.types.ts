@@ -346,6 +346,7 @@ export type Database = {
           payment_method_last_four: string | null;
           payment_methods: string[] | null;
           phone: string | null;
+          plan_name: string | null;
           promo_video_url: string | null;
           social_links: Json | null;
           state: string | null;
@@ -392,6 +393,7 @@ export type Database = {
           payment_method_last_four?: string | null;
           payment_methods?: string[] | null;
           phone?: string | null;
+          plan_name?: string | null;
           promo_video_url?: string | null;
           social_links?: Json | null;
           state?: string | null;
@@ -438,6 +440,7 @@ export type Database = {
           payment_method_last_four?: string | null;
           payment_methods?: string[] | null;
           phone?: string | null;
+          plan_name?: string | null;
           promo_video_url?: string | null;
           social_links?: Json | null;
           state?: string | null;

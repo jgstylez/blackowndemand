@@ -49,11 +49,13 @@ const useUserBusinesses = () => {
           is_claimed: business.is_claimed || false,
           claimed_at: business.claimed_at || undefined,
           subscription_id: business.subscription_id || undefined,
+          subscription_status: business.subscription_status || undefined,
+          plan_name: business.plan_name || undefined,
           views_count: business.views_count || 0,
           last_viewed_at: business.last_viewed_at || undefined,
           total_actions: business.total_actions || 0,
-          created_at: business.created_at,
-          updated_at: business.updated_at,
+          created_at: business.created_at || new Date().toISOString(),
+          updated_at: business.updated_at || new Date().toISOString(),
         })
       );
 

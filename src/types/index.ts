@@ -25,6 +25,8 @@ export interface Business {
   updated_at: string;
   owner_id?: string | null;
   subscription_id?: string | null;
+  subscription_status?: string | null;
+  plan_name?: string | null;
   is_claimed: boolean;
   claimed_at?: string | null;
   migration_source?: string | null;

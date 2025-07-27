@@ -58,22 +58,20 @@ const DashboardPage = () => {
 
   const hasBusinesses = businesses.length > 0;
 
-  // Fix: Incomplete businesses should be those with subscription but missing essential details
+  // Fix: Incomplete businesses should be those with subscription_status 'pending'
   const incompleteBusinesses = businesses.filter((b) => {
     // Business has a subscription (payment completed)
     const hasSubscription = b.subscription_id || b.subscription_plans;
 
-    // Business is missing essential details
-    const missingEssentialDetails =
-      !b.name ||
-      b.name === "Pending Business Listing" ||
-      !b.description ||
-      !b.category ||
-      !b.email ||
-      !b.city ||
-      !b.state;
+    // Business has 'pending' subscription status (created after payment but not submitted)
+    const isPendingStatus = b.subscription_status === "pending";
 
-    return hasSubscription && missingEssentialDetails;
+    // Business is not verified (form not completed)
+    const isNotVerified = !b.isVerified;
+
+    // Only show as incomplete if it has subscription AND (has pending status OR is not verified)
+    // This means the business was created after payment but the form wasn't completed
+    return hasSubscription && (isPendingStatus || isNotVerified);
   });
 
   const {

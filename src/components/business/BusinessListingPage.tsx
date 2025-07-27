@@ -183,7 +183,7 @@ const BusinessListingPage = () => {
             ? formData.tags
             : [],
         is_active: true,
-        is_verified: true,
+        is_verified: false, // Will be set to true after successful form submission
       };
 
       // Handle category
@@ -212,6 +212,10 @@ const BusinessListingPage = () => {
 
       if (businessIdToUpdate) {
         // Update existing business
+        businessData.subscription_status = "active"; // Mark as active after form completion
+        businessData.plan_name = planName; // Store the actual plan name
+        businessData.is_verified = true; // Mark as verified after successful form submission
+
         const { data: updatedBusiness, error: updateError } = await supabase
           .from("businesses")
           .update(businessData)
@@ -228,6 +232,8 @@ const BusinessListingPage = () => {
         // Create new business
         businessData.owner_id = user.id;
         businessData.subscription_plans = planName;
+        businessData.subscription_status = "pending"; // Mark as pending until form is completed
+        businessData.plan_name = planName; // Store the actual plan name
         businessData.is_claimed = true;
         businessData.claimed_at = new Date().toISOString();
 

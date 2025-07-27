@@ -274,7 +274,8 @@ export function useBusinessListingForm(location: any, navigate: any) {
                 .from("businesses")
                 .update({
                   subscription_id: subscription.id,
-                  subscription_status: planName, // Will be "Starter Plan", "Enhanced Plan", or "VIP Plan"
+                  subscription_status: "active", // Mark as active after form completion
+                  plan_name: planName, // Store the actual plan name
                 })
                 .eq("id", newBusiness.id);
 
