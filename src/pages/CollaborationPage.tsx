@@ -5,25 +5,23 @@ import { supabase, getBusinessImageUrl } from "../lib/supabase";
 import { Link } from "react-router-dom";
 import BusinessCTA from "../components/common/BusinessCTA";
 import { trackWebsiteClick } from "../utils/analyticsUtils";
+import { Database } from "../lib/database.types";
 
-// Target business categories for collaboration page
-const TARGET_CATEGORIES = [
-  "Nonprofit",
-  "Directory",
-  "Trade Association",
-  "Chamber",
-];
+// Update TARGET_CATEGORIES to use proper enum values
+const TARGET_CATEGORIES: Database["public"]["Enums"]["business_category_enum"][] =
+  ["Nonprofit", "Directory", "Trade Association", "Chamber"];
 
+// Update the Business interface to match database types
 interface Business {
   id: string;
   name: string;
-  tagline: string;
-  description: string;
-  category: string;
-  website_url: string;
-  image_url: string;
-  migration_source: string;
-  is_verified: boolean;
+  tagline: string | null;
+  description: string | null;
+  category: string | null;
+  website_url: string | null;
+  image_url: string | null;
+  migration_source: string | null;
+  is_verified: boolean | null;
 }
 
 const CollaborationPage = () => {
@@ -49,19 +47,13 @@ const CollaborationPage = () => {
         setLoading(true);
         console.log("🔍 Fetching collaboration businesses...");
 
-        // Look for businesses that could be resources (have websites and are in relevant categories)
-        // Using actual enum values from the database schema
+        // Use the actual target categories and add better filtering
         const { data, error } = await supabase
           .from("businesses")
           .select("*")
           .not("website_url", "is", null)
           .or("is_verified.eq.true,migration_source.not.is.null")
-          .in("category", [
-            "Digital Products",
-            "Content Creation",
-            "Mobile Apps & Software Licenses",
-            "Education",
-          ])
+          .in("category", TARGET_CATEGORIES as any) // Use the target categories
           .order("name");
 
         if (error) {
@@ -211,7 +203,7 @@ const CollaborationPage = () => {
                       </p>
                     )}
                     <p className="text-gray-300 mb-4">
-                      {truncateDescription(business.description, 250)}
+                      {truncateDescription(business.description || "", 250)}
                     </p>
                     <div className="flex gap-4">
                       <Link
@@ -243,7 +235,21 @@ const CollaborationPage = () => {
               </div>
             ))}
           </div>
-        ) : null}
+        ) : (
+          <div className="text-center py-12">
+            <div className="bg-gray-900 rounded-xl p-8 max-w-md mx-auto">
+              <p className="text-gray-400 mb-4">
+                No collaboration businesses found in the selected category.
+              </p>
+              <button
+                onClick={() => setSelectedCategory("All")}
+                className="px-4 py-2 bg-white text-black rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                View All Categories
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Information Section */}
         <div className="mt-16 bg-gray-900 rounded-xl p-8">
