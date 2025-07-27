@@ -8,6 +8,7 @@ import {
   Bookmark,
   CheckCircle,
   BarChart3,
+  CreditCard,
 } from "lucide-react";
 import Layout from "../components/layout/Layout";
 import { supabase } from "../lib/supabase";
@@ -31,8 +32,15 @@ import AccountSettingsSection from "../components/dashboard/account/AccountSetti
 import UserPreferencesSection from "../components/dashboard/settings/UserPreferencesSection";
 import AccountDeletionModal from "../components/dashboard/account/AccountDeletionModal";
 import BusinessAnalyticsSection from "../components/dashboard/analytics/BusinessAnalyticsSection";
+import BillingManagement from "../components/dashboard/billing/BillingManagement";
 
-type Tab = "businesses" | "bookmarks" | "analytics" | "account" | "settings";
+type Tab =
+  | "businesses"
+  | "bookmarks"
+  | "analytics"
+  | "billing"
+  | "account"
+  | "settings";
 
 const DashboardPage = () => {
   const navigate = useNavigate();
@@ -100,8 +108,7 @@ const DashboardPage = () => {
   const {
     deletionSummary,
     deletionLoading,
-    deletionError,
-    prepareAccountDeletion,
+
     deleteUserAccount,
   } = useAccountManagement();
 
@@ -275,6 +282,19 @@ const DashboardPage = () => {
             <Bookmark className="h-5 w-5 inline-block mr-2" />
             My Bookmarks
           </button>
+          {hasBusinesses && (
+            <button
+              onClick={() => setActiveTab("billing")}
+              className={`px-4 py-2 rounded-lg transition-colors ${
+                activeTab === "billing"
+                  ? "bg-white text-black"
+                  : "bg-gray-900 text-gray-400 hover:bg-gray-800"
+              }`}
+            >
+              <CreditCard className="h-5 w-5 inline-block mr-2" />
+              Billing
+            </button>
+          )}
           <button
             onClick={() => setActiveTab("account")}
             className={`px-4 py-2 rounded-lg transition-colors ${
@@ -332,6 +352,26 @@ const DashboardPage = () => {
             loading={bookmarksLoading}
             onRemoveBookmark={handleRemoveBookmark as any}
           />
+        )}
+
+        {activeTab === "billing" && (
+          <div className="space-y-6">
+            <h2 className="text-2xl font-bold text-white">
+              Billing Management
+            </h2>
+            {businesses.map((business) => (
+              <BillingManagement
+                key={business.id}
+                businessId={business.id}
+                businessName={business.name} // Add business name
+                subscriptionStatus={business.subscription_status}
+                planName={business.plan_name}
+                nextBillingDate={business.next_billing_date}
+                lastPaymentDate={business.last_payment_date}
+                paymentMethodLastFour={business.payment_method_last_four}
+              />
+            ))}
+          </div>
         )}
 
         {activeTab === "account" && <AccountSettingsSection />}

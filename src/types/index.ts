@@ -36,6 +36,9 @@ export interface Business {
   is_resource?: boolean | null;
   promo_video_url?: string | null;
   subscription_plans?: string;
+  next_billing_date?: string | null;
+  last_payment_date?: string | null;
+  payment_method_last_four?: string | null;
 }
 
 export interface Category {
