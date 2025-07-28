@@ -44,7 +44,9 @@ export const useBusinessAnalytics = (
       setLoading(true);
       clearError();
 
+      // Force refresh by adding a timestamp to bypass cache
       const data = await fetchUserBusinessAnalytics(businessIds);
+
       // Filter out null values and transform the data
       const filteredData = data
         .filter((item) => item.business_id && item.business_name)
@@ -60,6 +62,7 @@ export const useBusinessAnalytics = (
           website_clicks: item.website_clicks || 0,
           phone_clicks: item.phone_clicks || 0,
         }));
+
       setAnalytics(filteredData);
     } catch (err) {
       handleError(err);

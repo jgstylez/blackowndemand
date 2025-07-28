@@ -30,6 +30,7 @@ import {
   isVipMember,
   isLegacyMember,
 } from "../utils/businessFeatureUtils";
+import { recordBusinessAction } from "../utils/analyticsUtils";
 
 const BusinessDetailPage = () => {
   const { id } = useParams();
@@ -136,6 +137,31 @@ const BusinessDetailPage = () => {
     setIsShareModalOpen(true);
   };
 
+  // Add click handlers for tracking
+  const handleWebsiteClick = () => {
+    if (business?.id) {
+      recordBusinessAction(business.id, "website_click", {
+        website_url: business.website_url,
+      });
+    }
+  };
+
+  const handlePhoneClick = () => {
+    if (business?.id) {
+      recordBusinessAction(business.id, "phone_click", {
+        phone: business.phone,
+      });
+    }
+  };
+
+  const handleEmailClick = () => {
+    if (business?.id) {
+      recordBusinessAction(business.id, "email_click", {
+        email: business.email,
+      });
+    }
+  };
+
   // Prepare SEO metadata
   const getBusinessLocation = () => {
     if (!business) return "";
@@ -185,7 +211,6 @@ const BusinessDetailPage = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <ErrorFallback
             error={error}
-            message={error?.message || "Business not found"}
             resetErrorBoundary={() => {
               clearError();
               window.location.reload();

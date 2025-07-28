@@ -8,6 +8,7 @@ import {
   Bookmark,
   CheckCircle,
   BarChart3,
+  CreditCard,
 } from "lucide-react";
 import Layout from "../components/layout/Layout";
 import { supabase } from "../lib/supabase";
@@ -31,8 +32,15 @@ import AccountSettingsSection from "../components/dashboard/account/AccountSetti
 import UserPreferencesSection from "../components/dashboard/settings/UserPreferencesSection";
 import AccountDeletionModal from "../components/dashboard/account/AccountDeletionModal";
 import BusinessAnalyticsSection from "../components/dashboard/analytics/BusinessAnalyticsSection";
+import SubscriptionManagementSection from "../components/dashboard/subscriptions/SubscriptionManagementSection";
 
-type Tab = "businesses" | "bookmarks" | "analytics" | "account" | "settings";
+type Tab =
+  | "businesses"
+  | "bookmarks"
+  | "analytics"
+  | "subscriptions"
+  | "account"
+  | "settings";
 
 const DashboardPage = () => {
   const navigate = useNavigate();
@@ -147,7 +155,7 @@ const DashboardPage = () => {
     if (activeTab === "bookmarks") {
       fetchUserBookmarks();
     }
-  }, [activeTab, fetchUserBookmarks]);
+  }, [activeTab]); // Remove fetchUserBookmarks from dependencies
 
   // Set success message from various sources
   useEffect(() => {
@@ -211,29 +219,22 @@ const DashboardPage = () => {
       title="Dashboard | BlackOWNDemand"
       description="Manage your businesses, bookmarks, and account settings"
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-white">{getGreeting()}</h1>
-            <p className="text-gray-400 mt-1">Manage your account</p>
+      <div className="min-h-screen bg-gray-950 text-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {/* Header */}
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-white mb-2">
+              {getGreeting()}
+            </h1>
+            <p className="text-gray-400">
+              Manage your businesses, subscriptions, and account settings.
+            </p>
           </div>
-          <button
-            onClick={() => supabase.auth.signOut()}
-            className="inline-flex items-center px-4 py-2 rounded-lg bg-gray-900 text-white hover:bg-gray-800 transition-colors"
-          >
-            <LogOut className="h-5 w-5 mr-2" />
-            Sign Out
-          </button>
-        </div>
 
-        {/* Tab Navigation */}
-        <div className="flex flex-wrap gap-2 mb-8">
-          {hasBusinesses && (
+          {/* Tab Navigation */}
+          <div className="flex flex-wrap gap-2 mb-8">
             <button
-              onClick={() => {
-                setActiveTab("businesses");
-                fetchUserBusinesses();
-              }}
+              onClick={() => setActiveTab("businesses")}
               className={`px-4 py-2 rounded-lg transition-colors ${
                 activeTab === "businesses"
                   ? "bg-white text-black"
@@ -243,110 +244,132 @@ const DashboardPage = () => {
               <Building2 className="h-5 w-5 inline-block mr-2" />
               My Businesses
             </button>
-          )}
 
-          {hasBusinesses && (
             <button
-              onClick={() => {
-                setActiveTab("analytics");
-                fetchAnalytics();
-              }}
+              onClick={() => setActiveTab("subscriptions")}
               className={`px-4 py-2 rounded-lg transition-colors ${
-                activeTab === "analytics"
+                activeTab === "subscriptions"
                   ? "bg-white text-black"
                   : "bg-gray-900 text-gray-400 hover:bg-gray-800"
               }`}
             >
-              <BarChart3 className="h-5 w-5 inline-block mr-2" />
-              Analytics
+              <CreditCard className="h-5 w-5 inline-block mr-2" />
+              Subscriptions & Billing
             </button>
+
+            {hasBusinesses && (
+              <button
+                onClick={() => {
+                  setActiveTab("analytics");
+                  fetchAnalytics();
+                }}
+                className={`px-4 py-2 rounded-lg transition-colors ${
+                  activeTab === "analytics"
+                    ? "bg-white text-black"
+                    : "bg-gray-900 text-gray-400 hover:bg-gray-800"
+                }`}
+              >
+                <BarChart3 className="h-5 w-5 inline-block mr-2" />
+                Analytics
+              </button>
+            )}
+
+            <button
+              onClick={() => {
+                setActiveTab("bookmarks");
+                fetchUserBookmarks();
+              }}
+              className={`px-4 py-2 rounded-lg transition-colors ${
+                activeTab === "bookmarks"
+                  ? "bg-white text-black"
+                  : "bg-gray-900 text-gray-400 hover:bg-gray-800"
+              }`}
+            >
+              <Bookmark className="h-5 w-5 inline-block mr-2" />
+              My Bookmarks
+            </button>
+
+            <button
+              onClick={() => setActiveTab("account")}
+              className={`px-4 py-2 rounded-lg transition-colors ${
+                activeTab === "account"
+                  ? "bg-white text-black"
+                  : "bg-gray-900 text-gray-400 hover:bg-gray-800"
+              }`}
+            >
+              <User className="h-5 w-5 inline-block mr-2" />
+              Account
+            </button>
+
+            <button
+              onClick={() => setActiveTab("settings")}
+              className={`px-4 py-2 rounded-lg transition-colors ${
+                activeTab === "settings"
+                  ? "bg-white text-black"
+                  : "bg-gray-900 text-gray-400 hover:bg-gray-800"
+              }`}
+            >
+              <Settings className="h-5 w-5 inline-block mr-2" />
+              Settings
+            </button>
+          </div>
+
+          {success && (
+            <div className="mb-6 p-4 bg-green-500/10 text-green-500 rounded-lg flex items-center">
+              <CheckCircle className="h-5 w-5 mr-2 flex-shrink-0" />
+              <span>{success}</span>
+            </div>
           )}
 
-          <button
-            onClick={() => {
-              setActiveTab("bookmarks");
-              fetchUserBookmarks();
-            }}
-            className={`px-4 py-2 rounded-lg transition-colors ${
-              activeTab === "bookmarks"
-                ? "bg-white text-black"
-                : "bg-gray-900 text-gray-400 hover:bg-gray-800"
-            }`}
-          >
-            <Bookmark className="h-5 w-5 inline-block mr-2" />
-            My Bookmarks
-          </button>
-          <button
-            onClick={() => setActiveTab("account")}
-            className={`px-4 py-2 rounded-lg transition-colors ${
-              activeTab === "account"
-                ? "bg-white text-black"
-                : "bg-gray-900 text-gray-400 hover:bg-gray-800"
-            }`}
-          >
-            <User className="h-5 w-5 inline-block mr-2" />
-            Account
-          </button>
-          <button
-            onClick={() => setActiveTab("settings")}
-            className={`px-4 py-2 rounded-lg transition-colors ${
-              activeTab === "settings"
-                ? "bg-white text-black"
-                : "bg-gray-900 text-gray-400 hover:bg-gray-800"
-            }`}
-          >
-            <Settings className="h-5 w-5 inline-block mr-2" />
-            Settings
-          </button>
+          {/* Render the active tab content */}
+          {activeTab === "businesses" && (
+            <MyBusinessesSection
+              businesses={businesses as any}
+              incompleteBusinesses={incompleteBusinesses as any}
+              loading={businessesLoading}
+              hasBusinesses={hasBusinesses}
+              onDeleteBusiness={handleDeleteBusiness as any}
+              onContinueListing={handleContinueBusinessListing}
+              onBusinessUpdated={fetchUserBusinesses}
+            />
+          )}
+
+          {activeTab === "subscriptions" && (
+            <SubscriptionManagementSection
+              businesses={businesses}
+              loading={businessesLoading}
+              onUpdate={fetchUserBusinesses}
+            />
+          )}
+
+          {activeTab === "analytics" && (
+            <BusinessAnalyticsSection
+              analytics={analytics}
+              loading={analyticsLoading}
+              hasBusinesses={hasBusinesses}
+            />
+          )}
+
+          {activeTab === "bookmarks" && (
+            <MyBookmarksSection
+              bookmarkedBusinesses={bookmarkedBusinesses as any}
+              loading={bookmarksLoading}
+              onRemoveBookmark={handleRemoveBookmark as any}
+            />
+          )}
+
+          {activeTab === "account" && <AccountSettingsSection />}
+
+          {activeTab === "settings" && <UserPreferencesSection />}
+
+          {/* Account Deletion Confirmation Modal */}
+          <AccountDeletionModal
+            isOpen={showDeletionConfirm}
+            onClose={() => window.location.reload()}
+            onConfirm={deleteUserAccount}
+            loading={deletionLoading}
+          />
         </div>
-
-        {success && (
-          <div className="mb-6 p-4 bg-green-500/10 text-green-500 rounded-lg flex items-center">
-            <CheckCircle className="h-5 w-5 mr-2 flex-shrink-0" />
-            <span>{success}</span>
-          </div>
-        )}
-
-        {/* Render the active tab content */}
-        {activeTab === "businesses" && (
-          <MyBusinessesSection
-            businesses={businesses as any}
-            incompleteBusinesses={incompleteBusinesses as any}
-            loading={businessesLoading}
-            hasBusinesses={hasBusinesses}
-            onDeleteBusiness={handleDeleteBusiness as any}
-            onContinueListing={handleContinueBusinessListing}
-            onBusinessUpdated={fetchUserBusinesses} // Add this prop
-          />
-        )}
-
-        {activeTab === "analytics" && (
-          <BusinessAnalyticsSection
-            analytics={analytics}
-            loading={analyticsLoading}
-            hasBusinesses={hasBusinesses}
-          />
-        )}
-
-        {activeTab === "bookmarks" && (
-          <MyBookmarksSection
-            bookmarkedBusinesses={bookmarkedBusinesses as any}
-            loading={bookmarksLoading}
-            onRemoveBookmark={handleRemoveBookmark as any}
-          />
-        )}
-
-        {activeTab === "account" && <AccountSettingsSection />}
-
-        {activeTab === "settings" && <UserPreferencesSection />}
-
-        {/* Account Deletion Confirmation Modal */}
-        <AccountDeletionModal
-          isOpen={showDeletionConfirm}
-          onClose={() => window.location.reload()}
-          onConfirm={deleteUserAccount}
-          loading={deletionLoading}
-        />
       </div>
     </Layout>
   );

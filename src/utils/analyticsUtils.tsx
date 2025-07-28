@@ -1,5 +1,37 @@
 import { supabase } from "../lib/supabase";
 
+// Function to record business view
+export const recordBusinessView = async (businessId: string) => {
+  try {
+    // Get user agent and IP info
+    const userAgent = navigator.userAgent;
+
+    // Record the view in business_views table
+    const { error: viewError } = await supabase.from("business_views").insert({
+      business_id: businessId,
+      user_agent: userAgent,
+      source: "direct", // Can be enhanced to detect referral sources
+    });
+
+    if (viewError) {
+      console.error("Error recording business view:", viewError);
+      return;
+    }
+
+    // Update the cached view count in businesses table
+    const { error: updateError } = await supabase.rpc(
+      "increment_business_views" as any,
+      { business_id: businessId }
+    );
+
+    if (updateError) {
+      console.error("Error updating business view count:", updateError);
+    }
+  } catch (error) {
+    console.error("Error recording business view:", error);
+  }
+};
+
 // Function to record business action
 export const recordBusinessAction = async (
   businessId: string,

@@ -241,7 +241,7 @@ const MyBusinessesSection: React.FC<MyBusinessesSectionProps> = ({
         </div>
       )}
 
-      {/* Active Businesses */}
+      {/* Active Businesses - Simplified without subscription management */}
       {businesses.length > 0 ? (
         <div className="grid grid-cols-1 gap-6">
           {businesses.map((business) => (
