@@ -27,6 +27,7 @@ export function useBusinessListingForm(location: any, navigate: any) {
     tagline: "",
     description: "",
     category: "",
+    categories: [] as string[], // Add this line
     tags: [] as BusinessTag[],
     email: "",
     phone: "",
@@ -56,7 +57,7 @@ export function useBusinessListingForm(location: any, navigate: any) {
   const [nameCheckPerformed, setNameCheckPerformed] = useState(false);
   const [discountInfo, setDiscountInfo] = useState(null);
   const [discountedAmount, setDiscountedAmount] = useState(planPrice || 0);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
   const [businessIdToUpdate, setBusinessIdToUpdate] = useState(() => {
     if (location.state?.businessIdToUpdate)
       return location.state.businessIdToUpdate;
@@ -136,7 +137,7 @@ export function useBusinessListingForm(location: any, navigate: any) {
       // Check for existing business with same name
       const { data: existingBusiness, error: checkError } = await supabase
         .from("businesses")
-        .select("id, name")
+        .select("id, name, subscription_status")
         .eq("owner_id", user.id)
         .eq("name", formData.name)
         .single();
@@ -145,9 +146,31 @@ export function useBusinessListingForm(location: any, navigate: any) {
         throw checkError;
       }
 
-      if (existingBusiness) {
+      let businessToUpdate = null;
+      let isUpdate = false;
+
+      // If business exists and we have a businessIdToUpdate, check if it's the same business
+      if (existingBusiness && businessIdToUpdate) {
+        if (existingBusiness.id === businessIdToUpdate) {
+          // Same business, proceed with update
+          businessToUpdate = existingBusiness;
+          isUpdate = true;
+          console.log("✅ Updating existing business:", existingBusiness.id);
+        } else {
+          // Different business with same name, throw error
+          throw new Error(
+            `A business with the name "${formData.name}" already exists. Please choose a different name.`
+          );
+        }
+      } else if (existingBusiness && !businessIdToUpdate) {
+        // Business exists but no update ID provided, throw error
         throw new Error(
           `A business with the name "${formData.name}" already exists. Please choose a different name.`
+        );
+      } else if (!existingBusiness && businessIdToUpdate) {
+        // No business found but we have update ID, this shouldn't happen
+        console.warn(
+          "Business ID provided but no business found with that name"
         );
       }
 
@@ -203,21 +226,40 @@ export function useBusinessListingForm(location: any, navigate: any) {
 
       console.log("Final businessData to submit:", businessData);
 
-      // Create new business
-      const { data: newBusiness, error: insertError } = await supabase
-        .from("businesses")
-        .insert([businessData])
-        .select()
-        .single();
+      let newBusiness;
 
-      if (insertError) {
-        throw insertError;
+      if (isUpdate && businessToUpdate) {
+        // Update existing business
+        const { data: updatedBusiness, error: updateError } = await supabase
+          .from("businesses")
+          .update(businessData)
+          .eq("id", businessToUpdate.id)
+          .select()
+          .single();
+
+        if (updateError) {
+          throw updateError;
+        }
+
+        newBusiness = updatedBusiness;
+        console.log("✅ Business updated:", newBusiness);
+      } else {
+        // Create new business
+        const { data: createdBusiness, error: insertError } = await supabase
+          .from("businesses")
+          .insert([businessData])
+          .select()
+          .single();
+
+        if (insertError) {
+          throw insertError;
+        }
+
+        newBusiness = createdBusiness;
+        console.log("✅ Business created:", newBusiness);
       }
 
-      console.log("✅ Business created:", newBusiness);
-
-      // Update the subscription creation logic
-      // All new businesses (after payment) are paid plans: Starter, Enhanced, or VIP
+      // Handle subscription logic
       if (planName) {
         console.log("🔍 Creating subscription for paid plan:", planName);
 
@@ -231,10 +273,47 @@ export function useBusinessListingForm(location: any, navigate: any) {
         if (planError) {
           console.error("❌ Could not find subscription plan:", planError);
           throw new Error(`Subscription plan '${planName}' not found`);
-        } else {
-          console.log("✅ Found subscription plan:", subscriptionPlan);
+        }
 
-          // Create subscription record
+        console.log("✅ Found subscription plan:", subscriptionPlan);
+
+        // Check if subscription already exists for this business
+        const { data: existingSubscription, error: subCheckError } =
+          await supabase
+            .from("subscriptions")
+            .select("id, status")
+            .eq("business_id", newBusiness.id)
+            .single();
+
+        if (subCheckError && subCheckError.code !== "PGRST116") {
+          throw subCheckError;
+        }
+
+        if (existingSubscription) {
+          // Update existing subscription
+          const { error: subUpdateError } = await supabase
+            .from("subscriptions")
+            .update({
+              plan_id: subscriptionPlan.id,
+              status: "active",
+              payment_status: "paid",
+              current_period_start: new Date().toISOString(),
+              current_period_end: new Date(
+                Date.now() + 365 * 24 * 60 * 60 * 1000
+              ).toISOString(),
+            })
+            .eq("id", existingSubscription.id);
+
+          if (subUpdateError) {
+            console.error("❌ Could not update subscription:", subUpdateError);
+            throw new Error(
+              `Failed to update subscription: ${subUpdateError.message}`
+            );
+          }
+
+          console.log("✅ Subscription updated:", existingSubscription.id);
+        } else {
+          // Create new subscription
           const subscriptionData = {
             business_id: newBusiness.id,
             plan_id: subscriptionPlan.id,
@@ -243,7 +322,7 @@ export function useBusinessListingForm(location: any, navigate: any) {
             current_period_start: new Date().toISOString(),
             current_period_end: new Date(
               Date.now() + 365 * 24 * 60 * 60 * 1000
-            ).toISOString(), // 1 year from now
+            ).toISOString(),
           };
 
           const { data: subscription, error: subError } = await supabase
@@ -257,31 +336,30 @@ export function useBusinessListingForm(location: any, navigate: any) {
             throw new Error(
               `Failed to create subscription: ${subError.message}`
             );
-          } else {
-            console.log("✅ Subscription created:", subscription);
+          }
 
-            // Update business with subscription_id AND subscription_status
-            if (subscription) {
-              const { error: updateError } = await supabase
-                .from("businesses")
-                .update({
-                  subscription_id: subscription.id,
-                  subscription_status: planName, // Will be "Starter Plan", "Enhanced Plan", or "VIP Plan"
-                })
-                .eq("id", newBusiness.id);
+          console.log("✅ Subscription created:", subscription);
 
-              if (updateError) {
-                console.error(
-                  "❌ Error updating business subscription:",
-                  updateError
-                );
-                throw new Error(
-                  `Failed to update business subscription: ${updateError.message}`
-                );
-              } else {
-                console.log("✅ Business subscription updated successfully");
-              }
+          // Update business with subscription_id
+          if (subscription) {
+            const { error: updateError } = await supabase
+              .from("businesses")
+              .update({
+                subscription_id: subscription.id,
+                subscription_status: "active",
+              })
+              .eq("id", newBusiness.id);
+
+            if (updateError) {
+              console.error(
+                "❌ Error updating business subscription:",
+                updateError
+              );
+              throw new Error(
+                `Failed to update business subscription: ${updateError.message}`
+              );
             }
+            console.log("✅ Business subscription updated successfully");
           }
         }
       } else {
@@ -289,10 +367,17 @@ export function useBusinessListingForm(location: any, navigate: any) {
         throw new Error("No subscription plan specified");
       }
 
+      // Clear the businessIdToUpdate from session storage after successful submission
+      if (isUpdate) {
+        sessionStorage.removeItem("businessIdToUpdate");
+        setBusinessIdToUpdate(null);
+      }
+
       // Navigate to dashboard with success message
       navigate("/dashboard", {
         state: {
-          newBusiness: true,
+          newBusiness: !isUpdate,
+          updatedBusiness: isUpdate,
           businessName: newBusiness.name,
         },
       });
@@ -302,7 +387,43 @@ export function useBusinessListingForm(location: any, navigate: any) {
     } finally {
       setLoading(false);
     }
-  }, [formData, planName, navigate, isPremiumPlan]);
+  }, [formData, planName, navigate, isPremiumPlan, businessIdToUpdate]);
+
+  // Fix the isCurrentStepValid function to check the correct required fields:
+  const isCurrentStepValid = useCallback(() => {
+    switch (currentStep) {
+      case "info":
+        // Required fields for info step: name, description, category
+        return (
+          formData.name?.trim() &&
+          formData.description?.trim() &&
+          (isPremiumPlan
+            ? formData.categories && formData.categories.length > 0
+            : formData.category)
+        );
+      case "location":
+        // Only require country and state for location step
+        return formData.country?.trim() && formData.state?.trim();
+      case "media":
+        // Image is optional for media step
+        return true;
+      case "premium_features":
+        return true; // Premium features are optional
+      case "summary":
+        // For summary, check all required fields for final submission
+        return (
+          formData.name?.trim() &&
+          formData.description?.trim() &&
+          (isPremiumPlan
+            ? formData.categories && formData.categories.length > 0
+            : formData.category) &&
+          formData.country?.trim() &&
+          formData.state?.trim()
+        );
+      default:
+        return true;
+    }
+  }, [currentStep, formData, isPremiumPlan]);
 
   // Return all state and handlers needed by the page
   return {
@@ -334,5 +455,7 @@ export function useBusinessListingForm(location: any, navigate: any) {
     sortedCategories,
     isPremiumPlan,
     submitBusinessData,
+    isCurrentStepValid,
+    businessIdToUpdate,
   };
 }

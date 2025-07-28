@@ -147,3 +147,133 @@ GROUP BY b.id, b.name, b.views_count, b.last_viewed_at, b.total_actions;
 - A/B testing for business listings
 - Competitor comparison analytics
 - Automated insights and recommendations
+
+## Documentation Updates Needed
+
+### 1. **Business Listing Flow Documentation** (`docs/business-listing-id-flow.md`)
+
+**Current Issue**: The documentation describes a flow where businesses are created with `is_active: false` after payment, but the current code creates businesses with `is_active: true`.
+
+**Update Needed**:
+
+```markdown
+## 1. Business ID Creation and Storage (After Payment)
+
+- **After a successful payment:**
+  - A new business record is created in the `businesses` table with:
+    - `owner_id` set to the current user's ID
+    - `subscription_id` set to the new subscription
+    - `is_active: true` (business is active after payment)
+  - The new business's `id` is:
+    - Stored in React state (`setBusinessIdToUpdate`)
+    - Stored in `sessionStorage` as `"businessIdToUpdate"`
+    - Passed in navigation state when redirecting to `/business/new`
+
+## 3. Dashboard Integration
+
+- **Incomplete businesses** are fetched in the dashboard using:
+
+  - `useUserBusinesses` hook
+  - Query: `businesses` table filtered by `owner_id` and missing essential details
+  - Displayed in "My Businesses" section with "Complete Listing" buttons
+
+- **Incomplete business criteria:**
+  - Business has a subscription (payment completed)
+  - Missing essential details: name, description, category, email, city, state
+```
+
+### 2. **Payment Provider Integration** (`docs/PAYMENT_PROVIDER_INTEGRATION.md`)
+
+**Current Issue**: The documentation references `paymentErrorHandler.ts` but this file is deprecated and now uses `unifiedErrorHandler.ts`.
+
+**Update Needed**:
+
+```markdown
+4. **Error Handler** (`src/utils/unifiedErrorHandler.ts`)
+   - Provider-specific error normalization
+   - User-friendly error messages
+   - Retry logic for transient errors
+
+**Note**: The old `paymentErrorHandler.ts` is deprecated and now re-exports from `unifiedErrorHandler.ts` for backward compatibility.
+```
+
+### 3. **Database Schema Documentation** (`docs/DOCUMENTATION.md`)
+
+**Current Issue**: The documentation doesn't reflect the current subscription status values and form validation requirements.
+
+**Update Needed**:
+
+```markdown
+**Subscription & Payment Fields:**
+
+- `subscription_id` (uuid) - Foreign key to subscriptions.id
+- `subscription_status` (text) - Current subscription status ('pending', 'active', 'cancelled')
+- `nmi_subscription_id` (text) - NMI subscription ID
+- `nmi_customer_vault_id` (text) - NMI customer vault ID
+- `next_billing_date` (timestamp with time zone) - Next billing date
+- `last_payment_date` (timestamp with time zone) - Last payment date
+- `payment_method_last_four` (text) - Last 4 digits of payment method
+
+**Form Validation Requirements:**
+
+**Business Information Step:**
+
+- Business Name (required)
+- Description (required)
+- Category (required) - Single for basic plans, multiple for premium plans
+
+**Location Step:**
+
+- Country (required)
+- State/Province (required)
+- City (required)
+- Postal Code (required)
+
+**Media Step:**
+
+- Business Image (optional)
+
+**Premium Features Step:**
+
+- Promotional Video URL (optional)
+- Social Media Links (optional)
+```
+
+### 4. **Missing Migration Documentation**
+
+**Current Issue**: The subscription status constraint update is not documented.
+
+**New Migration Needed**:
+
+```sql
+-- Create new migration file: supabase/migrations/20250725000000_fix_subscription_status_values.sql
+
+-- First, update existing statuses to the new format
+UPDATE businesses
+SET subscription_status =
+  CASE
+    WHEN subscription_status IN ('Starter Plan', 'Enhanced Plan', 'VIP Plan') THEN 'active'
+    WHEN subscription_status IS NULL THEN 'pending'
+    ELSE subscription_status -- keeps 'pending', 'active', or 'cancelled' as is
+  END;
+
+-- Drop the existing constraint
+ALTER TABLE businesses DROP CONSTRAINT IF EXISTS check_subscription_status;
+
+-- Add the new constraint
+ALTER TABLE businesses
+  ADD CONSTRAINT check_subscription_status
+  CHECK (subscription_status IN ('pending', 'active', 'cancelled'));
+```
+
+### 5. **Form Validation Documentation**
+
+**Current Issue**: The documentation doesn't reflect the current step-by-step validation.
+
+**New Section Needed**:
+
+```markdown
+<code_block_to_apply_changes_from>
+```
+
+These updates will bring the documentation in line with the current codebase implementation and provide accurate guidance for developers working with the system.

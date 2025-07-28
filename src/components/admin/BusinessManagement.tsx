@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Download, RefreshCw, Building2 } from "lucide-react";
 import { supabase } from "../../lib/supabase";
-import { logError } from "../../lib/errorLogger";
+
 import useErrorHandler from "../../hooks/useErrorHandler";
 import ErrorFallback from "../common/ErrorFallback";
 import BusinessStatsCards from "./business/BusinessStatsCards";
@@ -74,6 +74,15 @@ const BusinessManagement: React.FC<BusinessManagementProps> = ({
     defaultMessage: "Failed to manage businesses",
   });
 
+  const mounted = useRef(true);
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+
   const fetchStats = useCallback(async () => {
     try {
       const { data, error } = await supabase.rpc("get_business_stats");
@@ -90,14 +99,14 @@ const BusinessManagement: React.FC<BusinessManagementProps> = ({
         });
       }
     } catch (err) {
-      logError("Failed to fetch stats", {
-        context: "BusinessManagement.fetchStats",
-        metadata: { error: err },
-      });
+      // Move error handling outside the callback
+      console.error("Failed to fetch stats:", err);
     }
-  }, []);
+  }, []); // Now has no dependencies
 
   const fetchBusinesses = useCallback(async () => {
+    if (!mounted.current) return; // Add mounted check
+
     try {
       setLoading(true);
       clearError();
@@ -199,9 +208,13 @@ const BusinessManagement: React.FC<BusinessManagementProps> = ({
       );
       setTotalCount(count || 0);
     } catch (err) {
-      handleError(err, "Failed to fetch businesses");
+      if (mounted.current) {
+        handleError(err, "Failed to fetch businesses");
+      }
     } finally {
-      setLoading(false);
+      if (mounted.current) {
+        setLoading(false);
+      }
     }
   }, [
     searchTerm,
@@ -209,14 +222,16 @@ const BusinessManagement: React.FC<BusinessManagementProps> = ({
     sortBy,
     currentPage,
     itemsPerPage,
-    handleError,
-    clearError,
-  ]);
+    // Remove handleError and clearError from dependencies
+  ]); // Only depend on search/filter/pagination params
+
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
 
   useEffect(() => {
     fetchBusinesses();
-    fetchStats();
-  }, [fetchBusinesses, fetchStats]);
+  }, [fetchBusinesses]);
 
   const handleBusinessAction = async (action: string, businessId: string) => {
     try {

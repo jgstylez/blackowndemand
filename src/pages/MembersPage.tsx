@@ -107,12 +107,13 @@ const VIPPage = () => {
         setBusinessesLoading(true);
         console.log("🔍 Fetching VIP businesses...");
 
-        // Use the correct foreign key relationship and join
+        // Fix the OR syntax for Supabase
         const { data, error } = await supabase
           .from("businesses")
           .select(
             `
           *,
+          vip_member(*),
           subscriptions!businesses_subscription_id_fkey(
             id,
             status,
@@ -124,20 +125,26 @@ const VIPPage = () => {
         `
           )
           .eq("is_active", true)
-          .not("subscription_id", "is", null)
-          .order("created_at", { ascending: false });
+          .or(
+            "subscription_status.eq.VIP Plan,vip_member.business_id.is.not.null"
+          ); // Fixed OR syntax
 
         if (error) {
           console.error("❌ Error fetching VIP businesses:", error);
           throw error;
         }
 
-        // Filter for businesses with active VIP subscriptions
+        console.log("Raw data:", data); // Debug log
+
+        // Filter for VIP businesses
         const vipBusinesses = (data || [])
           .filter(
             (business: any) =>
-              business.subscriptions?.status === "active" &&
-              business.subscriptions?.subscription_plans?.name === "VIP Plan"
+              business.vip_member || // Has VIP member status
+              (business.subscriptions?.status === "active" &&
+                business.subscriptions?.subscription_plans?.name ===
+                  "VIP Plan") || // Has active VIP subscription
+              business.subscription_status === "VIP Plan" // Legacy VIP status
           )
           .map((business: any) => ({
             id: business.id,
@@ -155,13 +162,14 @@ const VIPPage = () => {
             migration_source: business.migration_source,
             created_at: business.created_at,
             subscriptions: business.subscriptions,
+            vip_member: business.vip_member,
           }));
 
         console.log("👑 Found VIP businesses:", vipBusinesses.length);
         setVIPBusinesses(vipBusinesses);
         setTotalBusinesses(vipBusinesses.length);
       } catch (err) {
-        console.error("�� Error fetching VIP businesses:", err);
+        console.error("💥 Error fetching VIP businesses:", err);
         // Assuming handleError is defined elsewhere or will be added
         // For now, we'll just log the error
       } finally {

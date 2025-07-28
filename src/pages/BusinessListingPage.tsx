@@ -51,30 +51,9 @@ const BusinessListingPage = () => {
     isPremiumPlan,
     submitBusinessData,
     steps,
+    isCurrentStepValid,
+    businessIdToUpdate,
   } = useBusinessListingForm(location, navigate);
-
-  // Additional state for business update functionality
-  const [businessIdToUpdate, setBusinessIdToUpdate] = useState<string | null>(
-    null
-  );
-
-  // Check for business update parameters on component mount
-  useEffect(() => {
-    // Check if businessIdToUpdate is passed as search parameter
-    const businessId = searchParams.get("businessId");
-    if (businessId) {
-      setBusinessIdToUpdate(businessId);
-    }
-
-    // Check if payment was completed (from location state)
-    if (location.state?.paymentCompleted) {
-      console.log(
-        "Payment completed, business ID to update:",
-        location.state.businessIdToUpdate
-      );
-      setBusinessIdToUpdate(location.state.businessIdToUpdate || null);
-    }
-  }, [location.state, searchParams]);
 
   // Add missing handlers that aren't in the hook yet
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -230,9 +209,16 @@ const BusinessListingPage = () => {
   };
 
   const handleNextStep = () => {
+    // Validate current step before proceeding
+    if (!isCurrentStepValid()) {
+      setError("Please complete all required fields before proceeding.");
+      return;
+    }
+
     const currentIndex = steps.indexOf(currentStep);
     if (currentIndex < steps.length - 1) {
       setCurrentStep(steps[currentIndex + 1]);
+      setError(null); // Clear any previous errors
     }
   };
 
@@ -400,28 +386,55 @@ const BusinessListingPage = () => {
   };
 
   return (
-    <Layout>
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="flex items-center justify-between mb-8">
-          <button
-            onClick={() => navigate(-1)}
-            className="inline-flex items-center text-gray-400 hover:text-white"
-          >
-            <ArrowLeft className="h-5 w-5 mr-2" />
-            Back
-          </button>
-          <div className="flex items-center gap-2">
+    <Layout
+      title="List Your Business | BlackOWNDemand"
+      description="List your Black-owned business on our platform"
+    >
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {/* Progress indicator */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between">
             {steps.map((step, index) => (
-              <React.Fragment key={step}>
+              <div
+                key={step}
+                className={`flex items-center ${
+                  index < steps.length - 1 ? "flex-1" : ""
+                }`}
+              >
                 <div
-                  className={`w-3 h-3 rounded-full ${
-                    index <= currentStepIndex ? "bg-white" : "bg-gray-700"
+                  className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium ${
+                    index <= currentStepIndex
+                      ? "bg-white text-black"
+                      : "bg-gray-700 text-gray-400"
                   }`}
-                />
+                >
+                  {index + 1}
+                </div>
                 {index < steps.length - 1 && (
-                  <div className="w-12 h-0.5 bg-gray-700" />
+                  <div
+                    className={`flex-1 h-1 mx-2 ${
+                      index < currentStepIndex ? "bg-white" : "bg-gray-700"
+                    }`}
+                  />
                 )}
-              </React.Fragment>
+              </div>
+            ))}
+          </div>
+          <div className="flex justify-between mt-2">
+            {steps.map((step) => (
+              <span
+                key={step}
+                className={`text-xs ${
+                  step === currentStep ? "text-white" : "text-gray-400"
+                }`}
+              >
+                {step === "payment" && "Payment"}
+                {step === "info" && "Info"}
+                {step === "location" && "Location"}
+                {step === "media" && "Media"}
+                {step === "premium_features" && "Premium"}
+                {step === "summary" && "Review"}
+              </span>
             ))}
           </div>
         </div>
@@ -461,7 +474,7 @@ const BusinessListingPage = () => {
                     ? submitBusinessData
                     : handleNextStep
                 }
-                disabled={loading}
+                disabled={loading || !isCurrentStepValid()}
                 className="inline-flex items-center px-4 py-2 rounded-lg bg-white text-black hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading
