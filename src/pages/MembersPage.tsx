@@ -100,51 +100,45 @@ const VIPPage = () => {
     }
   }, [location, navigate]);
 
-  // Fetch VIP businesses
+  // Simplified VIP businesses fetch
   useEffect(() => {
     const fetchVIPBusinesses = async () => {
       try {
         setBusinessesLoading(true);
         console.log("🔍 Fetching VIP businesses...");
 
-        // Fix the OR syntax for Supabase
+        // Simplified query - only check for active businesses with VIP plan
         const { data, error } = await supabase
           .from("businesses")
           .select(
             `
-          *,
-          vip_member(*),
-          subscriptions!businesses_subscription_id_fkey(
-            id,
-            status,
-            subscription_plans(
+            *,
+            subscriptions!businesses_subscription_id_fkey(
               id,
-              name
+              status,
+              subscription_plans(
+                id,
+                name
+              )
             )
-          )
-        `
+          `
           )
           .eq("is_active", true)
-          .or(
-            "subscription_status.eq.VIP Plan,vip_member.business_id.is.not.null"
-          ); // Fixed OR syntax
+          .eq("subscription_status", "active");
 
         if (error) {
           console.error("❌ Error fetching VIP businesses:", error);
           throw error;
         }
 
-        console.log("Raw data:", data); // Debug log
+        console.log("Raw data:", data);
 
-        // Filter for VIP businesses
+        // Simplified filtering - only check for active VIP subscription
         const vipBusinesses = (data || [])
           .filter(
             (business: any) =>
-              business.vip_member || // Has VIP member status
-              (business.subscriptions?.status === "active" &&
-                business.subscriptions?.subscription_plans?.name ===
-                  "VIP Plan") || // Has active VIP subscription
-              business.subscription_status === "VIP Plan" // Legacy VIP status
+              business.subscriptions?.status === "active" &&
+              business.subscriptions?.subscription_plans?.name === "VIP Plan"
           )
           .map((business: any) => ({
             id: business.id,
@@ -162,7 +156,6 @@ const VIPPage = () => {
             migration_source: business.migration_source,
             created_at: business.created_at,
             subscriptions: business.subscriptions,
-            vip_member: business.vip_member,
           }));
 
         console.log("👑 Found VIP businesses:", vipBusinesses.length);
@@ -170,8 +163,6 @@ const VIPPage = () => {
         setTotalBusinesses(vipBusinesses.length);
       } catch (err) {
         console.error("💥 Error fetching VIP businesses:", err);
-        // Assuming handleError is defined elsewhere or will be added
-        // For now, we'll just log the error
       } finally {
         setBusinessesLoading(false);
       }
@@ -388,7 +379,7 @@ const VIPPage = () => {
           </div>
         </div>
 
-        {/* VIP Members Section - Only show if there are VIP members or if still loading */}
+        {/* Simplified VIP Members Section */}
         {(businessesLoading || vipBusinesses.length > 0) && (
           <div id="vip-businesses" className="mb-16">
             <div className="text-center mb-12">
@@ -404,7 +395,7 @@ const VIPPage = () => {
                 building the future of Black business together.
               </p>
               {totalBusinesses > 0 && (
-                <p className="hidden text-gray-500 mt-4">
+                <p className="text-gray-500 mt-4">
                   {totalBusinesses} VIP member{totalBusinesses !== 1 ? "s" : ""}{" "}
                   and growing
                 </p>
