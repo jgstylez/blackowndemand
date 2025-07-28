@@ -353,7 +353,7 @@ const BusinessManagement: React.FC<BusinessManagementProps> = ({
   const totalPages = Math.ceil(totalCount / itemsPerPage);
 
   // If there's an error, show the error fallback
-  if (error.hasError && !loading) {
+  if (error && !loading) {
     return (
       <ErrorFallback
         error={error.details}

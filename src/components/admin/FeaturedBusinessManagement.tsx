@@ -100,7 +100,7 @@ const FeaturedBusinessManagement: React.FC = () => {
     if (oldIndex === -1 || newIndex === -1) return;
 
     setUpdating(true);
-    setError(null); // Clear previous errors
+    setError(null);
 
     try {
       console.log("🔍 Starting drag reorder:", {
@@ -130,32 +130,23 @@ const FeaturedBusinessManagement: React.FC = () => {
         }))
       );
 
-      // Batch update all positions in database using Promise.all
-      const updatePromises = updatedBusinesses.map((business) =>
-        supabase
+      // Update positions sequentially to avoid deadlocks
+      for (const business of updatedBusinesses) {
+        const { error } = await supabase
           .from("businesses")
           .update({ featured_position: business.featured_position })
-          .eq("id", business.id)
-      );
+          .eq("id", business.id);
 
-      const updateResults = await Promise.all(updatePromises);
-
-      // Check for any errors in the batch update
-      const errors = updateResults.filter((res) => res.error);
-      if (errors.length > 0) {
-        console.error("❌ Error(s) updating business positions:", errors);
-        const errorMessages = errors.map((e) => e.error?.message).join(", ");
-        setError(`Failed to update some business positions: ${errorMessages}`);
-        return;
+        if (error) {
+          console.error("❌ Error updating business position:", error);
+          setError(`Failed to update business position: ${error.message}`);
+          return;
+        }
       }
 
-      // Update local state immediately for better UX
+      // Update local state
       setBusinesses(updatedBusinesses);
-
       console.log("✅ Featured business positions updated successfully");
-
-      // Optional: Re-fetch to confirm persistence
-      // await fetchBusinesses();
     } catch (err: any) {
       console.error("❌ Error updating business positions:", err);
       setError(err.message || "Failed to update business positions");

@@ -18,9 +18,11 @@ import { supabase, getBusinessImageUrl } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useUnifiedPayment } from "../hooks/useUnifiedPayment";
+import { usePaymentProvider } from "../hooks/usePaymentProvider";
 import BusinessCTA from "../components/common/BusinessCTA";
 import PlanPromotion from "../components/pricing/PlanPromotion";
 import { getPlanConfigByName } from "../config/paymentConfig";
+import PaymentModal from "../components/payment/PaymentModal";
 
 interface VIPBusiness {
   id: string;
@@ -45,21 +47,24 @@ const VIPPage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [loading] = useState(false);
+  const { provider } = usePaymentProvider();
+  const [loading, setLoading] = useState(false);
   const [vipBusinesses, setVIPBusinesses] = useState<VIPBusiness[]>([]);
   const [businessesLoading, setBusinessesLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalBusinesses, setTotalBusinesses] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
 
-  // Use unified payment hook
+  // Use unified payment hook - same as PricingPage
   const { handlePayment } = useUnifiedPayment({
     onSuccess: (result) => {
       console.log("Payment successful:", result);
       // Payment success is handled by URL redirect
     },
-    onError: (errorMessage) => {
-      setError(errorMessage);
+    onError: (error) => {
+      console.error("Payment failed:", error.userFriendlyMessage);
+      setError(error.userFriendlyMessage || "Payment failed");
       setTimeout(() => setError(null), 5000);
     },
   });
@@ -146,15 +151,26 @@ const VIPPage = () => {
       return;
     }
 
-    // Use unified payment hook instead of direct Stripe call
-    await handlePayment({
-      planName: "VIP Plan",
-      planPrice: vipPlan.price, // Use config price instead of hardcoded 99
-      successUrl: `${
-        window.location.origin
-      }/members?success=true&plan=${encodeURIComponent("VIP Plan")}`,
-      cancelUrl: `${window.location.origin}/members?canceled=true`,
-    });
+    setLoading(true);
+    setError(null);
+
+    try {
+      const result = await handlePayment({
+        planName: "VIP Plan",
+        planPrice: vipPlan.price,
+        provider,
+        showPaymentModal: true,
+      });
+
+      if (result && result.provider === "ecomPayments") {
+        setIsPaymentModalOpen(true);
+      }
+    } catch (error) {
+      console.error("Error initiating payment:", error);
+      setError("Failed to initiate payment. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handlePageChange = (page: number) => {
@@ -472,8 +488,28 @@ const VIPPage = () => {
           </div>
         )}
 
-        {/* Payment Modal */}
-        {/* The MemberPaymentModal component is no longer needed as payment is handled by Stripe Checkout */}
+        {/* Payment Modal - same as PricingPage */}
+        {isPaymentModalOpen && (
+          <PaymentModal
+            isOpen={isPaymentModalOpen}
+            onClose={() => setIsPaymentModalOpen(false)}
+            planName="VIP Plan"
+            amount={getPlanConfigByName("VIP Plan")?.price || 99}
+            description="VIP Plan - Annual Subscription"
+            customerEmail={user?.email || ""}
+            onSuccess={(paymentData: any) => {
+              setIsPaymentModalOpen(false);
+              navigate("/business/new", {
+                state: {
+                  planPrice: getPlanConfigByName("VIP Plan")?.price || 99,
+                  planName: "VIP Plan",
+                  paymentCompleted: true,
+                  transactionId: paymentData.transactionId,
+                },
+              });
+            }}
+          />
+        )}
       </div>
 
       {/* Add the CTA section */}

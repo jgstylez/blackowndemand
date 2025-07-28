@@ -8,11 +8,7 @@ interface BusinessDetails {
   businessImages: any[];
   similarBusinesses: any[];
   loading: boolean;
-  error: {
-    hasError: boolean;
-    message: string | null;
-    details: any;
-  };
+  error: any; // Changed from old format to UnifiedError format
   clearError: () => void;
 }
 
@@ -140,7 +136,7 @@ export const useBusinessDetails = (id: string | undefined): BusinessDetails => {
     };
 
     fetchBusiness();
-  }, [id, handleError, clearError, viewRecorded]);
+  }, [id, viewRecorded]); // Remove handleError and clearError from dependencies
 
   return {
     business,

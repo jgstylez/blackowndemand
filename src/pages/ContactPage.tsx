@@ -96,7 +96,7 @@ const ContactPage = () => {
     }));
     
     // Clear error when user starts typing
-    if (error.hasError) {
+    if (error) {
       clearError();
     }
   };
@@ -132,7 +132,7 @@ const ContactPage = () => {
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-6">
-              {error.hasError && (
+              {error ? (
                 <div className="bg-red-500/10 text-red-500 p-4 rounded-lg text-sm flex items-center">
                   <AlertCircle className="h-5 w-5 mr-2 flex-shrink-0" />
                   <span>{error.message}</span>

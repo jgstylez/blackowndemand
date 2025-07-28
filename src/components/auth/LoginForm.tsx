@@ -75,12 +75,12 @@ const LoginForm = () => {
       </div>
 
       <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-        {error.hasError && (
+        {error ? (
           <div className="bg-red-500/10 text-red-500 p-4 rounded-lg text-sm flex items-start">
             <AlertCircle className="h-5 w-5 mr-2 flex-shrink-0 mt-0.5" />
             <span>{error.message}</span>
           </div>
-        )}
+        ) : null}
 
         <div className="space-y-4">
           <div>

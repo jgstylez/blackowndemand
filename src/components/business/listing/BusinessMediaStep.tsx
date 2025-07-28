@@ -175,8 +175,7 @@ const BusinessMediaStep: React.FC<BusinessMediaStepProps> = ({
             value={formData.website}
             onChange={handleChange}
             className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white"
-            placeholder="e.g. https://yourbusiness.com"
-            required
+            placeholder="e.g. https://yourbusiness.com (optional)"
           />
         </div>
         <div>

@@ -175,7 +175,7 @@ const BusinessDetailPage = () => {
     );
   }
 
-  if (error.hasError || !business) {
+  if (error || !business) {
     return (
       <Layout
         title="Business Not Found | BlackOWNDemand"
@@ -184,8 +184,8 @@ const BusinessDetailPage = () => {
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <ErrorFallback
-            error={error.details}
-            message={error.message || "Business not found"}
+            error={error}
+            message={error?.message || "Business not found"}
             resetErrorBoundary={() => {
               clearError();
               window.location.reload();
