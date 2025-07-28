@@ -1,34 +1,34 @@
-import React, { useState } from 'react';
-import Layout from '../components/layout/Layout';
-import BusinessCTA from '../components/common/BusinessCTA';
-import { Mail, Send, AlertCircle, CheckCircle } from 'lucide-react';
-import { logError } from '../lib/errorLogger';
-import useErrorHandler from '../hooks/useErrorHandler';
-import { callEdgeFunction } from '../lib/edgeFunctions';
+import React, { useState } from "react";
+import Layout from "../components/layout/Layout";
+import BusinessCTA from "../components/common/BusinessCTA";
+import { Mail, Send, AlertCircle, CheckCircle } from "lucide-react";
+import { logError } from "../lib/errorLogger";
+import { useUnifiedErrorHandler } from "../utils/unifiedErrorHandler";
+import { callEdgeFunction } from "../lib/edgeFunctions";
 
 const CATEGORIES = [
-  'General Inquiry',
-  'Business Listing',
-  'Technical Support',
-  'Partnerships',
-  'Media Inquiries',
-  'Other'
+  "General Inquiry",
+  "Business Listing",
+  "Technical Support",
+  "Partnerships",
+  "Media Inquiries",
+  "Other",
 ];
 
 const ContactPage = () => {
   const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    category: '',
-    subject: '',
-    message: ''
+    name: "",
+    email: "",
+    category: "",
+    subject: "",
+    message: "",
   });
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  
-  const { error, handleError, clearError } = useErrorHandler({
-    context: 'ContactPage',
-    defaultMessage: 'Failed to send message'
+
+  const { error, handleError, clearError } = useUnifiedErrorHandler({
+    context: "ContactPage",
+    defaultMessage: "Failed to send message",
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -38,63 +38,71 @@ const ContactPage = () => {
 
     try {
       // Validate form data
-      if (!formData.name.trim() || !formData.email.trim() || !formData.message.trim()) {
-        throw new Error('Please fill out all required fields');
+      if (
+        !formData.name.trim() ||
+        !formData.email.trim() ||
+        !formData.message.trim()
+      ) {
+        throw new Error("Please fill out all required fields");
       }
 
       // Email validation
       const emailRegex = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
       if (!emailRegex.test(formData.email)) {
-        throw new Error('Please enter a valid email address');
+        throw new Error("Please enter a valid email address");
       }
 
       // Send email using our edge function client
-      const result = await callEdgeFunction<{success: boolean}>({
-        functionName: 'send-contact-email',
-        payload: formData
+      const result = await callEdgeFunction<{ success: boolean }>({
+        functionName: "send-contact-email",
+        payload: formData,
       });
 
       if (!result.success) {
-        throw new Error('Failed to send message. Please try again later.');
+        throw new Error("Failed to send message. Please try again later.");
       }
 
       setSuccess(true);
-      
+
       // Reset form
       setFormData({
-        name: '',
-        email: '',
-        category: '',
-        subject: '',
-        message: ''
+        name: "",
+        email: "",
+        category: "",
+        subject: "",
+        message: "",
       });
     } catch (err) {
       handleError(err);
-      
+
       // Log the error
       logError(err, {
-        context: 'ContactPage',
-        metadata: { 
+        context: "ContactPage",
+        metadata: {
           formData: {
             name: formData.name,
             email: formData.email,
             category: formData.category,
-            subject: formData.subject
-          }
-        }
+            subject: formData.subject,
+          },
+        },
       });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >
+  ) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
-    
+
     // Clear error when user starts typing
     if (error) {
       clearError();
@@ -112,7 +120,8 @@ const ContactPage = () => {
           <div className="text-center mb-12">
             <h1 className="text-4xl font-bold text-white mb-4">Contact Us</h1>
             <p className="text-xl text-gray-400">
-              We'd love to hear from you! Whether you have questions about our platform or need assistance, we're here to help.
+              We'd love to hear from you! Whether you have questions about our
+              platform or need assistance, we're here to help.
             </p>
           </div>
 
@@ -122,7 +131,10 @@ const ContactPage = () => {
                 <CheckCircle className="h-8 w-8 text-green-500" />
               </div>
               <h2 className="text-xl font-semibold mb-2">Message Sent!</h2>
-              <p className="mb-6">Thank you for reaching out. We'll get back to you as soon as possible.</p>
+              <p className="mb-6">
+                Thank you for reaching out. We'll get back to you as soon as
+                possible.
+              </p>
               <button
                 onClick={() => setSuccess(false)}
                 className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
@@ -132,15 +144,18 @@ const ContactPage = () => {
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-6">
-              {error ? (
+              {error && (
                 <div className="bg-red-500/10 text-red-500 p-4 rounded-lg text-sm flex items-center">
                   <AlertCircle className="h-5 w-5 mr-2 flex-shrink-0" />
-                  <span>{error.message}</span>
+                  <span>{error.message || "An error occurred"}</span>
                 </div>
               )}
 
               <div>
-                <label htmlFor="name" className="block text-sm font-medium text-gray-300 mb-2">
+                <label
+                  htmlFor="name"
+                  className="block text-sm font-medium text-gray-300 mb-2"
+                >
                   Name <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -156,7 +171,10 @@ const ContactPage = () => {
               </div>
 
               <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-2">
+                <label
+                  htmlFor="email"
+                  className="block text-sm font-medium text-gray-300 mb-2"
+                >
                   Email <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -172,7 +190,10 @@ const ContactPage = () => {
               </div>
 
               <div>
-                <label htmlFor="category" className="block text-sm font-medium text-gray-300 mb-2">
+                <label
+                  htmlFor="category"
+                  className="block text-sm font-medium text-gray-300 mb-2"
+                >
                   Category <span className="text-red-500">*</span>
                 </label>
                 <select
@@ -184,7 +205,7 @@ const ContactPage = () => {
                   className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                 >
                   <option value="">Select a category</option>
-                  {CATEGORIES.map(category => (
+                  {CATEGORIES.map((category) => (
                     <option key={category} value={category}>
                       {category}
                     </option>
@@ -193,7 +214,10 @@ const ContactPage = () => {
               </div>
 
               <div>
-                <label htmlFor="subject" className="block text-sm font-medium text-gray-300 mb-2">
+                <label
+                  htmlFor="subject"
+                  className="block text-sm font-medium text-gray-300 mb-2"
+                >
                   Subject <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -209,7 +233,10 @@ const ContactPage = () => {
               </div>
 
               <div>
-                <label htmlFor="message" className="block text-sm font-medium text-gray-300 mb-2">
+                <label
+                  htmlFor="message"
+                  className="block text-sm font-medium text-gray-300 mb-2"
+                >
                   Message <span className="text-red-500">*</span>
                 </label>
                 <textarea
@@ -241,15 +268,16 @@ const ContactPage = () => {
                   </>
                 )}
               </button>
-              
+
               <p className="text-xs text-gray-500 text-center">
-                We respect your privacy and will never share your information with third parties.
+                We respect your privacy and will never share your information
+                with third parties.
               </p>
             </form>
           )}
         </div>
       </div>
-      
+
       {/* Add the CTA section */}
       <BusinessCTA />
     </Layout>

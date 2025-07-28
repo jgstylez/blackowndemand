@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useCallback } from "react";
 import { Crown } from "lucide-react";
 import Layout from "../components/layout/Layout";
 import AdSection from "../components/ads/AdSection";
@@ -37,18 +37,22 @@ const HomePage: React.FC = () => {
     defaultMessage: "Failed to load businesses",
   });
 
+  // Memoize the refetch callback
+  const handleRefetch = useCallback(() => {
+    clearError();
+    refetchFeatured();
+    refetchVip();
+    refetchLegacy();
+  }, [clearError, refetchFeatured, refetchVip, refetchLegacy]);
+
   // Combine errors from all hooks
   React.useEffect(() => {
-    if (featuredError) {
-      handleError(featuredError);
-    } else if (vipError) {
-      handleError(vipError);
-    } else if (legacyError) {
-      handleError(legacyError);
+    if (featuredError || vipError || legacyError) {
+      handleError(featuredError || vipError || legacyError);
     } else {
       clearError();
     }
-  }, [featuredError, vipError, legacyError, handleError, clearError]);
+  }, [featuredError, vipError, legacyError]);
 
   // If there's an error, show the error fallback
   if (error && !featuredLoading && !vipLoading && !legacyLoading) {
@@ -60,15 +64,7 @@ const HomePage: React.FC = () => {
         url="/"
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <ErrorFallback
-            error={error}
-            resetErrorBoundary={() => {
-              clearError();
-              refetchFeatured();
-              refetchVip();
-              refetchLegacy();
-            }}
-          />
+          <ErrorFallback error={error} resetErrorBoundary={handleRefetch} />
         </div>
       </Layout>
     );

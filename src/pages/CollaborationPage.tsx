@@ -5,25 +5,22 @@ import { supabase, getBusinessImageUrl } from "../lib/supabase";
 import { Link } from "react-router-dom";
 import BusinessCTA from "../components/common/BusinessCTA";
 import { trackWebsiteClick } from "../utils/analyticsUtils";
+import { Database } from "../lib/database.types";
 
 // Target business categories for collaboration page
-const TARGET_CATEGORIES = [
-  "Nonprofit",
-  "Directory",
-  "Trade Association",
-  "Chamber",
-];
+const TARGET_CATEGORIES: Database["public"]["Enums"]["business_category_enum"][] =
+  ["Nonprofit", "Directory", "Trade Association", "Chamber"];
 
 interface Business {
   id: string;
   name: string;
-  tagline: string;
-  description: string;
-  category: string;
-  website_url: string;
-  image_url: string;
-  migration_source: string;
-  is_verified: boolean;
+  tagline: string | null;
+  description: string | null;
+  category: Database["public"]["Enums"]["business_category_enum"] | null;
+  website_url: string | null;
+  image_url: string | null;
+  migration_source: string | null;
+  is_verified: boolean | null;
 }
 
 const CollaborationPage = () => {
@@ -49,19 +46,13 @@ const CollaborationPage = () => {
         setLoading(true);
         console.log("🔍 Fetching collaboration businesses...");
 
-        // Look for businesses that could be resources (have websites and are in relevant categories)
-        // Using actual enum values from the database schema
         const { data, error } = await supabase
           .from("businesses")
           .select("*")
           .not("website_url", "is", null)
           .or("is_verified.eq.true,migration_source.not.is.null")
-          .in("category", [
-            "Digital Products",
-            "Content Creation",
-            "Mobile Apps & Software Licenses",
-            "Education",
-          ])
+          .in("category", TARGET_CATEGORIES)
+          .eq("is_active", true) // Add this to ensure only active businesses
           .order("name");
 
         if (error) {
@@ -89,10 +80,19 @@ const CollaborationPage = () => {
           (business) => business.category === selectedCategory
         );
 
-  // Get unique categories from the loaded businesses
+  // Get unique categories from the loaded businesses, filtering out nulls
   const availableCategories = [
     "All",
-    ...new Set(collaborationBusinesses.map((business) => business.category)),
+    ...new Set(
+      collaborationBusinesses
+        .map((business) => business.category)
+        .filter(
+          (
+            category
+          ): category is Database["public"]["Enums"]["business_category_enum"] =>
+            category !== null
+        )
+    ),
   ];
 
   const handleWebsiteClick = async (businessId: string, websiteUrl: string) => {
@@ -135,7 +135,7 @@ const CollaborationPage = () => {
                 {availableCategories.map((category) => (
                   <button
                     key={category}
-                    onClick={() => setSelectedCategory(category)}
+                    onClick={() => setSelectedCategory(category!)}
                     className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
                       selectedCategory === category
                         ? "bg-white text-black"
@@ -211,7 +211,7 @@ const CollaborationPage = () => {
                       </p>
                     )}
                     <p className="text-gray-300 mb-4">
-                      {truncateDescription(business.description, 250)}
+                      {truncateDescription(business.description || "", 250)}
                     </p>
                     <div className="flex gap-4">
                       <Link
@@ -229,7 +229,7 @@ const CollaborationPage = () => {
                           onClick={() =>
                             handleWebsiteClick(
                               business.id,
-                              business.website_url
+                              business.website_url!
                             )
                           }
                         >

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
+import { useUnifiedErrorHandler } from "../../utils/unifiedErrorHandler";
 
 interface Business {
   id: string;
@@ -21,14 +22,18 @@ interface Business {
 export const useFeaturedBusinesses = () => {
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+
+  const { error, handleError, clearError } = useUnifiedErrorHandler({
+    context: "FeaturedBusinesses",
+    defaultMessage: "Failed to load featured businesses",
+  });
 
   const fetchFeaturedBusinesses = async () => {
     try {
       setLoading(true);
-      setError(null);
+      clearError();
 
-      const { data, error } = await supabase
+      const { data, error: supabaseError } = await supabase
         .from("businesses")
         .select(
           `
@@ -54,12 +59,11 @@ export const useFeaturedBusinesses = () => {
         .order("created_at", { ascending: false })
         .limit(10);
 
-      if (error) throw error;
+      if (supabaseError) throw supabaseError;
 
-      setBusinesses((data as any) || []);
-    } catch (err: any) {
-      console.error("Error fetching featured businesses:", err);
-      setError(err.message);
+      setBusinesses(data || []);
+    } catch (err) {
+      handleError(err);
     } finally {
       setLoading(false);
     }

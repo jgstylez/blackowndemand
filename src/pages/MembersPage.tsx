@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import Layout from "../components/layout/Layout";
 import {
   Crown,
@@ -23,22 +23,32 @@ import BusinessCTA from "../components/common/BusinessCTA";
 import PlanPromotion from "../components/pricing/PlanPromotion";
 import { getPlanConfigByName } from "../config/paymentConfig";
 import PaymentModal from "../components/payment/PaymentModal";
+import { Database } from "../lib/database.types";
 
+// Update the VIPBusiness interface to match database types
 interface VIPBusiness {
   id: string;
   name: string;
-  tagline: string;
-  description: string;
-  category: string;
-  is_verified: boolean;
-  is_featured: boolean;
-  city: string;
-  state: string;
-  zip_code: string;
-  country: string;
-  image_url: string;
-  migration_source: string;
+  tagline: string | null;
+  description: string | null;
+  category: Database["public"]["Enums"]["business_category_enum"] | null;
+  is_verified: boolean | null;
+  is_featured: boolean | null;
+  city: string | null;
+  state: string | null;
+  zip_code: string | null;
+  country: string | null;
+  image_url: string | null;
+  migration_source: string | null;
   created_at: string;
+  subscriptions?: {
+    id: string;
+    status: string;
+    subscription_plans: {
+      id: string;
+      name: string;
+    };
+  };
 }
 
 const BUSINESSES_PER_PAGE = 12;
@@ -97,16 +107,24 @@ const VIPPage = () => {
         setBusinessesLoading(true);
         console.log("🔍 Fetching VIP businesses...");
 
-        // Get businesses with VIP status
-        const { data, error, count } = await supabase
+        // Use the correct foreign key relationship and join
+        const { data, error } = await supabase
           .from("businesses")
           .select(
             `
-            *,
-            vip_member!inner(*)
-          `,
-            { count: "exact" }
+          *,
+          subscriptions!businesses_subscription_id_fkey(
+            id,
+            status,
+            subscription_plans(
+              id,
+              name
+            )
           )
+        `
+          )
+          .eq("is_active", true)
+          .not("subscription_id", "is", null)
           .order("created_at", { ascending: false });
 
         if (error) {
@@ -114,11 +132,38 @@ const VIPPage = () => {
           throw error;
         }
 
-        console.log("👑 Found VIP businesses:", count);
-        setVIPBusinesses((data as VIPBusiness[]) || []);
-        setTotalBusinesses(count || 0);
-      } catch (error) {
-        console.error("💥 Error fetching VIP businesses:", error);
+        // Filter for businesses with active VIP subscriptions
+        const vipBusinesses = (data || [])
+          .filter(
+            (business: any) =>
+              business.subscriptions?.status === "active" &&
+              business.subscriptions?.subscription_plans?.name === "VIP Plan"
+          )
+          .map((business: any) => ({
+            id: business.id,
+            name: business.name,
+            tagline: business.tagline,
+            description: business.description,
+            category: business.category,
+            is_verified: business.is_verified,
+            is_featured: business.is_featured,
+            city: business.city,
+            state: business.state,
+            zip_code: business.zip_code,
+            country: business.country,
+            image_url: business.image_url,
+            migration_source: business.migration_source,
+            created_at: business.created_at,
+            subscriptions: business.subscriptions,
+          }));
+
+        console.log("👑 Found VIP businesses:", vipBusinesses.length);
+        setVIPBusinesses(vipBusinesses);
+        setTotalBusinesses(vipBusinesses.length);
+      } catch (err) {
+        console.error("�� Error fetching VIP businesses:", err);
+        // Assuming handleError is defined elsewhere or will be added
+        // For now, we'll just log the error
       } finally {
         setBusinessesLoading(false);
       }
@@ -421,7 +466,10 @@ const VIPPage = () => {
                             </p>
                           )}
                           <p className="text-gray-300 mb-4">
-                            {truncateDescription(business.description, 250)}
+                            {truncateDescription(
+                              business.description || "",
+                              250
+                            )}
                           </p>
                           <div className="flex gap-4">
                             <button className="inline-flex items-center px-4 py-2 rounded-lg bg-gray-800 text-white hover:bg-gray-700 transition-colors">

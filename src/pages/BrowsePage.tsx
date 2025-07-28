@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   Search,
@@ -72,6 +72,11 @@ const BrowsePage = () => {
     defaultMessage: "Failed to load businesses",
   });
 
+  const memoizedFilters = useMemo(
+    () => filters,
+    [filters.category, filters.location, filters.tags, filters.priceRange]
+  );
+
   // Debounced search function with improved error handling
   const debouncedSearch = useCallback(
     debounce(
@@ -143,20 +148,26 @@ const BrowsePage = () => {
       },
       300
     ),
-    [handleError, clearError]
+    [] // Empty dependency array since we don't need to recreate the debounced function
   );
 
   useEffect(() => {
-    debouncedSearch(searchTerm, filters, currentPage, itemsPerPage, showAll);
-    return () => debouncedSearch.cancel();
-  }, [
-    searchTerm,
-    filters,
-    currentPage,
-    itemsPerPage,
-    showAll,
-    debouncedSearch,
-  ]);
+    const search = () => {
+      debouncedSearch(
+        searchTerm,
+        memoizedFilters,
+        currentPage,
+        itemsPerPage,
+        showAll
+      );
+    };
+
+    search();
+
+    return () => {
+      debouncedSearch.cancel();
+    };
+  }, [searchTerm, memoizedFilters, currentPage, itemsPerPage, showAll]); // debouncedSearch removed from dependencies
 
   const handleFilterChange = (key: keyof FilterState, value: any) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
@@ -514,7 +525,7 @@ const BrowsePage = () => {
               clearError();
               debouncedSearch(
                 searchTerm,
-                filters,
+                memoizedFilters,
                 currentPage,
                 itemsPerPage,
                 showAll
