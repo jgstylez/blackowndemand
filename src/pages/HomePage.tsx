@@ -88,7 +88,7 @@ const HomePage: React.FC = () => {
       <AdSection />
 
       {/* Featured Businesses Section */}
-      {(featuredLoading || featuredBusinesses?.length > 0) && (
+      {(featuredLoading || featuredBusinesses.length > 0) && (
         <BusinessCarouselSection
           businesses={featuredBusinesses}
           title="Featured Businesses"
@@ -100,7 +100,7 @@ const HomePage: React.FC = () => {
       )}
 
       {/* VIP Businesses Section */}
-      {(vipLoading || vipBusinesses?.length > 0) && (
+      {(vipLoading || vipBusinesses.length > 0) && (
         <BusinessCarouselSection
           businesses={vipBusinesses}
           title="Our VIP Members"
