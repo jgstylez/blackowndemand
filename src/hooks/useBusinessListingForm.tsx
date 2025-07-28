@@ -198,9 +198,24 @@ export function useBusinessListingForm(location: any, navigate: any) {
         claimed_at: new Date().toISOString(),
       };
 
-      // Handle category
-      if (formData.category) {
+      // Handle category - UPDATED VERSION
+      if (
+        isPremiumPlan &&
+        formData.categories &&
+        formData.categories.length > 0
+      ) {
+        // For premium plans:
+        // - First category is mandatory and goes to 'category' enum field
+        // - All categories (including first) go to 'categories' array field
+        businessData.category = formData.categories[0]; // Primary category (mandatory)
+        businessData.categories = formData.categories; // All categories (1-3)
+      } else if (formData.category) {
+        // For basic plans: single category only
         businessData.category = formData.category;
+        businessData.categories = [formData.category]; // Keep array consistent
+      } else {
+        // No category selected - this should be caught by validation
+        throw new Error("At least one category is required");
       }
 
       // Only include premium features for Enhanced and VIP plans
@@ -347,6 +362,7 @@ export function useBusinessListingForm(location: any, navigate: any) {
               .update({
                 subscription_id: subscription.id,
                 subscription_status: "active",
+                plan_name: planName, // Add this line to include the plan name
               })
               .eq("id", newBusiness.id);
 
@@ -394,12 +410,14 @@ export function useBusinessListingForm(location: any, navigate: any) {
     switch (currentStep) {
       case "info":
         // Required fields for info step: name, description, category
+        const hasValidCategory = isPremiumPlan
+          ? formData.categories && formData.categories.length > 0
+          : formData.category;
+
         return (
           formData.name?.trim() &&
           formData.description?.trim() &&
-          (isPremiumPlan
-            ? formData.categories && formData.categories.length > 0
-            : formData.category)
+          hasValidCategory
         );
       case "location":
         // Only require country and state for location step
@@ -411,12 +429,14 @@ export function useBusinessListingForm(location: any, navigate: any) {
         return true; // Premium features are optional
       case "summary":
         // For summary, check all required fields for final submission
+        const hasValidCategoryForSubmission = isPremiumPlan
+          ? formData.categories && formData.categories.length > 0
+          : formData.category;
+
         return (
           formData.name?.trim() &&
           formData.description?.trim() &&
-          (isPremiumPlan
-            ? formData.categories && formData.categories.length > 0
-            : formData.category) &&
+          hasValidCategoryForSubmission &&
           formData.country?.trim() &&
           formData.state?.trim()
         );

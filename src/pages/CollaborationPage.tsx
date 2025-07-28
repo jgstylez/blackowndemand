@@ -187,8 +187,8 @@ const CollaborationPage = () => {
                     />
                   </div>
                   <div className="flex-grow">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-2">
+                      <div className="flex items-center gap-2 mb-2 sm:mb-0">
                         <h2 className="text-2xl font-bold text-white">
                           {business.name}
                         </h2>
@@ -201,7 +201,7 @@ const CollaborationPage = () => {
                           <Crown className="h-5 w-5 text-yellow-400" />
                         )}
                       </div>
-                      <span className="text-sm text-gray-400">
+                      <span className="text-sm text-gray-400 sm:text-right">
                         {business.category}
                       </span>
                     </div>

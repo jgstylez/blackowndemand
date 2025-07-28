@@ -1,8 +1,7 @@
-
 export interface ErrorLogEntry {
   timestamp: string;
   message: string;
-  level: 'error' | 'warning' | 'info';
+  level: "error" | "warning" | "info";
   context?: string;
   metadata?: Record<string, any>;
   userAgent?: string;
@@ -15,7 +14,7 @@ class ErrorLogger {
 
   log(
     message: string,
-    level: 'error' | 'warning' | 'info' = 'error',
+    level: "error" | "warning" | "info" = "error",
     context?: string,
     metadata?: Record<string, any>
   ): void {
@@ -30,14 +29,17 @@ class ErrorLogger {
     };
 
     this.logs.unshift(entry);
-    
+
     if (this.logs.length > this.maxLogs) {
       this.logs = this.logs.slice(0, this.maxLogs);
     }
 
-    console.error(`[${level.toUpperCase()}] ${context || 'Unknown'}: ${message}`, metadata);
+    console.error(
+      `[${level.toUpperCase()}] ${context || "Unknown"}: ${message}`,
+      metadata
+    );
 
-    if (level === 'error') {
+    if (level === "error") {
       this.sendToSupabase(entry);
     }
   }
@@ -45,9 +47,9 @@ class ErrorLogger {
   private async sendToSupabase(entry: ErrorLogEntry): Promise<void> {
     try {
       // In a real implementation, this would send to Supabase
-      console.log('Would send to Supabase:', entry);
+      console.log("Would send to Supabase:", entry);
     } catch (error) {
-      console.error('Failed to send error to Supabase:', error);
+      console.error("Failed to send error to Supabase:", error);
     }
   }
 
@@ -55,8 +57,8 @@ class ErrorLogger {
     return [...this.logs];
   }
 
-  getLogsForLevel(level: 'error' | 'warning' | 'info'): ErrorLogEntry[] {
-    return this.logs.filter(log => log.level === level);
+  getLogsForLevel(level: "error" | "warning" | "info"): ErrorLogEntry[] {
+    return this.logs.filter((log) => log.level === level);
   }
 
   clearLogs(): void {
@@ -64,7 +66,7 @@ class ErrorLogger {
   }
 
   getLogsForContext(context: string): ErrorLogEntry[] {
-    return this.logs.filter(log => log.context === context);
+    return this.logs.filter((log) => log.context === context);
   }
 
   exportLogs(): string {
@@ -74,20 +76,25 @@ class ErrorLogger {
 
 const errorLogger = new ErrorLogger();
 
-export const logError = (
-  message: string,
-  options?: {
-    level?: 'error' | 'warning' | 'info';
-    context?: string;
-    metadata?: Record<string, any>;
+export const logError = (message: string, options?: any) => {
+  // Existing console logging
+  console.error(`[ERROR] ${message}`, options);
+
+  // Add Sentry integration
+  if (import.meta.env.VITE_SENTRY_DSN) {
+    Sentry.captureException(new Error(message), {
+      extra: options,
+    });
   }
-) => {
-  errorLogger.log(
+
+  // Add Supabase logging
+  supabase.from("error_logs").insert({
     message,
-    options?.level || 'error',
-    options?.context,
-    options?.metadata
-  );
+    context: options?.context,
+    metadata: options?.metadata,
+    user_agent: navigator.userAgent,
+    url: window.location.href,
+  });
 };
 
 export const getErrorLogs = () => errorLogger.getLogs();

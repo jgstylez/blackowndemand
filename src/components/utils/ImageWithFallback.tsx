@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
-import { logError } from '../../lib/errorLogger';
+import React, { useState, useEffect, useRef } from "react";
+import { logError } from "../../lib/errorLogger";
 
-interface ImageWithFallbackProps extends React.ImgHTMLAttributes<HTMLImageElement> {
+interface ImageWithFallbackProps
+  extends React.ImgHTMLAttributes<HTMLImageElement> {
   fallbackSrc: string;
   alt: string;
   onError?: (e: React.SyntheticEvent<HTMLImageElement, Event>) => void;
@@ -21,17 +22,29 @@ const ImageWithFallback: React.FC<ImageWithFallbackProps> = ({
   const [imgSrc, setImgSrc] = useState(src);
   const [hasError, setHasError] = useState(false);
 
+  // Add intersection observer for lazy loading
+  const imgRef = useRef<HTMLImageElement>(null);
+  const [isInView, setIsInView] = useState(false);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(([entry]) =>
+      setIsInView(entry.isIntersecting)
+    );
+    if (imgRef.current) observer.observe(imgRef.current);
+    return () => observer.disconnect();
+  }, []);
+
   const handleError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
     if (!hasError) {
       // Log the error
       logError(`Image failed to load: ${src}`, {
-        context: 'ImageWithFallback',
-        level: 'warning',
+        context: "ImageWithFallback",
+        level: "warning",
         metadata: {
           originalSrc: src,
           fallbackSrc,
-          alt
-        }
+          alt,
+        },
       });
 
       // Set fallback image
@@ -47,7 +60,8 @@ const ImageWithFallback: React.FC<ImageWithFallbackProps> = ({
 
   return (
     <img
-      src={imgSrc}
+      ref={imgRef}
+      src={isInView ? imgSrc : ""}
       alt={alt}
       onError={handleError}
       loading="lazy"

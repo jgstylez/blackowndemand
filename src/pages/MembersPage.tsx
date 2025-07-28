@@ -107,24 +107,14 @@ const VIPPage = () => {
         setBusinessesLoading(true);
         console.log("🔍 Fetching VIP businesses...");
 
-        // Simplified query - only check for active businesses with VIP plan
-        const { data, error } = await supabase
+        // Query the business_subscription_view instead
+        const { data, error } = await (supabase as any)
           .from("businesses")
-          .select(
-            `
-            *,
-            subscriptions!businesses_subscription_id_fkey(
-              id,
-              status,
-              subscription_plans(
-                id,
-                name
-              )
-            )
-          `
-          )
+          .select("*")
           .eq("is_active", true)
-          .eq("subscription_status", "active");
+          .eq("subscription_status", "active")
+          .eq("plan_name", "VIP Plan")
+          .order("name");
 
         if (error) {
           console.error("❌ Error fetching VIP businesses:", error);
@@ -133,30 +123,24 @@ const VIPPage = () => {
 
         console.log("Raw data:", data);
 
-        // Simplified filtering - only check for active VIP subscription
-        const vipBusinesses = (data || [])
-          .filter(
-            (business: any) =>
-              business.subscriptions?.status === "active" &&
-              business.subscriptions?.subscription_plans?.name === "VIP Plan"
-          )
-          .map((business: any) => ({
-            id: business.id,
-            name: business.name,
-            tagline: business.tagline,
-            description: business.description,
-            category: business.category,
-            is_verified: business.is_verified,
-            is_featured: business.is_featured,
-            city: business.city,
-            state: business.state,
-            zip_code: business.zip_code,
-            country: business.country,
-            image_url: business.image_url,
-            migration_source: business.migration_source,
-            created_at: business.created_at,
-            subscriptions: business.subscriptions,
-          }));
+        // Map the data directly since the view should have the correct structure
+        const vipBusinesses = (data || []).map((business: any) => ({
+          id: business.id,
+          name: business.name,
+          tagline: business.tagline,
+          description: business.description,
+          category: business.category,
+          is_verified: business.is_verified,
+          is_featured: business.is_featured,
+          city: business.city,
+          state: business.state,
+          zip_code: business.zip_code,
+          country: business.country,
+          image_url: business.image_url,
+          migration_source: business.migration_source,
+          created_at: business.created_at,
+          subscriptions: business.subscriptions,
+        }));
 
         console.log("👑 Found VIP businesses:", vipBusinesses.length);
         setVIPBusinesses(vipBusinesses);
@@ -446,15 +430,15 @@ const VIPPage = () => {
                           />
                         </div>
                         <div className="flex-grow">
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-2">
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-2">
+                            <div className="flex items-center gap-2 mb-2 sm:mb-0">
                               <h2 className="text-2xl font-bold text-white">
                                 {business.name}
                               </h2>
                               <Crown className="h-5 w-5 text-yellow-400" />
                             </div>
                             {business.category && (
-                              <span className="text-sm text-gray-400">
+                              <span className="text-sm text-gray-400 sm:text-right">
                                 {business.category}
                               </span>
                             )}

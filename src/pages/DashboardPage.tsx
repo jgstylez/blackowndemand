@@ -68,8 +68,9 @@ const DashboardPage = () => {
 
   // Fix: Incomplete businesses should be those with subscription but missing essential details
   const incompleteBusinesses = businesses.filter((b) => {
-    // Business has a subscription (payment completed)
-    const hasSubscription = b.subscription_id || b.subscription_plans;
+    // Business has a subscription ID and status is pending
+    const hasSubscription =
+      b.subscription_id && b.subscription_status === "pending";
 
     // Business is missing essential details
     const missingEssentialDetails =

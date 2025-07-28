@@ -88,38 +88,61 @@ const SubscriptionManagementSection: React.FC<
       setLoadingSubscriptions(true);
       setError(null);
 
-      // Debug: First, let's see what businesses the current user owns
       console.log("Current user businesses:", businesses);
       console.log(
         "Business IDs:",
         businesses.map((b) => b.id)
       );
 
-      // Query the paid_subscriptions_overview view for user's businesses
-      const { data, error } = await supabase
+      // First, get subscriptions from the paid_subscriptions_overview view
+      const { data: viewData, error: viewError } = await supabase
         .from("paid_subscriptions_overview")
-        .select("*")
+        .select(
+          `
+          *,
+          subscription_plans!inner(
+            id,
+            name,
+            price
+          )
+        `
+        )
         .in(
           "business_id",
           businesses.map((b) => b.id)
         )
         .order("current_period_start", { ascending: false });
 
-      if (error) {
-        console.error("Database error:", error);
-        setSubscriptions([]);
-        return;
+      if (viewError) {
+        console.error("View query error:", viewError);
       }
 
-      console.log("Paid subscriptions overview data:", data);
+      console.log("Paid subscriptions overview data:", viewData);
 
-      if (data && data.length > 0) {
-        const subscriptionData: Subscription[] = data.map((subscription) => {
-          // Determine provider based on subscription data
+      // Also check businesses table for businesses with active subscription_status
+      const { data: businessData, error: businessError } = await supabase
+        .from("businesses")
+        .select("id, name, subscription_status, plan_name, subscription_id")
+        .in(
+          "id",
+          businesses.map((b) => b.id)
+        )
+        .eq("subscription_status", "active");
+
+      if (businessError) {
+        console.error("Business query error:", businessError);
+      }
+
+      console.log("Businesses with active subscription:", businessData);
+
+      // Combine both data sources
+      const allSubscriptions: Subscription[] = [];
+
+      // Add subscriptions from the view
+      if (viewData && viewData.length > 0) {
+        const viewSubscriptions = viewData.map((subscription) => {
           let providerType: "stripe" | "ecomPayments" | "unknown" =
             "ecomPayments";
-
-          // Check if there's any Stripe-specific data
           if (
             subscription.subscription_id &&
             subscription.subscription_id.startsWith("sub_")
@@ -131,11 +154,11 @@ const SubscriptionManagementSection: React.FC<
             id: subscription.subscription_id || subscription.business_id,
             business_id: subscription.business_id,
             business_name: subscription.business_name,
-            plan_name: subscription.plan_name || "Unknown Plan",
-            status: subscription.subscription_status || "inactive",
+            plan_name: subscription.plan_name,
+            status: subscription.subscription_status,
             next_billing_date: subscription.current_period_end || "",
             last_payment_date: subscription.current_period_start || "",
-            payment_method_last_four: "", // Not available in this view
+            payment_method_last_four: "",
             stripe_subscription_id:
               providerType === "stripe"
                 ? subscription.subscription_id
@@ -144,17 +167,47 @@ const SubscriptionManagementSection: React.FC<
               providerType === "ecomPayments"
                 ? subscription.subscription_id
                 : undefined,
-            plan_price: subscription.plan_price || 0,
-            total_amount: subscription.plan_price || 0,
+            plan_price: subscription.subscription_plans?.price || 0,
+            total_amount: subscription.subscription_plans?.price || 0,
             provider: providerType,
           };
         });
-
-        console.log("Processed subscription data:", subscriptionData);
-        setSubscriptions(subscriptionData);
-      } else {
-        setSubscriptions([]);
+        allSubscriptions.push(...viewSubscriptions);
       }
+
+      // Add businesses with active subscription_status that aren't in the view
+      if (businessData && businessData.length > 0) {
+        const businessSubscriptions = businessData
+          .filter(
+            (business) =>
+              !allSubscriptions.some((sub) => sub.business_id === business.id)
+          )
+          .map((business) => {
+            // Get the actual plan price from the configuration
+            const planConfig = getPlanConfigByName(business.plan_name || "");
+            const planPrice = planConfig?.price || 0;
+
+            return {
+              id: business.subscription_id || business.id,
+              business_id: business.id,
+              business_name: business.name,
+              plan_name: business.plan_name || "Unknown Plan",
+              status: business.subscription_status || "active",
+              next_billing_date: "",
+              last_payment_date: "",
+              payment_method_last_four: "",
+              stripe_subscription_id: undefined,
+              nmi_subscription_id: business.subscription_id,
+              plan_price: planPrice,
+              total_amount: planPrice, // Use the same price for total amount
+              provider: "ecomPayments" as const,
+            };
+          });
+        allSubscriptions.push(...businessSubscriptions);
+      }
+
+      console.log("Combined subscription data:", allSubscriptions);
+      setSubscriptions(allSubscriptions);
     } catch (err) {
       console.error("Error fetching subscriptions:", err);
       setSubscriptions([]);

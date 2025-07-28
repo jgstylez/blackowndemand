@@ -1,109 +1,115 @@
-import React, { useState, useEffect } from 'react';
-import Layout from '../components/layout/Layout';
-import { ExternalLink, Crown } from 'lucide-react';
-import { supabase, getBusinessImageUrl } from '../lib/supabase';
-import { Link } from 'react-router-dom';
-import BusinessCTA from '../components/common/BusinessCTA';
+import React, { useState, useEffect } from "react";
+import Layout from "../components/layout/Layout";
+import { ExternalLink, Crown } from "lucide-react";
+import { supabase, getBusinessImageUrl } from "../lib/supabase";
+import { Link } from "react-router-dom";
+import BusinessCTA from "../components/common/BusinessCTA";
 
 const categories = [
-  'All',
-  'Payments & Finance',
-  'Digital Products',
-  'Logistics & Shipping',
-  'Marketing & Advertising',
-  'HR & Team Management',
-  'Inventory & Operations',
-  'Legal & Compliance',
-  'Security & Protection',
-  'Customer Service',
-  'Content Creation'
+  "All",
+  "Payments & Finance",
+  "Digital Products",
+  "Logistics & Shipping",
+  "Marketing & Advertising",
+  "HR & Team Management",
+  "Inventory & Operations",
+  "Legal & Compliance",
+  "Security & Protection",
+  "Customer Service",
+  "Content Creation",
 ];
 
 // Static resources that aren't in the database
 const staticResources = [
   {
-    id: 'ecom-payments',
-    name: 'Ecom Payments',
-    category: 'Payments & Finance',
-    description: 'Ecom Payments helps businesses accept all major credit cards and scale with confidence through secure, fast, and compliant payment solutions—including virtual terminals, chargeback management, and next-day settlements.',
-    logo: 'https://slsmqurdsbmiqrcwdbnf.supabase.co/storage/v1/object/public/static//ecom-temp.png',
-    url: 'https://bdn.ecompayments.io',
-    isStatic: true
+    id: "ecom-payments",
+    name: "Ecom Payments",
+    category: "Payments & Finance",
+    description:
+      "Ecom Payments helps businesses accept all major credit cards and scale with confidence through secure, fast, and compliant payment solutions—including virtual terminals, chargeback management, and next-day settlements.",
+    logo: "https://slsmqurdsbmiqrcwdbnf.supabase.co/storage/v1/object/public/static//ecom-temp.png",
+    url: "https://bdn.ecompayments.io",
+    isStatic: true,
   },
   {
-    id: 'lexore-spark',
-    name: 'Lexore Spark',
-    category: 'Digital Products',
-    description: 'Lexore Spark transforms your product photos into cinematic, AI-generated brand videos—no crew, no delays. Start free and create high-quality, story-driven content in under 24 hours.',
-    logo: 'https://slsmqurdsbmiqrcwdbnf.supabase.co/storage/v1/object/public/static//lexore-logo-bg.png',
-    url: 'https://app.lexore.io/?ref=BDN',
-    isStatic: true
+    id: "lexore-spark",
+    name: "Lexore Spark",
+    category: "Digital Products",
+    description:
+      "Lexore Spark transforms your product photos into cinematic, AI-generated brand videos—no crew, no delays. Start free and create high-quality, story-driven content in under 24 hours.",
+    logo: "https://slsmqurdsbmiqrcwdbnf.supabase.co/storage/v1/object/public/static//lexore-logo-bg.png",
+    url: "https://app.lexore.io/?ref=BDN",
+    isStatic: true,
   },
   {
-    id: 'the-blacktube',
-    name: 'The BlackTube',
-    category: 'Content Creation',
-    description: 'The BlackTube is a multimedia platform dedicated to promoting and educating on the beauty of the Black experience. Share your business story, connect with customers, and be part of a growing network of Black content creators.',
-    logo: 'https://slsmqurdsbmiqrcwdbnf.supabase.co/storage/v1/object/business-images/xDV9eTRPDh61Gk4o8BvmIUPpOkBZWIpX.webp',
-    url: 'https://theblacktube.com/register?invite=3555839516347fbdc231f85.93072946&fbclid=PAQ0xDSwK4hiRleHRuA2FlbQIxMAABp57tcvmPj_ekt1TJm6y8xbmiIs1tWlp5uCBU-OUgm9em-7UI3H7jUkxtYl8j_aem_xI4s2OvmZ5so0LsrQoAUBQ',
-    isStatic: true
-  }
+    id: "the-blacktube",
+    name: "The BlackTube",
+    category: "Content Creation",
+    description:
+      "The BlackTube is a multimedia platform dedicated to promoting and educating on the beauty of the Black experience. Share your business story, connect with customers, and be part of a growing network of Black content creators.",
+    logo: "https://slsmqurdsbmiqrcwdbnf.supabase.co/storage/v1/object/business-images/xDV9eTRPDh61Gk4o8BvmIUPpOkBZWIpX.webp",
+    url: "https://theblacktube.com/register?invite=3555839516347fbdc231f85.93072946&fbclid=PAQ0xDSwK4hiRleHRuA2FlbQIxMAABp57tcvmPj_ekt1TJm6y8xbmiIs1tWlp5uCBU-OUgm9em-7UI3H7jUkxtYl8j_aem_xI4s2OvmZ5so0LsrQoAUBQ",
+    isStatic: true,
+  },
 ];
 
 interface Business {
   id: string;
   name: string;
-  tagline: string;
-  description: string;
-  category: string;
-  website_url: string;
-  image_url: string;
-  migration_source: string;
-  is_verified: boolean;
+  tagline: string | null;
+  description: string | null;
+  category: string | null;
+  website_url: string | null;
+  image_url: string | null;
+  migration_source: string | null;
+  is_verified: boolean | null;
 }
 
 const ResourcesPage = () => {
-  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [selectedCategory, setSelectedCategory] = useState("All");
   const [businessResources, setBusinessResources] = useState<Business[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Helper function to truncate description to 250 characters
-  const truncateDescription = (description: string, maxLength: number = 250) => {
-    if (!description) return '';
+  const truncateDescription = (
+    description: string,
+    maxLength: number = 250
+  ) => {
+    if (!description) return "";
     if (description.length <= maxLength) return description;
-    return description.substring(0, maxLength).trim() + '...';
+    return description.substring(0, maxLength).trim() + "...";
   };
 
   useEffect(() => {
     const fetchBusinessResources = async () => {
       try {
         setLoading(true);
-        console.log('🔍 Fetching business resources...');
+        console.log("🔍 Fetching business resources...");
 
         // Look for businesses that could be resources (have websites and are in relevant categories)
         // Using actual enum values from the database schema
         const { data, error } = await supabase
-          .from('businesses')
-          .select('*')
-          .not('website_url', 'is', null)
-          .or('is_verified.eq.true,migration_source.not.is.null')
-          .in('category', [
-            'Digital Products',
-            'Content Creation',
-            'Mobile Apps & Software Licenses',
-            'Education'
+          .from("businesses")
+          .select("*")
+          .not("website_url", "is", null)
+          .or("is_verified.eq.true,migration_source.not.is.null")
+          .in("category", [
+            "Digital Products",
+            "Content Creation",
+            "Mobile Apps & Software Licenses",
+            "Education",
           ])
-          .order('name');
+          .order("name");
 
         if (error) {
-          console.error('❌ Error fetching business resources:', error);
+          console.error("❌ Error fetching business resources:", error);
           throw error;
         }
 
-        console.log('✅ Found business resources:', data?.length || 0);
+        console.log("✅ Found business resources:", data?.length || 0);
         setBusinessResources(data || []);
       } catch (error) {
-        console.error('💥 Error fetching business resources:', error);
+        console.error("💥 Error fetching business resources:", error);
       } finally {
         setLoading(false);
       }
@@ -115,7 +121,7 @@ const ResourcesPage = () => {
   // Combine static resources with business resources
   const allResources = [
     ...staticResources,
-    ...businessResources.map(business => ({
+    ...businessResources.map((business) => ({
       id: business.id,
       name: business.name,
       category: business.category,
@@ -123,13 +129,16 @@ const ResourcesPage = () => {
       logo: business.image_url,
       url: business.website_url,
       isStatic: false,
-      business: business
-    }))
+      business: business,
+    })),
   ];
 
-  const filteredResources = selectedCategory === 'All' 
-    ? allResources 
-    : allResources.filter(resource => resource.category === selectedCategory);
+  const filteredResources =
+    selectedCategory === "All"
+      ? allResources
+      : allResources.filter(
+          (resource) => resource.category === selectedCategory
+        );
 
   return (
     <Layout
@@ -139,9 +148,13 @@ const ResourcesPage = () => {
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-white mb-4">Business Resources</h1>
+          <h1 className="text-4xl font-bold text-white mb-4">
+            Business Resources
+          </h1>
           <p className="text-xl text-gray-400 max-w-3xl mx-auto">
-            Discover trusted tools and services to help grow your business. We've partnered with leading providers to bring you the best solutions for your business needs.
+            Discover trusted tools and services to help grow your business.
+            We've partnered with leading providers to bring you the best
+            solutions for your business needs.
           </p>
         </div>
 
@@ -192,32 +205,43 @@ const ResourcesPage = () => {
           </div>
         ) : (
           <div className="space-y-6">
-            {filteredResources.map(resource => (
+            {filteredResources.map((resource) => (
               <div key={resource.id} className="bg-gray-900 rounded-xl p-6">
                 <div className="flex items-start gap-6">
                   <div className="w-24 h-24 rounded-lg overflow-hidden flex-shrink-0">
-                    <img 
-                      src={resource.isStatic ? resource.logo : getBusinessImageUrl(resource.logo)} 
+                    <img
+                      src={
+                        resource.isStatic
+                          ? resource.logo
+                          : getBusinessImageUrl(resource.logo || undefined)
+                      }
                       alt={`${resource.name} logo`}
                       className="w-full h-full object-cover"
                       onError={(e) => {
                         const target = e.target as HTMLImageElement;
-                        target.src = 'https://images.pexels.com/photos/3184292/pexels-photo-3184292.jpeg';
+                        target.src =
+                          "https://images.pexels.com/photos/3184292/pexels-photo-3184292.jpeg";
                       }}
                     />
                   </div>
                   <div className="flex-grow">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <h2 className="text-2xl font-bold text-white">{resource.name}</h2>
-                        {!resource.isStatic && resource.business?.migration_source && (
-                          <Crown className="h-5 w-5 text-yellow-400" />
-                        )}
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-2">
+                      <div className="flex items-center gap-2 mb-2 sm:mb-0">
+                        <h2 className="text-2xl font-bold text-white">
+                          {resource.name}
+                        </h2>
+                        {!resource.isStatic &&
+                          "business" in resource &&
+                          resource.business?.migration_source && (
+                            <Crown className="h-5 w-5 text-yellow-400" />
+                          )}
                       </div>
-                      <span className="text-sm text-gray-400">{resource.category}</span>
+                      <span className="text-sm text-gray-400 sm:text-right">
+                        {resource.category}
+                      </span>
                     </div>
                     <p className="text-gray-300 mb-4">
-                      {truncateDescription(resource.description, 250)}
+                      {truncateDescription(resource.description || "", 250)}
                     </p>
                     <div className="flex gap-4">
                       {!resource.isStatic ? (
@@ -246,7 +270,7 @@ const ResourcesPage = () => {
                             View Details
                           </button>
                           <a
-                            href={resource.url}
+                            href={resource.url || undefined}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="inline-flex items-center px-4 py-2 rounded-lg bg-white text-black hover:bg-gray-100 transition-colors"
@@ -264,7 +288,7 @@ const ResourcesPage = () => {
           </div>
         )}
       </div>
-      
+
       {/* Add the CTA section */}
       <BusinessCTA />
     </Layout>

@@ -1,60 +1,72 @@
-import { createClient } from '@supabase/supabase-js';
-import type { Database } from './database.types';
+import { createClient } from "@supabase/supabase-js";
+import type { Database } from "./database.types";
 
-const supabaseUrl = 'https://slsmqurdsbmiqrcwdbnf.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNsc21xdXJkc2JtaXFyY3dkYm5mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkwNjgxODgsImV4cCI6MjA2NDY0NDE4OH0.76e-UOQ2qwTcSDgGN9emkMflhMk_nspIFiuamIpBFK8';
+// Get Supabase credentials from environment variables
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+// Validate that required environment variables are present
+if (!supabaseUrl) {
+  throw new Error("VITE_SUPABASE_URL environment variable is required");
+}
+
+if (!supabaseAnonKey) {
+  throw new Error("VITE_SUPABASE_ANON_KEY environment variable is required");
+}
 
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
 
-// Supabase storage configuration
-export const STORAGE_BASE_URL = 'https://slsmqurdsbmiqrcwdbnf.supabase.co/storage/v1/object/public/business-images/';
+// Supabase storage configuration - derive from URL
+export const STORAGE_BASE_URL = `${supabaseUrl}/storage/v1/object/public/business-images/`;
 
 // Helper function to get proper image URL
-export const getBusinessImageUrl = (imageUrl: string | null | undefined): string => {
+export const getBusinessImageUrl = (
+  imageUrl: string | null | undefined
+): string => {
   // If no image URL provided, return placeholder
   if (!imageUrl) {
-    return 'https://images.pexels.com/photos/3184292/pexels-photo-3184292.jpeg';
+    return "https://images.pexels.com/photos/3184292/pexels-photo-3184292.jpeg";
   }
 
   // If it's already a full URL (starts with http), use it as-is
-  if (imageUrl.startsWith('http')) {
+  if (imageUrl.startsWith("http")) {
     return imageUrl;
   }
 
   // Handle both simple filenames and paths like "images/filename.webp"
   // Extract just the filename from any path structure
   let filename = imageUrl;
-  if (imageUrl.includes('/')) {
-    const parts = imageUrl.split('/');
+  if (imageUrl.includes("/")) {
+    const parts = imageUrl.split("/");
     filename = parts[parts.length - 1]; // Get the last part (filename)
   }
-  
+
   // Remove any leading dots or slashes
-  filename = filename.replace(/^[./]+/, '');
-  
+  filename = filename.replace(/^[./]+/, "");
+
   // Construct the full Supabase storage URL
   return `${STORAGE_BASE_URL}${filename}`;
 };
 
 export const uploadBusinessImage = async (file: File) => {
   try {
-    const fileExt = file.name.split('.').pop();
+    const fileExt = file.name.split(".").pop();
     const fileName = `${Math.random()}.${fileExt}`;
     const filePath = `business-images/${fileName}`;
 
     const { error: uploadError } = await supabase.storage
-      .from('business-images')
+      .from("business-images")
       .upload(filePath, file);
 
     if (uploadError) throw uploadError;
 
-    const { data: { publicUrl } } = supabase.storage
-      .from('business-images')
-      .getPublicUrl(filePath);
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from("business-images").getPublicUrl(filePath);
 
     return publicUrl;
   } catch (error) {
-    console.error('Error uploading image:', error);
+    console.error("Error uploading image:", error);
     throw error;
   }
 };
@@ -62,7 +74,7 @@ export const uploadBusinessImage = async (file: File) => {
 export const createBusiness = async (businessData: any) => {
   try {
     const { data, error } = await supabase
-      .from('businesses')
+      .from("businesses")
       .insert(businessData)
       .select()
       .single();
@@ -70,7 +82,7 @@ export const createBusiness = async (businessData: any) => {
     if (error) throw error;
     return data;
   } catch (error) {
-    console.error('Error creating business:', error);
+    console.error("Error creating business:", error);
     throw error;
   }
 };

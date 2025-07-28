@@ -41,10 +41,23 @@ const BusinessInfoStep: React.FC<BusinessInfoStepProps> = ({
       const categories = selectedOptions
         ? selectedOptions.map((option: any) => option.value)
         : [];
+
+      // Ensure at least one category is selected
+      if (categories.length === 0) {
+        setError("At least one category is required");
+        return;
+      }
+
       setFormData((prev: any) => ({ ...prev, categories }));
     } else {
       // Single select for basic plans
       const category = selectedOptions ? selectedOptions.value : "";
+
+      if (!category) {
+        setError("Category is required");
+        return;
+      }
+
       setFormData((prev: any) => ({ ...prev, category }));
     }
 
@@ -151,7 +164,7 @@ const BusinessInfoStep: React.FC<BusinessInfoStepProps> = ({
           <span className="text-red-500">*</span>
           {isPremiumPlan && (
             <span className="text-sm text-gray-400 ml-2">
-              (Select up to 3 categories)
+              (Select up to 3 categories, at least one is required)
             </span>
           )}
         </label>
@@ -161,7 +174,9 @@ const BusinessInfoStep: React.FC<BusinessInfoStepProps> = ({
           onChange={handleCategoryChange}
           options={categoryOptions}
           placeholder={
-            isPremiumPlan ? "Select up to 3 categories" : "Select a category"
+            isPremiumPlan
+              ? "Select primary category (required) + up to 2 more"
+              : "Select a category"
           }
           menuPortalTarget={document.body}
           styles={{
@@ -203,7 +218,11 @@ const BusinessInfoStep: React.FC<BusinessInfoStepProps> = ({
         {isPremiumPlan && (
           <p className="mt-2 text-sm text-gray-400">
             {formData.categories ? formData.categories.length : 0}/3 categories
-            selected
+            {formData.categories && formData.categories.length > 0 && (
+              <span className="text-green-400 ml-2">
+                ✓ Primary: {formData.categories[0]}
+              </span>
+            )}
           </p>
         )}
       </div>
