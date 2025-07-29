@@ -37,7 +37,7 @@ function parseNMIResponse(responseText: string) {
     responseCode: response.response_code,
     responseText: response.responsetext,
     transactionId: response.transactionid,
-    customerVaultId: response.customer_vault_id,
+    customer_vault_id: response.customer_vault_id, // Fix: use snake_case
   };
 }
 
@@ -78,11 +78,70 @@ function getNMIErrorMessage(
   );
 }
 
+// Update the test card validation function
+function isValidTestCard(cardNumber: string): boolean {
+  const cleanCardNumber = cardNumber.replace(/\s/g, "");
+
+  // Ecom Payments test cards based on documentation examples
+  const testCards = [
+    "4000000000000002", // Visa test card
+    "4000000000000009", // Visa test card
+    "4000000000000034", // Visa test card
+    "5200000000000007", // Mastercard test card
+    "4457010000000009", // Visa test card
+    "4457010000000045", // Visa test card
+    "4457010000000111", // Visa test card
+    "4457010000000123", // Visa test card
+    "4457010000000323", // Visa test card
+    "4457010000000423", // Visa test card
+    "4457010000000459", // Visa test card
+    "4457010000001123", // Visa test card
+    "4457010000003223", // Visa test card
+    "4457010000003223", // Visa test card
+    "4457010000003223", // Visa test card
+    "4457010000003223", // Visa test card
+    "4457010000003223", // Visa test card
+
+    // Add any other test cards from the Ecom documentation as needed
+  ];
+  return testCards.includes(cleanCardNumber);
+}
+
 async function createCustomerVault(
   business: any,
   payment_method: any,
   userEmail: string
 ) {
+  console.log("Creating customer vault for business:", business.name);
+
+  const cleanCardNumber = payment_method.card_number.replace(/\s/g, "");
+  console.log("Card number (last 4):", cleanCardNumber.slice(-4));
+  console.log("Is test card:", isValidTestCard(cleanCardNumber));
+
+  console.log("Payment method details:", {
+    card_number: payment_method.card_number
+      ? "****" + payment_method.card_number.slice(-4)
+      : "missing",
+    expiry_date: payment_method.expiry_date,
+    cvv: payment_method.cvv ? "***" : "missing",
+    cardholder_name: payment_method.cardholder_name,
+    billing_zip: payment_method.billing_zip,
+  });
+  console.log("User email:", userEmail);
+  console.log("Security key configured:", !!SECURITY_KEY);
+  console.log("Environment:", NODE_ENV);
+
+  // Add validation for test cards
+  if (!isValidTestCard(cleanCardNumber)) {
+    console.error("Invalid test card number:", cleanCardNumber.slice(-4));
+    return {
+      success: false,
+      error: "Invalid test card. Please use a valid test card number.",
+      details:
+        "For testing, use: 4000000000000002 (Visa), 5555555555554444 (Mastercard), or 378282246310005 (Amex)",
+    };
+  }
+
   const postData = new URLSearchParams();
   postData.append("security_key", SECURITY_KEY);
   postData.append("type", "sale");
@@ -110,29 +169,74 @@ async function createCustomerVault(
     postData.append("email", userEmail);
   }
 
-  const paymentResponse = await fetch(
-    "https://ecompaymentprocessing.transactiongateway.com/api/transact.php",
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: postData.toString(),
+  console.log("Sending request to Ecom Payments with data:", {
+    type: "sale",
+    amount: "0.01",
+    customer_vault: "add_customer",
+    currency: "USD",
+    order_description: `Customer vault creation for ${business.name}`,
+    first_name: payment_method.cardholder_name
+      ? payment_method.cardholder_name.split(" ")[0]
+      : "",
+    last_name: payment_method.cardholder_name
+      ? payment_method.cardholder_name.split(" ").slice(1).join(" ")
+      : "",
+    zip: payment_method.billing_zip,
+    email: userEmail,
+  });
+
+  try {
+    const paymentResponse = await fetch(
+      "https://ecompaymentprocessing.transactiongateway.com/api/transact.php",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: postData.toString(),
+      }
+    );
+
+    console.log("Payment gateway response status:", paymentResponse.status);
+    console.log(
+      "Payment gateway response headers:",
+      Object.fromEntries(paymentResponse.headers.entries())
+    );
+
+    const responseText = await paymentResponse.text();
+    console.log("Raw payment gateway response:", responseText);
+
+    const parsedResponse = parseNMIResponse(responseText);
+    console.log("Parsed payment response:", parsedResponse);
+
+    if (!parsedResponse.success) {
+      console.error("Payment gateway error:", {
+        responseCode: parsedResponse.responseCode,
+        responseText: parsedResponse.responseText,
+        success: parsedResponse.success,
+      });
+      return {
+        success: false,
+        error: parsedResponse.responseText || "Payment gateway error",
+        responseCode: parsedResponse.responseCode,
+      };
     }
-  );
 
-  const responseText = await paymentResponse.text();
-  const parsedResponse = parseNMIResponse(responseText);
+    console.log("Customer vault created successfully:", {
+      customerVaultId: parsedResponse.customer_vault_id,
+      transactionId: parsedResponse.transactionId,
+    });
 
-  if (!parsedResponse.success) {
+    return {
+      success: true,
+      customer_vault_id: parsedResponse.customer_vault_id,
+      transaction_id: parsedResponse.transactionId,
+    };
+  } catch (error) {
+    console.error("Error making payment gateway request:", error);
     return {
       success: false,
-      error: parsedResponse.responseText,
+      error: error.message || "Network error",
     };
   }
-
-  return {
-    success: true,
-    customer_vault_id: parsedResponse.customerVaultId,
-  };
 }
 
 Deno.serve(async (req) => {
@@ -222,13 +326,21 @@ Deno.serve(async (req) => {
 
     // Check if business has a customer vault ID (required for storing payment method)
     if (!business.nmi_customer_vault_id) {
+      console.log(
+        "No customer vault found, creating one for business:",
+        business_id
+      );
+
       // Create customer vault first
       const vaultResult = await createCustomerVault(
         business,
         payment_method,
         userEmail
       );
+      console.log("Customer vault creation result:", vaultResult);
+
       if (!vaultResult.success) {
+        console.error("Failed to create customer vault:", vaultResult.error);
         return new Response(
           JSON.stringify({
             error: vaultResult.error || "Failed to create customer vault",
@@ -239,6 +351,10 @@ Deno.serve(async (req) => {
           }
         );
       }
+
+      console.log(
+        "Customer vault created successfully, updating business record"
+      );
 
       // Update business with new customer vault ID
       const { error: updateError } = await supabase
@@ -252,6 +368,10 @@ Deno.serve(async (req) => {
         .eq("id", business_id);
 
       if (updateError) {
+        console.error(
+          "Error updating business with customer vault ID:",
+          updateError
+        );
         return new Response(
           JSON.stringify({ error: "Failed to update business record" }),
           {
@@ -263,6 +383,10 @@ Deno.serve(async (req) => {
 
       // Update the business object for the rest of the function
       business.nmi_customer_vault_id = vaultResult.customer_vault_id;
+      console.log(
+        "Business updated with customer vault ID:",
+        vaultResult.customer_vault_id
+      );
     }
 
     // Allow payment method updates for both active and cancelled subscriptions
