@@ -37,6 +37,15 @@ export interface UpgradeOptions {
   provider?: "stripe" | "ecomPayments";
 }
 
+export interface PromotionalPaymentOptions {
+  planName: string;
+  planPrice: number;
+  promotionId: string;
+  customerEmail?: string;
+  metadata?: Record<string, any>;
+  provider?: "stripe" | "ecomPayments";
+}
+
 export const useUnifiedPayment = (options: UseUnifiedPaymentOptions = {}) => {
   const { user } = useAuth();
   const { provider } = usePaymentProvider();
@@ -222,6 +231,62 @@ export const useUnifiedPayment = (options: UseUnifiedPaymentOptions = {}) => {
     [user, provider, navigate, options]
   );
 
+  const handlePromotionalPayment = useCallback(
+    async (promotionalOptions: PromotionalPaymentOptions) => {
+      if (!user) {
+        sessionStorage.setItem(
+          "pendingPromotionalPayment",
+          JSON.stringify(promotionalOptions)
+        );
+        navigate("/login");
+        return;
+      }
+
+      setLoading(true);
+      setError(null);
+      setStep("processing");
+
+      try {
+        const result = await PaymentService.createPaymentSession({
+          ...promotionalOptions,
+          provider: promotionalOptions.provider || provider,
+        });
+
+        if (!result.success) {
+          throw new Error(result.error || "Promotional payment failed");
+        }
+
+        if (result.provider === "ecomPayments") {
+          if (options.showPaymentModal) {
+            return result;
+          } else {
+            throw new Error("Ecom Payments requires PaymentModal flow");
+          }
+        } else {
+          if (result.url) {
+            window.location.href = result.url;
+          } else {
+            throw new Error("No checkout URL received");
+          }
+        }
+      } catch (err) {
+        const paymentError = UnifiedErrorHandler.normalizeError(err, {
+          context: "PromotionalPayment",
+          provider: provider,
+        });
+        setError(paymentError);
+        setStep("payment");
+
+        if (options.onError) {
+          options.onError(paymentError);
+        }
+      } finally {
+        setLoading(false);
+      }
+    },
+    [user, provider, navigate, options]
+  );
+
   const handlePaymentSuccess = useCallback(
     async (result: any, paymentOptions: PaymentOptions) => {
       setStep("success");
@@ -288,7 +353,8 @@ export const useUnifiedPayment = (options: UseUnifiedPaymentOptions = {}) => {
   return {
     handlePayment,
     handleEcomPaymentsPayment,
-    handlePlanUpgrade, // Add this to the return object
+    handlePlanUpgrade,
+    handlePromotionalPayment,
     retryPayment,
     loading,
     error,

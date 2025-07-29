@@ -254,6 +254,15 @@ export class PaymentService {
         },
       });
 
+      // Check if it's a downgrade (no payment needed)
+      if (result?.is_downgrade) {
+        return {
+          success: true,
+          provider: "ecomPayments",
+          isDowngrade: true,
+        };
+      }
+
       return {
         success: true,
         transactionId: result?.transaction_id,

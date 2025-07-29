@@ -9,6 +9,7 @@ import {
   ArrowDown,
   Star,
   AlertCircle,
+  AlertTriangle,
 } from "lucide-react";
 import {
   getAllPlans,
@@ -38,6 +39,8 @@ const PlanUpgradeModal: React.FC<PlanUpgradeModalProps> = ({
   const [selectedPlan, setSelectedPlan] = useState<PlanConfig | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [upgradeLoading, setUpgradeLoading] = useState(false);
+  const [showCancelConfirmation, setShowCancelConfirmation] = useState(false);
+  const [cancelLoading, setCancelLoading] = useState(false);
 
   const plans = getAllPlans();
   const currentPlanConfig = getPlanConfigByName(currentPlan);
@@ -85,7 +88,7 @@ const PlanUpgradeModal: React.FC<PlanUpgradeModalProps> = ({
     setUpgradeLoading(true);
 
     try {
-      await handlePlanUpgrade({
+      const result = await handlePlanUpgrade({
         businessId,
         currentPlan,
         newPlan: selectedPlan.name,
@@ -98,10 +101,37 @@ const PlanUpgradeModal: React.FC<PlanUpgradeModalProps> = ({
         },
       });
 
-      setShowPaymentModal(true);
+      // Check if it's a downgrade (no payment needed)
+      const isDowngrade = selectedPlan.price < (currentPlanConfig?.price || 0);
+
+      if (isDowngrade) {
+        // Downgrade completed, no payment needed
+        onSuccess();
+        onClose();
+      } else if (result && result.provider === "ecomPayments") {
+        // Show payment modal for EcomPayments upgrades
+        setShowPaymentModal(true);
+      }
+      // For Stripe, the redirect will happen automatically
     } catch (err) {
       console.error("Error initiating plan change:", err);
       setUpgradeLoading(false);
+    }
+  };
+
+  const handleCancelSubscription = async () => {
+    setCancelLoading(true);
+    try {
+      // Assuming a cancellation endpoint exists
+      // For now, we'll just simulate it or call a dummy endpoint
+      // In a real app, you'd call an API to cancel the subscription
+      console.log("Simulating cancellation for:", selectedPlan?.name);
+      await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulate network delay
+      onClose(); // Close modal on success
+      onSuccess(); // Call onSuccess to update UI
+    } catch (err) {
+      console.error("Error cancelling subscription:", err);
+      setCancelLoading(false);
     }
   };
 
@@ -125,7 +155,7 @@ const PlanUpgradeModal: React.FC<PlanUpgradeModalProps> = ({
         </span>
       );
     }
-    if (plan.isRecommended) {
+    if (plan.isRecommended && !isVipPlan) {
       return (
         <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-500/20 text-blue-400">
           <Check className="h-3 w-3 mr-1" />
@@ -268,37 +298,82 @@ const PlanUpgradeModal: React.FC<PlanUpgradeModalProps> = ({
             </div>
 
             {/* Action Buttons */}
-            <div className="flex justify-end gap-3">
+            <div className="flex flex-col-reverse md:flex-row md:items-center md:justify-between gap-3">
+              {/* Left: Cancel Subscription (subtle) */}
               <button
-                onClick={onClose}
-                className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
+                onClick={() => setShowCancelConfirmation(true)}
+                className="px-2 py-1 text-sm text-gray-400 hover:text-red-400 transition-colors self-start"
+                style={{ minWidth: 0 }}
               >
-                Cancel
+                Cancel Subscription
               </button>
-              <button
-                onClick={handlePlanChange}
-                disabled={!selectedPlan || upgradeLoading || loading}
-                className={`flex items-center px-6 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                  isVipPlan
-                    ? "bg-orange-500 text-white hover:bg-orange-600"
-                    : "bg-blue-500 text-white hover:bg-blue-600"
-                }`}
-              >
-                {isVipPlan ? (
-                  <ArrowDown className="h-4 w-4 mr-2" />
-                ) : (
-                  <ArrowUp className="h-4 w-4 mr-2" />
-                )}
-                {upgradeLoading || loading
-                  ? "Processing..."
-                  : isVipPlan
-                  ? "Downgrade Plan"
-                  : "Upgrade Plan"}
-              </button>
+              {/* Right: Main Actions */}
+              <div className="flex gap-3 md:justify-end w-full md:w-auto">
+                <button
+                  onClick={handlePlanChange}
+                  disabled={!selectedPlan || upgradeLoading || loading}
+                  className={`flex items-center px-6 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                    isVipPlan
+                      ? "bg-orange-500 text-white hover:bg-orange-600"
+                      : "bg-blue-500 text-white hover:bg-blue-600"
+                  }`}
+                >
+                  {isVipPlan ? (
+                    <ArrowDown className="h-4 w-4 mr-2" />
+                  ) : (
+                    <ArrowUp className="h-4 w-4 mr-2" />
+                  )}
+                  {upgradeLoading || loading
+                    ? "Processing..."
+                    : isVipPlan
+                    ? "Downgrade Plan"
+                    : "Upgrade Plan"}
+                </button>
+                <button
+                  onClick={onClose}
+                  className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Cancel Confirmation Modal */}
+      {showCancelConfirmation && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-lg p-6 max-w-sm w-full shadow-lg border border-gray-700">
+            <div className="flex items-center mb-4">
+              <AlertTriangle className="h-6 w-6 text-yellow-400 mr-2" />
+              <h4 className="text-lg font-semibold text-white">
+                Cancel Subscription?
+              </h4>
+            </div>
+            <p className="text-gray-300 mb-6 text-sm">
+              Are you sure you want to cancel your subscription? You will lose
+              access to premium features at the end of your billing period.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowCancelConfirmation(false)}
+                className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
+                disabled={cancelLoading}
+              >
+                Keep Subscription
+              </button>
+              <button
+                onClick={handleCancelSubscription}
+                className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50"
+                disabled={cancelLoading}
+              >
+                {cancelLoading ? "Cancelling..." : "Confirm Cancel"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Payment Modal */}
       {showPaymentModal && selectedPlan && (

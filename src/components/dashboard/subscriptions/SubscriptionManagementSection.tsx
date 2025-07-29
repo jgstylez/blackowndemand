@@ -6,17 +6,15 @@ import {
   CheckCircle,
   X,
   Edit2,
-  Trash2,
   ExternalLink,
   DollarSign,
   Shield,
-  Clock,
   Crown,
   Building2,
   Eye,
   Zap,
   CreditCard as CreditCardIcon,
-  ArrowUp,
+  Settings,
 } from "lucide-react";
 import { supabase } from "../../../lib/supabase";
 import { callEdgeFunction } from "../../../lib/edgeFunctions";
@@ -30,6 +28,24 @@ interface SubscriptionManagementSectionProps {
   businesses: Business[];
   loading: boolean;
   onUpdate: () => void;
+}
+
+// Update the interface to match the actual Supabase view structure
+interface PaidSubscriptionView {
+  subscription_id: string | null;
+  business_id: string | null;
+  business_name: string | null;
+  owner_email: string | null;
+  owner_id: string | null;
+  payment_status: string | null;
+  plan_id: string | null;
+  status: string | null;
+  subscription_created_at: string | null;
+  subscription_plans: {
+    id: string;
+    name: string;
+    price: number;
+  };
 }
 
 interface Subscription {
@@ -143,7 +159,8 @@ const SubscriptionManagementSection: React.FC<
 
       // Add subscriptions from the view
       if (viewData && viewData.length > 0) {
-        const viewSubscriptions = viewData.map((subscription) => {
+        const typedViewData = viewData as PaidSubscriptionView[];
+        const viewSubscriptions = typedViewData.map((subscription) => {
           let providerType: "stripe" | "ecomPayments" | "unknown" =
             "ecomPayments";
           if (
@@ -154,21 +171,21 @@ const SubscriptionManagementSection: React.FC<
           }
 
           return {
-            id: subscription.subscription_id || subscription.business_id,
-            business_id: subscription.business_id,
-            business_name: subscription.business_name,
-            plan_name: subscription.plan_name,
-            status: subscription.subscription_status,
-            next_billing_date: subscription.current_period_end || "",
-            last_payment_date: subscription.current_period_start || "",
+            id: subscription.subscription_id || subscription.business_id || "",
+            business_id: subscription.business_id || "",
+            business_name: subscription.business_name || "",
+            plan_name: subscription.subscription_plans?.name || "Unknown Plan",
+            status: subscription.status || "unknown",
+            next_billing_date: subscription.subscription_created_at || "",
+            last_payment_date: subscription.subscription_created_at || "",
             payment_method_last_four: "",
             stripe_subscription_id:
               providerType === "stripe"
-                ? subscription.subscription_id
+                ? subscription.subscription_id || undefined
                 : undefined,
             nmi_subscription_id:
               providerType === "ecomPayments"
-                ? subscription.subscription_id
+                ? subscription.subscription_id || undefined
                 : undefined,
             plan_price: subscription.subscription_plans?.price || 0,
             total_amount: subscription.subscription_plans?.price || 0,
@@ -200,9 +217,9 @@ const SubscriptionManagementSection: React.FC<
               last_payment_date: "",
               payment_method_last_four: "",
               stripe_subscription_id: undefined,
-              nmi_subscription_id: business.subscription_id,
+              nmi_subscription_id: business.subscription_id || undefined,
               plan_price: planPrice,
-              total_amount: planPrice, // Use the same price for total amount
+              total_amount: planPrice,
               provider: "ecomPayments" as const,
             };
           });
@@ -558,13 +575,13 @@ const SubscriptionManagementSection: React.FC<
                   View Business
                 </button>
 
-                {/* Add Upgrade Plan button */}
+                {/* Manage Plan button - now includes cancel functionality */}
                 <button
                   onClick={() => handlePlanUpgrade(subscription.business_id)}
                   className="flex items-center px-3 py-2 bg-green-500/10 text-green-400 rounded-lg hover:bg-green-500/20 transition-colors"
                 >
-                  <ArrowUp className="h-4 w-4 mr-2" />
-                  Change Plan
+                  <Settings className="h-4 w-4 mr-2" />
+                  Manage Plan
                 </button>
 
                 {subscription.provider === "stripe" &&
@@ -593,13 +610,7 @@ const SubscriptionManagementSection: React.FC<
                   </button>
                 )}
 
-                <button
-                  onClick={() => setShowCancelConfirm(subscription.business_id)}
-                  className="flex items-center px-3 py-2 bg-red-500/10 text-red-500 rounded-lg hover:bg-red-500/20 transition-colors"
-                >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Cancel Subscription
-                </button>
+                {/* Remove the separate Cancel Subscription button */}
               </div>
             </div>
           ))}
@@ -727,52 +738,7 @@ const SubscriptionManagementSection: React.FC<
         </div>
       )}
 
-      {/* Cancel Subscription Confirmation */}
-      {showCancelConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-900 rounded-xl p-6 max-w-md w-full">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-semibold text-white">
-                Cancel Subscription
-              </h3>
-              <button
-                onClick={() => setShowCancelConfirm(null)}
-                className="text-gray-400 hover:text-white transition-colors"
-              >
-                <X className="h-6 w-6" />
-              </button>
-            </div>
-
-            <div className="mb-6">
-              <p className="text-gray-300 mb-4">
-                Are you sure you want to cancel your subscription? Your business
-                listing will remain active until the end of your current billing
-                period.
-              </p>
-              <p className="text-gray-400 text-sm">
-                After cancellation, your business will no longer appear in the
-                directory.
-              </p>
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowCancelConfirm(null)}
-                className="flex-1 px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors"
-              >
-                Keep Subscription
-              </button>
-
-              <button
-                onClick={() => handleCancelSubscription(showCancelConfirm)}
-                className="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
-              >
-                Confirm Cancellation
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Remove the Cancel Subscription Confirmation modal since it's now in PlanUpgradeModal */}
 
       {/* Plan Upgrade Modal */}
       {showUpgradeModal && (

@@ -78,6 +78,11 @@ serve(async (req) => {
       throw new Error("Business not found or access denied");
     }
 
+    // Additional validation: check if business is active
+    if (!business.is_active) {
+      throw new Error("Cannot modify plan for inactive business");
+    }
+
     // Check if business has an active subscription
     if (business.subscription_status !== "active") {
       throw new Error("Business must have an active subscription to upgrade");
@@ -85,10 +90,69 @@ serve(async (req) => {
 
     // Calculate the upgrade amount (difference between plans)
     const currentPlanPrice = business.plan_price || 0;
-    const upgradeAmount = planPrice - currentPlanPrice;
+    const planChangeAmount = planPrice - currentPlanPrice;
+    const isUpgrade = planChangeAmount > 0;
+    const isDowngrade = planChangeAmount < 0;
 
-    if (upgradeAmount <= 0) {
-      throw new Error("New plan must be more expensive than current plan");
+    // Allow both upgrades and downgrades
+    if (planChangeAmount === 0) {
+      throw new Error("New plan must be different from current plan");
+    }
+
+    // For downgrades, we might not need payment processing
+    if (isDowngrade) {
+      // Update the business with new plan details (no payment needed for downgrades)
+      const { error: updateError } = await supabaseClient
+        .from("businesses")
+        .update({
+          plan_name: newPlan,
+          plan_price: planPrice,
+          subscription_status: "active",
+          next_billing_date: new Date(
+            Date.now() + 365 * 24 * 60 * 60 * 1000
+          ).toISOString(),
+          last_payment_date: new Date().toISOString(),
+        })
+        .eq("id", businessId);
+
+      if (updateError) {
+        console.error("Error updating business plan:", updateError);
+        throw new Error("Failed to update business plan");
+      }
+
+      // Log the downgrade in payment_history
+      const { error: historyError } = await supabaseClient
+        .from("payment_history")
+        .insert({
+          business_id: businessId,
+          amount: 0, // No charge for downgrades
+          status: "approved",
+          type: "plan_downgrade",
+          description: `Downgraded from ${currentPlan} to ${newPlan}`,
+        });
+
+      if (historyError) {
+        console.error("Error logging downgrade history:", historyError);
+      }
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: "Plan downgraded successfully",
+          new_plan: newPlan,
+          change_amount: planChangeAmount,
+          is_downgrade: true, // Add this flag
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        }
+      );
+    }
+
+    // For upgrades, validate payment method exists
+    if (!paymentMethod) {
+      throw new Error("Payment method is required for plan upgrades");
     }
 
     // Process the upgrade payment
@@ -96,7 +160,7 @@ serve(async (req) => {
       businessId,
       currentPlan,
       newPlan,
-      upgradeAmount,
+      upgradeAmount: planChangeAmount,
       paymentMethod,
       userEmail: user.email,
       discountCode,
@@ -134,7 +198,7 @@ serve(async (req) => {
       .from("payment_history")
       .insert({
         business_id: businessId,
-        amount: upgradeAmount,
+        amount: planChangeAmount,
         status: "approved",
         type: "plan_upgrade",
         description: `Upgraded from ${currentPlan} to ${newPlan}`,
@@ -153,7 +217,7 @@ serve(async (req) => {
         message: "Plan upgraded successfully",
         transaction_id: paymentResult.transaction_id,
         new_plan: newPlan,
-        upgrade_amount: upgradeAmount,
+        upgrade_amount: planChangeAmount,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
