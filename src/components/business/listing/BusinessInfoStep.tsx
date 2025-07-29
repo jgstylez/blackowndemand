@@ -37,12 +37,11 @@ const BusinessInfoStep: React.FC<BusinessInfoStepProps> = ({
   // Handle category change for both single and multi-select
   const handleCategoryChange = (selectedOptions: any) => {
     if (isPremiumPlan) {
-      // Multi-select for premium plans (up to 3 categories)
       const categories = selectedOptions
         ? selectedOptions.map((option: any) => option.value)
         : [];
 
-      // Ensure at least one category is selected
+      // Real-time validation
       if (categories.length === 0) {
         setError("At least one category is required");
         return;
@@ -50,7 +49,6 @@ const BusinessInfoStep: React.FC<BusinessInfoStepProps> = ({
 
       setFormData((prev: any) => ({ ...prev, categories }));
     } else {
-      // Single select for basic plans
       const category = selectedOptions ? selectedOptions.value : "";
 
       if (!category) {
@@ -61,16 +59,14 @@ const BusinessInfoStep: React.FC<BusinessInfoStepProps> = ({
       setFormData((prev: any) => ({ ...prev, category }));
     }
 
-    // Clear error when user makes changes
-    if (error) {
-      setError(null);
-    }
+    // Clear error when valid selection is made
+    setError(null);
   };
 
   // Prepare category options for react-select
-  const categoryOptions = sortedCategories.map(([value, label]) => ({
-    value: value as BusinessCategory,
-    label,
+  const categoryOptions = sortedCategories.map(([key, value]) => ({
+    value: value as BusinessCategory, // Use the enum VALUE (like "Nonprofit")
+    label: value, // Use the enum VALUE as the label
   }));
 
   // Get selected categories for display
@@ -80,7 +76,8 @@ const BusinessInfoStep: React.FC<BusinessInfoStepProps> = ({
         ? formData.categories.map((cat: string) => ({
             value: cat,
             label:
-              sortedCategories.find(([value]) => value === cat)?.[1] || cat,
+              sortedCategories.find(([key, value]) => value === cat)?.[1] ||
+              cat,
           }))
         : [];
     } else {
@@ -89,7 +86,7 @@ const BusinessInfoStep: React.FC<BusinessInfoStepProps> = ({
             value: formData.category,
             label:
               sortedCategories.find(
-                ([value]) => value === formData.category
+                ([key, value]) => value === formData.category
               )?.[1] || formData.category,
           }
         : null;

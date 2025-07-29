@@ -22,6 +22,7 @@ import {
   BusinessCategoryLabels,
   BusinessTag,
   BusinessTagLabels,
+  BusinessCategory,
 } from "../../../types";
 
 interface InlineBusinessEditProps {
@@ -484,7 +485,8 @@ const InlineBusinessEdit: React.FC<InlineBusinessEditProps> = ({
     })
   );
 
-  const sortedCategories = Object.entries(BusinessCategoryLabels).sort((a, b) =>
+  // FIXED VERSION - Use BusinessCategory enum directly
+  const sortedCategories = Object.entries(BusinessCategory).sort((a, b) =>
     a[1].localeCompare(b[1])
   );
 
@@ -606,18 +608,18 @@ const InlineBusinessEdit: React.FC<InlineBusinessEditProps> = ({
               required
             >
               <option value="">Select a category</option>
-              {sortedCategories.map(([value, label]) => {
+              {sortedCategories.map(([key, value]) => {
                 const isSelected = value === formData.category;
                 console.log("🔍 Category option:", {
                   value,
-                  label,
+                  label: value,
                   isSelected,
                   formDataCategory: formData.category,
                   comparison: `${value} === ${formData.category} = ${isSelected}`,
                 });
                 return (
-                  <option key={value} value={value} selected={isSelected}>
-                    {label}
+                  <option key={key} value={value} selected={isSelected}>
+                    {value}
                   </option>
                 );
               })}

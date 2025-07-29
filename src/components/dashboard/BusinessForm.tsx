@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import {
   Business,
   BusinessCategoryLabels,
+  BusinessCategory,
   BusinessTag,
   BusinessTagLabels,
 } from "../../types";
@@ -10,6 +11,7 @@ import Select from "react-select";
 import { supabase } from "../../lib/supabase";
 import { extractVideoSrc } from "../../utils/videoUtils";
 import LocationFields from "../common/LocationFields";
+import { validateBusinessSubmission } from "../../utils/businessListingUtils";
 
 interface BusinessFormProps {
   business: Business;
@@ -148,29 +150,13 @@ const BusinessForm: React.FC<BusinessFormProps> = ({
     setLoading(true);
     setError(null);
 
-    // Validate required fields
-    if (!formData.name?.trim()) {
-      setError("Business name is required");
-      setLoading(false);
-      return;
-    }
-
-    if (!formData.category) {
-      setError("Category is required");
-      setLoading(false);
-      return;
-    }
-
-    if (!formData.email?.trim()) {
-      setError("Email is required");
-      setLoading(false);
-      return;
-    }
-
-    // Basic email validation
-    const emailRegex = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
-    if (formData.email && !emailRegex.test(formData.email)) {
-      setError("Please enter a valid email address");
+    // Use unified validation
+    const validationResult = validateBusinessSubmission(
+      formData,
+      isPremiumPlan
+    );
+    if (!validationResult.isValid) {
+      setError(validationResult.error!);
       setLoading(false);
       return;
     }
@@ -194,8 +180,8 @@ const BusinessForm: React.FC<BusinessFormProps> = ({
     })
   );
 
-  // Sort categories alphabetically by label
-  const sortedCategories = Object.entries(BusinessCategoryLabels).sort((a, b) =>
+  // FIXED VERSION - Use BusinessCategory enum directly
+  const sortedCategories = Object.entries(BusinessCategory).sort((a, b) =>
     a[1].localeCompare(b[1])
   );
 
@@ -284,9 +270,9 @@ const BusinessForm: React.FC<BusinessFormProps> = ({
               required
             >
               <option value="">Select a category</option>
-              {sortedCategories.map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
+              {sortedCategories.map(([key, value]) => (
+                <option key={key} value={value}>
+                  {value}
                 </option>
               ))}
             </select>

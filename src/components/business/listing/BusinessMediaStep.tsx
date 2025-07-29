@@ -167,7 +167,7 @@ const BusinessMediaStep: React.FC<BusinessMediaStepProps> = ({
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-300 mb-2">
-            Business Website <span className="text-red-500">*</span>
+            Business Website
           </label>
           <input
             type="url"
@@ -187,7 +187,7 @@ const BusinessMediaStep: React.FC<BusinessMediaStepProps> = ({
             defaultCountry={defaultCountryIso as any}
             value={formData.phone}
             onChange={handlePhoneChange}
-            inputClassName="PhoneInputInput"
+            inputclassname="PhoneInputInput"
             placeholder="e.g. +1234567890"
             required
           />

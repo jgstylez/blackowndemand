@@ -16,6 +16,13 @@ import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../lib/supabase";
 import { extractVideoSrc } from "../utils/videoUtils";
 import { BusinessCategory } from "../types";
+import {
+  validateBusinessInfoStep,
+  validateBusinessLocationStep,
+  validateBusinessMediaStep,
+  validateBusinessPremiumStep,
+  validateBusinessSubmission,
+} from "../utils/businessListingUtils";
 
 const BusinessListingPage = () => {
   const location = useLocation();
@@ -51,7 +58,7 @@ const BusinessListingPage = () => {
     isPremiumPlan,
     submitBusinessData,
     steps,
-    isCurrentStepValid,
+
     businessIdToUpdate,
   } = useBusinessListingForm(location, navigate);
 
@@ -109,6 +116,7 @@ const BusinessListingPage = () => {
         throw new Error("User not authenticated");
       }
 
+      // Prepare business data (without subscription_plans)
       const businessData: any = {
         name: formData.name,
         tagline: formData.tagline,
@@ -117,7 +125,7 @@ const BusinessListingPage = () => {
         state: formData.state,
         zip_code: formData.postalCode,
         country: formData.country,
-        website_url: formData.website,
+        website_url: formData.website?.trim() || null, // FIX: Send null for empty website
         phone: formData.phone,
         email: formData.email,
         image_url: formData.imageUrl,
@@ -127,6 +135,9 @@ const BusinessListingPage = () => {
             : [],
         is_active: true,
         is_verified: true,
+        owner_id: user.id,
+        is_claimed: true,
+        claimed_at: new Date().toISOString(),
       };
 
       // Handle category
@@ -208,10 +219,106 @@ const BusinessListingPage = () => {
     }
   };
 
+  // Enhanced step-by-step validation with detailed error messages
+  const validateCurrentStep = () => {
+    switch (currentStep) {
+      case "info":
+        // Validate Business Info Step
+        if (!formData.name?.trim()) {
+          setError("Business name is required");
+          return false;
+        }
+        if (!formData.description?.trim()) {
+          setError("Business description is required");
+          return false;
+        }
+        if (isPremiumPlan) {
+          if (!formData.categories || formData.categories.length === 0) {
+            setError("At least one category is required");
+            return false;
+          }
+        } else {
+          if (!formData.category) {
+            setError("Category is required");
+            return false;
+          }
+        }
+        setError(null);
+        return true;
+
+      case "location":
+        // Validate Location Step
+        if (!formData.country?.trim()) {
+          setError("Country is required");
+          return false;
+        }
+        if (!formData.state?.trim()) {
+          setError("State/Province/Region is required");
+          return false;
+        }
+        if (!formData.city?.trim()) {
+          setError("City is required");
+          return false;
+        }
+        if (!formData.postalCode?.trim()) {
+          setError("Postal/ZIP code is required");
+          return false;
+        }
+        setError(null);
+        return true;
+
+      case "media":
+        // Validate Media & Contact Step
+        if (!formData.email?.trim()) {
+          setError("Business email is required");
+          return false;
+        }
+        if (!formData.phone?.trim()) {
+          setError("Business phone is required");
+          return false;
+        }
+
+        // Email validation
+        const emailRegex = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+        if (!emailRegex.test(formData.email)) {
+          setError("Please enter a valid email address");
+          return false;
+        }
+
+        setError(null);
+        return true;
+
+      case "premium_features":
+        // Premium features are optional, but validate if provided
+        if (formData.promoVideoUrl && formData.promoVideoUrl.trim()) {
+          if (
+            !formData.promoVideoUrl.includes("theblacktube.com") &&
+            !formData.promoVideoUrl.includes("youtube.com") &&
+            !formData.promoVideoUrl.includes("vimeo.com")
+          ) {
+            setError(
+              "Please provide a valid video URL from The BlackTube, YouTube, or Vimeo"
+            );
+            return false;
+          }
+        }
+        setError(null);
+        return true;
+
+      case "summary":
+        // Final validation before submission
+        return validateCurrentStep(); // Re-validate all steps
+
+      default:
+        return true;
+    }
+  };
+
+  // Enhanced Next Step Handler
   const handleNextStep = () => {
     // Validate current step before proceeding
-    if (!isCurrentStepValid()) {
-      setError("Please complete all required fields before proceeding.");
+    if (!validateCurrentStep()) {
+      // Error is already set by validateCurrentStep
       return;
     }
 
@@ -474,7 +581,7 @@ const BusinessListingPage = () => {
                     ? submitBusinessData
                     : handleNextStep
                 }
-                disabled={loading || !isCurrentStepValid()}
+                disabled={loading}
                 className="inline-flex items-center px-4 py-2 rounded-lg bg-white text-black hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading

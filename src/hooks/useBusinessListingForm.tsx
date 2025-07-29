@@ -1,6 +1,13 @@
 import { useState, useMemo, useCallback } from "react";
 import { BusinessCategory, BusinessTag, BusinessTagLabels } from "../types";
 import { supabase } from "../lib/supabase";
+import {
+  validateBusinessInfoStep,
+  validateBusinessLocationStep,
+  validateBusinessMediaStep,
+  validateBusinessPremiumStep,
+  validateBusinessSubmission,
+} from "../utils/businessListingUtils";
 
 export function useBusinessListingForm(location: any, navigate: any) {
   // Plan and payment state
@@ -183,7 +190,7 @@ export function useBusinessListingForm(location: any, navigate: any) {
         state: formData.state,
         zip_code: formData.postalCode,
         country: formData.country,
-        website_url: formData.website,
+        website_url: formData.website?.trim() || null, // FIX: Send null for empty website
         phone: formData.phone,
         email: formData.email,
         image_url: formData.imageUrl,
@@ -405,45 +412,72 @@ export function useBusinessListingForm(location: any, navigate: any) {
     }
   }, [formData, planName, navigate, isPremiumPlan, businessIdToUpdate]);
 
-  // Fix the isCurrentStepValid function to check the correct required fields:
-  const isCurrentStepValid = useCallback(() => {
+  // Enhanced step-by-step validation with detailed error messages
+  const validateCurrentStep = useCallback(() => {
     switch (currentStep) {
       case "info":
-        // Required fields for info step: name, description, category
-        const hasValidCategory = isPremiumPlan
-          ? formData.categories && formData.categories.length > 0
-          : formData.category;
-
-        return (
-          formData.name?.trim() &&
-          formData.description?.trim() &&
-          hasValidCategory
-        );
-      case "location":
-        // Only require country and state for location step
-        return formData.country?.trim() && formData.state?.trim();
-      case "media":
-        // Image is optional for media step
+        const infoResult = validateBusinessInfoStep(formData, isPremiumPlan);
+        if (!infoResult.isValid) {
+          setError(infoResult.error!);
+          return false;
+        }
+        setError(null);
         return true;
-      case "premium_features":
-        return true; // Premium features are optional
-      case "summary":
-        // For summary, check all required fields for final submission
-        const hasValidCategoryForSubmission = isPremiumPlan
-          ? formData.categories && formData.categories.length > 0
-          : formData.category;
 
-        return (
-          formData.name?.trim() &&
-          formData.description?.trim() &&
-          hasValidCategoryForSubmission &&
-          formData.country?.trim() &&
-          formData.state?.trim()
+      case "location":
+        const locationResult = validateBusinessLocationStep(formData);
+        if (!locationResult.isValid) {
+          setError(locationResult.error!);
+          return false;
+        }
+        setError(null);
+        return true;
+
+      case "media":
+        const mediaResult = validateBusinessMediaStep(formData);
+        if (!mediaResult.isValid) {
+          setError(mediaResult.error!);
+          return false;
+        }
+        setError(null);
+        return true;
+
+      case "premium_features":
+        const premiumResult = validateBusinessPremiumStep(formData);
+        if (!premiumResult.isValid) {
+          setError(premiumResult.error!);
+          return false;
+        }
+        setError(null);
+        return true;
+
+      case "summary":
+        const submissionResult = validateBusinessSubmission(
+          formData,
+          isPremiumPlan
         );
+        if (!submissionResult.isValid) {
+          setError(submissionResult.error!);
+          return false;
+        }
+        setError(null);
+        return true;
+
       default:
         return true;
     }
-  }, [currentStep, formData, isPremiumPlan]);
+  }, [currentStep, formData, isPremiumPlan, setError]);
+
+  // Enhanced Next Step Handler
+  const handleNextStep = useCallback(() => {
+    if (validateCurrentStep()) {
+      const currentIndex = steps.indexOf(currentStep);
+      if (currentIndex < steps.length - 1) {
+        setCurrentStep(steps[currentIndex + 1]);
+        setError(null); // Clear any previous errors
+      }
+    }
+  }, [validateCurrentStep, currentStep, steps, setCurrentStep, setError]);
 
   // Return all state and handlers needed by the page
   return {
@@ -475,7 +509,8 @@ export function useBusinessListingForm(location: any, navigate: any) {
     sortedCategories,
     isPremiumPlan,
     submitBusinessData,
-    isCurrentStepValid,
+    isCurrentStepValid: validateCurrentStep, // Expose the validation function
     businessIdToUpdate,
+    handleNextStep, // Expose the new handler
   };
 }

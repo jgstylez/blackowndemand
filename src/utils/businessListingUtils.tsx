@@ -1,85 +1,154 @@
-// Utility functions for Business Listing Page
-// Move validation, tag/category mapping, and other pure functions here.
+// Unified business validation functions
+export interface ValidationResult {
+  isValid: boolean;
+  error?: string;
+}
 
+export const validateBusinessInfoStep = (
+  formData: any,
+  isPremiumPlan: boolean = false
+): ValidationResult => {
+  if (!formData.name?.trim()) {
+    return { isValid: false, error: "Business name is required" };
+  }
+  if (!formData.description?.trim()) {
+    return { isValid: false, error: "Business description is required" };
+  }
+
+  if (isPremiumPlan) {
+    if (!formData.categories || formData.categories.length === 0) {
+      return { isValid: false, error: "At least one category is required" };
+    }
+  } else {
+    if (!formData.category) {
+      return { isValid: false, error: "Category is required" };
+    }
+  }
+
+  return { isValid: true };
+};
+
+export const validateBusinessLocationStep = (
+  formData: any
+): ValidationResult => {
+  if (!formData.country?.trim()) {
+    return { isValid: false, error: "Country is required" };
+  }
+  if (!formData.state?.trim()) {
+    return { isValid: false, error: "State/Province/Region is required" };
+  }
+  if (!formData.city?.trim()) {
+    return { isValid: false, error: "City is required" };
+  }
+  if (!formData.postalCode?.trim()) {
+    return { isValid: false, error: "Postal/ZIP code is required" };
+  }
+
+  return { isValid: true };
+};
+
+export const validateBusinessMediaStep = (formData: any): ValidationResult => {
+  if (!formData.email?.trim()) {
+    return { isValid: false, error: "Business email is required" };
+  }
+  if (!formData.phone?.trim()) {
+    return { isValid: false, error: "Business phone is required" };
+  }
+
+  // Email validation
+  const emailRegex = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+  if (!emailRegex.test(formData.email)) {
+    return { isValid: false, error: "Please enter a valid email address" };
+  }
+
+  // Website validation (optional but validate format if provided)
+  const websiteValue = formData.website?.trim();
+  if (websiteValue && websiteValue.length > 0) {
+    if (
+      !websiteValue.startsWith("http://") &&
+      !websiteValue.startsWith("https://")
+    ) {
+      return {
+        isValid: false,
+        error: "Website URL must start with http:// or https://",
+      };
+    }
+  }
+
+  return { isValid: true };
+};
+
+export const validateBusinessPremiumStep = (
+  formData: any
+): ValidationResult => {
+  // Premium features are optional, but validate if provided
+  if (formData.promoVideoUrl && formData.promoVideoUrl.trim()) {
+    if (
+      !formData.promoVideoUrl.includes("theblacktube.com") &&
+      !formData.promoVideoUrl.includes("youtube.com") &&
+      !formData.promoVideoUrl.includes("vimeo.com")
+    ) {
+      return {
+        isValid: false,
+        error:
+          "Please provide a valid video URL from The BlackTube, YouTube, or Vimeo",
+      };
+    }
+  }
+
+  return { isValid: true };
+};
+
+export const validateBusinessSubmission = (
+  formData: any,
+  isPremiumPlan: boolean = false
+): ValidationResult => {
+  // Validate all required steps
+  const infoValidation = validateBusinessInfoStep(formData, isPremiumPlan);
+  if (!infoValidation.isValid) return infoValidation;
+
+  const locationValidation = validateBusinessLocationStep(formData);
+  if (!locationValidation.isValid) return locationValidation;
+
+  const mediaValidation = validateBusinessMediaStep(formData);
+  if (!mediaValidation.isValid) return mediaValidation;
+
+  const premiumValidation = validateBusinessPremiumStep(formData);
+  if (!premiumValidation.isValid) return premiumValidation;
+
+  return { isValid: true };
+};
+
+// Legacy functions for backward compatibility (deprecated)
 export const validateInfoStep = (
   formData: any,
   setError: (msg: string) => void
 ): boolean => {
-  if (!formData.name.trim()) {
-    setError("Business name is required");
-    return false;
+  const result = validateBusinessInfoStep(formData);
+  if (!result.isValid) {
+    setError(result.error!);
   }
-  if (!formData.description.trim()) {
-    setError("Business description is required");
-    return false;
-  }
-  if (!formData.category) {
-    setError("Please select a business category");
-    return false;
-  }
-  return true;
+  return result.isValid;
 };
 
 export const validateLocationStep = (
   formData: any,
   setError: (msg: string) => void
 ): boolean => {
-  if (!formData.country.trim()) {
-    setError("Country is required");
-    return false;
+  const result = validateBusinessLocationStep(formData);
+  if (!result.isValid) {
+    setError(result.error!);
   }
-  if (!formData.city.trim()) {
-    setError("City is required");
-    return false;
-  }
-  if (!formData.state.trim()) {
-    setError("State/Province/Region is required");
-    return false;
-  }
-  if (!formData.postalCode.trim()) {
-    setError("Postal code is required");
-    return false;
-  }
-  return true;
+  return result.isValid;
 };
 
 export const validateMediaStep = (
   formData: any,
   setError: (msg: string) => void
 ): boolean => {
-  if (!formData.imageUrl) {
-    setError("Business image is required");
-    return false;
+  const result = validateBusinessMediaStep(formData);
+  if (!result.isValid) {
+    setError(result.error!);
   }
-  if (!formData.website.trim()) {
-    setError("Website URL is required");
-    return false;
-  }
-  if (!formData.email.trim()) {
-    setError("Business email is required");
-    return false;
-  }
-  if (!formData.phone.trim()) {
-    setError("Business phone is required");
-    return false;
-  }
-  // Website is now optional, but if provided, validate the format
-  if (formData.website && formData.website.trim()) {
-    if (
-      !formData.website.startsWith("http://") &&
-      !formData.website.startsWith("https://")
-    ) {
-      setError("Website URL must start with http:// or https://");
-      return false;
-    }
-  }
-  const emailRegex = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
-
-  if (!emailRegex.test(formData.email)) {
-    setError("Please enter a valid email address");
-    return false;
-  }
-  return true;
+  return result.isValid;
 };
-
-// Add more utilities as needed
