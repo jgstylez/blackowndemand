@@ -192,10 +192,10 @@ const MyBusinessesSection: React.FC<MyBusinessesSectionProps> = ({
                 key={business.id}
                 className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-6"
               >
-                <div className="flex items-start justify-between">
-                  <div>
-                    <div className="flex items-center gap-2 mb-2">
-                      <h3 className="text-xl font-semibold text-white">
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2">
+                      <h3 className="text-lg sm:text-xl font-semibold text-white break-words">
                         {business.name === "Pending Business Listing"
                           ? "Complete Your Business Listing"
                           : business.name}
@@ -205,11 +205,11 @@ const MyBusinessesSection: React.FC<MyBusinessesSectionProps> = ({
                         Incomplete
                       </span>
                     </div>
-                    <p className="text-gray-400 mb-4">
+                    <p className="text-gray-400 mb-2 break-words">
                       You've started the process of listing your business.
                       Complete your listing to make it visible in our directory.
                     </p>
-                    <div className="flex items-center gap-4 text-sm text-gray-500">
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
                       <span>
                         Plan: {business.subscription_plans || "Basic"}
                       </span>
@@ -220,16 +220,16 @@ const MyBusinessesSection: React.FC<MyBusinessesSectionProps> = ({
                       </span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-row sm:flex-col gap-2 mt-4 sm:mt-0">
                     <button
                       onClick={() => onContinueListing(business)}
-                      className="px-4 py-2 rounded-lg bg-white text-black hover:bg-gray-100 transition-colors"
+                      className="px-4 py-2 sm:px-4 sm:py-2 rounded-lg bg-white text-black hover:bg-gray-100 transition-colors"
                     >
                       Complete Listing
                     </button>
                     <button
                       onClick={() => onDeleteBusiness(business.id)}
-                      className="p-2 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors"
+                      className="p-3 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors"
                     >
                       <Trash2 className="h-5 w-5" />
                     </button>
@@ -254,10 +254,11 @@ const MyBusinessesSection: React.FC<MyBusinessesSectionProps> = ({
                 />
               ) : (
                 <div className="bg-gray-900 rounded-xl p-6">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <div className="flex items-center gap-2 mb-2">
-                        <h3 className="text-xl font-semibold text-white">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      {/* Business name and badges inline */}
+                      <div className="flex flex-wrap items-center gap-2 mb-2">
+                        <h3 className="text-lg sm:text-xl font-semibold text-white break-words">
                           {business.name}
                         </h3>
                         {business.isVerified ? (
@@ -278,47 +279,50 @@ const MyBusinessesSection: React.FC<MyBusinessesSectionProps> = ({
                           </span>
                         )}
                       </div>
-                      <p className="text-gray-400 text-sm mb-4">
+
+                      <p className="text-gray-400 text-sm mb-4 break-words">
                         {business.tagline}
                       </p>
-                      <div className="flex items-center gap-4 text-sm text-gray-500">
+
+                      {business.category && (
+                        <span className="w-full sm:w-auto text-gray-500">
+                          {business.category}
+                        </span>
+                      )}
+
+                      {/* Location details spanning full width on bottom */}
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4 text-sm text-gray-500">
                         {business.city && business.state && (
-                          <span>
+                          <span className="w-full sm:w-auto">
                             {business.city}, {business.state}
                           </span>
                         )}
-                        {business.category && (
-                          <>
-                            <span>•</span>
-                            <span>{business.category}</span>
-                          </>
-                        )}
+
                         {business.subscription_plans && (
-                          <>
-                            <span>•</span>
-                            <span>Plan: {business.subscription_plans}</span>
-                          </>
+                          <span className="w-full sm:w-auto">
+                            Plan: {business.subscription_plans}
+                          </span>
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-row sm:flex-col gap-2 mt-4 sm:mt-0">
                       <button
                         onClick={() => handleViewClick(business.id)}
-                        className="p-2 rounded-lg bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-colors"
+                        className="p-3 rounded-lg bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-colors"
                         title="View business page"
                       >
                         <Eye className="h-5 w-5" />
                       </button>
                       <button
                         onClick={() => handleEditClick(business)}
-                        className="p-2 rounded-lg bg-gray-800 text-white hover:bg-gray-700 transition-colors"
+                        className="p-3 rounded-lg bg-gray-800 text-white hover:bg-gray-700 transition-colors"
                         title="Edit business"
                       >
                         <Edit2 className="h-5 w-5" />
                       </button>
                       <button
                         onClick={() => onDeleteBusiness(business.id)}
-                        className="p-2 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors"
+                        className="p-3 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors"
                         title="Delete business"
                       >
                         <Trash2 className="h-5 w-5" />
