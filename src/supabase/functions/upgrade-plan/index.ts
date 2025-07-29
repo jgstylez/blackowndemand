@@ -8,6 +8,14 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+const ECOM_LIVE_SECURITY_KEY = Deno.env.get("ECOM_LIVE_SECURITY_KEY") ?? "";
+const ECOM_TEST_SECURITY_KEY = Deno.env.get("ECOM_TEST_SECURITY_KEY") ?? "";
+const NODE_ENV = Deno.env.get("NODE_ENV") ?? "development";
+
+// Select the appropriate security key based on environment
+const SECURITY_KEY =
+  NODE_ENV === "production" ? ECOM_LIVE_SECURITY_KEY : ECOM_TEST_SECURITY_KEY;
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
@@ -23,20 +31,21 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_ANON_KEY") ?? ""
     );
 
-    // Get user from auth header
+    // Get the user from the request
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      throw new Error("No authorization header provided");
+      throw new Error("No authorization header");
     }
 
     const token = authHeader.replace("Bearer ", "");
-    const { data: userData, error: userError } =
-      await supabaseClient.auth.getUser(token);
-    if (userError)
-      throw new Error(`Authentication error: ${userError.message}`);
-    const user = userData.user;
-    if (!user?.email)
-      throw new Error("User not authenticated or email not available");
+    const {
+      data: { user },
+      error: authError,
+    } = await supabaseClient.auth.getUser(token);
+
+    if (authError || !user) {
+      throw new Error("Invalid authentication");
+    }
 
     // Parse request body
     const {
@@ -44,7 +53,7 @@ serve(async (req) => {
       currentPlan,
       newPlan,
       planPrice,
-      paymentMethod,
+      customerEmail,
       discountCode,
       discountedAmount,
     } = await req.json();
@@ -71,7 +80,7 @@ serve(async (req) => {
       .from("businesses")
       .select("*")
       .eq("id", businessId)
-      .eq("user_id", user.id)
+      .eq("owner_id", user.id)
       .single();
 
     if (businessError || !business) {
@@ -83,9 +92,9 @@ serve(async (req) => {
       throw new Error("Cannot modify plan for inactive business");
     }
 
-    // Check if business has an active subscription
-    if (business.subscription_status !== "active") {
-      throw new Error("Business must have an active subscription to upgrade");
+    // Check if business has a subscription (active or cancelled - both can be modified)
+    if (!business.plan_name) {
+      throw new Error("Business must have a subscription to modify plans");
     }
 
     // Calculate the upgrade amount (difference between plans)
@@ -99,15 +108,33 @@ serve(async (req) => {
       throw new Error("New plan must be different from current plan");
     }
 
-    // For downgrades, we might not need payment processing
+    // For downgrades, we need to ensure payment method is on file
     if (isDowngrade) {
+      // Check if customer has a payment method on file
+      if (!business.nmi_customer_vault_id) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: "Payment method required for plan changes",
+            code: "payment_method_required",
+            requires_payment_method: true,
+            message:
+              "Please update your payment method before changing your plan to ensure future billing continues without interruption.",
+          }),
+          {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 400,
+          }
+        );
+      }
+
       // Update the business with new plan details (no payment needed for downgrades)
       const { error: updateError } = await supabaseClient
         .from("businesses")
         .update({
           plan_name: newPlan,
           plan_price: planPrice,
-          subscription_status: "active",
+          subscription_status: "active", // Reactivate the subscription
           next_billing_date: new Date(
             Date.now() + 365 * 24 * 60 * 60 * 1000
           ).toISOString(),
@@ -120,108 +147,74 @@ serve(async (req) => {
         throw new Error("Failed to update business plan");
       }
 
-      // Log the downgrade in payment_history
+      // Log the plan change
       const { error: historyError } = await supabaseClient
         .from("payment_history")
         .insert({
           business_id: businessId,
-          amount: 0, // No charge for downgrades
+          nmi_transaction_id: "no_transaction_id",
+          amount: 0,
           status: "approved",
           type: "plan_downgrade",
-          description: `Downgraded from ${currentPlan} to ${newPlan}`,
+          response_text: `Plan downgraded from ${currentPlan} to ${newPlan}`,
         });
 
       if (historyError) {
-        console.error("Error logging downgrade history:", historyError);
+        console.error("Error logging plan downgrade:", historyError);
       }
 
       return new Response(
         JSON.stringify({
           success: true,
           message: "Plan downgraded successfully",
-          new_plan: newPlan,
-          change_amount: planChangeAmount,
-          is_downgrade: true, // Add this flag
+          is_downgrade: true,
         }),
         {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 200,
         }
       );
     }
 
-    // For upgrades, validate payment method exists
-    if (!paymentMethod) {
-      throw new Error("Payment method is required for plan upgrades");
+    // For upgrades, require customer vault
+    if (!business.nmi_customer_vault_id) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error:
+            "No payment method on file. Please update your payment method first.",
+          code: "payment_method_required",
+          requires_payment_method: true,
+          message:
+            "Please update your payment method before upgrading your plan.",
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 400,
+        }
+      );
     }
 
-    // Process the upgrade payment
-    const paymentResult = await processUpgradePayment({
+    // Process upgrade with customer vault
+    const upgradeResult = await processUpgradeWithCustomerVault({
       businessId,
       currentPlan,
       newPlan,
       upgradeAmount: planChangeAmount,
-      paymentMethod,
-      userEmail: user.email,
+      customerVaultId: business.nmi_customer_vault_id,
+      userEmail: user.email || "",
       discountCode,
       discountedAmount,
     });
-
-    if (!paymentResult.success) {
-      throw new Error(paymentResult.error || "Payment processing failed");
-    }
-
-    // Update the business with new plan details
-    const { error: updateError } = await supabaseClient
-      .from("businesses")
-      .update({
-        plan_name: newPlan,
-        plan_price: planPrice,
-        subscription_status: "active",
-        next_billing_date: new Date(
-          Date.now() + 365 * 24 * 60 * 60 * 1000
-        ).toISOString(),
-        last_payment_date: new Date().toISOString(),
-        payment_method_last_four:
-          paymentResult.payment_method_details?.card?.last4 ||
-          business.payment_method_last_four,
-      })
-      .eq("id", businessId);
-
-    if (updateError) {
-      console.error("Error updating business plan:", updateError);
-      throw new Error("Failed to update business plan");
-    }
-
-    // Log the upgrade in payment_history
-    const { error: historyError } = await supabaseClient
-      .from("payment_history")
-      .insert({
-        business_id: businessId,
-        amount: planChangeAmount,
-        status: "approved",
-        type: "plan_upgrade",
-        description: `Upgraded from ${currentPlan} to ${newPlan}`,
-        transaction_id: paymentResult.transaction_id,
-      });
-
-    if (historyError) {
-      console.error("Error logging upgrade history:", historyError);
-    }
-
-    console.log("Plan upgrade completed successfully");
 
     return new Response(
       JSON.stringify({
         success: true,
         message: "Plan upgraded successfully",
-        transaction_id: paymentResult.transaction_id,
-        new_plan: newPlan,
-        upgrade_amount: planChangeAmount,
+        is_downgrade: false,
+        ...upgradeResult,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200,
       }
     );
   } catch (error) {
@@ -242,12 +235,12 @@ serve(async (req) => {
   }
 });
 
-async function processUpgradePayment({
+async function processUpgradeWithCustomerVault({
   businessId,
   currentPlan,
   newPlan,
   upgradeAmount,
-  paymentMethod,
+  customerVaultId,
   userEmail,
   discountCode,
   discountedAmount,
@@ -256,52 +249,141 @@ async function processUpgradePayment({
   currentPlan: string;
   newPlan: string;
   upgradeAmount: number;
-  paymentMethod: any;
+  customerVaultId: string;
   userEmail: string;
   discountCode?: string;
   discountedAmount?: number;
 }) {
-  // Use the existing process-payment function logic
-  const processAmount = Math.round((discountedAmount || upgradeAmount) * 100); // Convert to cents
+  // Prepare the payment data for charging the difference
+  const postData = new URLSearchParams();
+  postData.append("security_key", SECURITY_KEY); // Fix: Use SECURITY_KEY instead of NMI_SECURITY_KEY
+  postData.append("type", "sale");
+  postData.append("amount", (upgradeAmount / 100).toFixed(2)); // Convert cents to dollars
+  postData.append("customer_vault_id", customerVaultId); // Use stored payment method
+  postData.append("currency", "USD");
+  postData.append(
+    "order_description",
+    `Plan upgrade from ${currentPlan} to ${newPlan}`
+  );
 
-  // For now, we'll use the same payment processing logic as the main process-payment function
-  // In a production environment, you might want to create a separate upgrade-specific payment flow
+  console.log("Processing upgrade with customer vault:", {
+    customerVaultId,
+    upgradeAmount: (upgradeAmount / 100).toFixed(2),
+    currentPlan,
+    newPlan,
+  });
 
-  const paymentData = {
-    amount: processAmount,
-    currency: "USD",
-    description: `Plan upgrade: ${currentPlan} to ${newPlan}`,
-    customer_email: userEmail,
-    payment_method: paymentMethod,
-    is_recurring: false, // Upgrades are one-time payments
-    discount_code: discountCode,
-    discounted_amount: discountedAmount,
-    metadata: {
-      business_id: businessId,
-      upgrade_from: currentPlan,
-      upgrade_to: newPlan,
-      upgrade_amount: upgradeAmount,
-    },
-  };
-
-  // Call the process-payment function
-  const response = await fetch(
-    `${Deno.env.get("SUPABASE_URL")}/functions/v1/process-payment`,
+  // Make the request to the payment gateway
+  const paymentResponse = await fetch(
+    "https://ecompaymentprocessing.transactiongateway.com/api/transact.php",
     {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${Deno.env.get("SUPABASE_ANON_KEY")}`,
+        "Content-Type": "application/x-www-form-urlencoded",
       },
-      body: JSON.stringify(paymentData),
+      body: postData.toString(),
     }
   );
 
-  const result = await response.json();
+  // Get the response text
+  const responseText = await paymentResponse.text();
+  console.log("Raw payment gateway response:", responseText);
 
-  if (!response.ok) {
-    throw new Error(result.error || "Payment processing failed");
+  // Parse the response
+  const parsedResponse = parseNMIResponse(responseText);
+
+  // Check if the payment was successful
+  if (!parsedResponse.success) {
+    const errorMessage = getNMIErrorMessage(
+      parsedResponse.responseCode,
+      parsedResponse.responseText
+    );
+    throw new Error(errorMessage);
   }
 
-  return result;
+  // Update the business with new plan details
+  const { error: updateError } = await supabaseClient
+    .from("businesses")
+    .update({
+      plan_name: newPlan,
+      plan_price: upgradeAmount / 100, // Fix: Use upgradeAmount converted to dollars
+      subscription_status: "active",
+      next_billing_date: new Date(
+        Date.now() + 365 * 24 * 60 * 60 * 1000
+      ).toISOString(),
+      last_payment_date: new Date().toISOString(),
+    })
+    .eq("id", businessId);
+
+  if (updateError) {
+    console.error("Error updating business plan:", updateError);
+    throw new Error("Failed to update business plan");
+  }
+
+  // Log the upgrade
+  const { error: historyError } = await supabaseClient
+    .from("payment_history")
+    .insert({
+      business_id: businessId,
+      nmi_transaction_id: parsedResponse.transactionId || "no_transaction_id",
+      amount: upgradeAmount / 100,
+      status: "approved",
+      type: "plan_upgrade",
+      response_text: `Plan upgraded from ${currentPlan} to ${newPlan}`,
+    });
+
+  if (historyError) {
+    console.error("Error logging plan upgrade:", historyError);
+  }
+
+  return {
+    transaction_id: parsedResponse.transactionId,
+    amount: upgradeAmount / 100,
+    status: "approved",
+  };
+}
+
+// Helper functions (reuse from process-payment)
+function parseNMIResponse(responseText: string) {
+  const params = new URLSearchParams(responseText);
+  const response: Record<string, string> = {};
+
+  for (const [key, value] of params.entries()) {
+    response[key] = value;
+  }
+
+  return {
+    success: response.response === "1",
+    responseCode: response.response_code,
+    responseText: response.responsetext,
+    transactionId: response.transactionid,
+    customerVaultId: response.customer_vault_id,
+    subscriptionId: response.subscription_id,
+    authCode: response.authcode,
+    avsResponse: response.avsresponse,
+    cvvResponse: response.cvvresponse,
+  };
+}
+
+function getNMIErrorMessage(
+  responseCode: string,
+  responseText: string
+): string {
+  // Add common error mappings
+  const errorMessages: Record<string, string> = {
+    "2": "Transaction declined",
+    "3": "Transaction error",
+    "4": "Transaction held for review",
+    "6": "An error occurred while processing the card",
+    "7": "Card number is invalid",
+    "8": "Card has expired",
+    "9": "Invalid CVV",
+    "13": "Invalid amount",
+    "14": "Invalid card number",
+    "15": "Invalid customer vault ID",
+  };
+
+  return (
+    errorMessages[responseCode] || responseText || "Payment processing failed"
+  );
 }

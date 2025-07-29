@@ -17,7 +17,9 @@ import {
   PlanConfig,
 } from "../../../config/paymentConfig";
 import { useUnifiedPayment } from "../../../hooks/useUnifiedPayment";
+import { callEdgeFunction } from "../../../lib/edgeFunctions";
 import PaymentModal from "../../payment/PaymentModal";
+import PaymentMethodUpdateModal from "./PaymentMethodUpdateModal";
 
 interface PlanUpgradeModalProps {
   isOpen: boolean;
@@ -26,6 +28,7 @@ interface PlanUpgradeModalProps {
   businessId: string;
   businessName: string;
   onSuccess: () => void;
+  onCancelSuccess: () => void; // Add this new prop
 }
 
 const PlanUpgradeModal: React.FC<PlanUpgradeModalProps> = ({
@@ -35,12 +38,16 @@ const PlanUpgradeModal: React.FC<PlanUpgradeModalProps> = ({
   businessId,
   businessName,
   onSuccess,
+  onCancelSuccess, // Add this new prop
 }) => {
   const [selectedPlan, setSelectedPlan] = useState<PlanConfig | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showPaymentMethodModal, setShowPaymentMethodModal] = useState(false);
   const [upgradeLoading, setUpgradeLoading] = useState(false);
   const [showCancelConfirmation, setShowCancelConfirmation] = useState(false);
   const [cancelLoading, setCancelLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   const plans = getAllPlans();
   const currentPlanConfig = getPlanConfigByName(currentPlan);
@@ -65,7 +72,11 @@ const PlanUpgradeModal: React.FC<PlanUpgradeModalProps> = ({
     ? "Choose a plan that better fits your business needs"
     : "Choose a plan that better fits your business needs";
 
-  const { handlePlanUpgrade, loading, error } = useUnifiedPayment({
+  const {
+    handlePlanUpgrade,
+    loading,
+    error: hookError,
+  } = useUnifiedPayment({
     onSuccess: (result) => {
       console.log("Plan change successful:", result);
       setShowPaymentModal(false);
@@ -74,7 +85,37 @@ const PlanUpgradeModal: React.FC<PlanUpgradeModalProps> = ({
     },
     onError: (error) => {
       console.error("Plan change failed:", error);
+      console.log("Error details:", {
+        message: error.message,
+        userFriendlyMessage: error.userFriendlyMessage,
+        details: error.details,
+        code: error.code,
+      });
       setUpgradeLoading(false);
+
+      // Check if the error is about missing payment method
+      const errorMessage = error.userFriendlyMessage || error.message || "";
+      const errorDetails = error.details?.error || error.details?.message || "";
+      const fullErrorText = `${errorMessage} ${errorDetails}`.toLowerCase();
+
+      console.log("Checking for payment method error in:", fullErrorText);
+
+      if (
+        fullErrorText.includes("no payment method on file") ||
+        fullErrorText.includes("payment method required") ||
+        fullErrorText.includes("payment method required for plan changes") ||
+        fullErrorText.includes("please update your payment method") ||
+        fullErrorText.includes("requires_payment_method")
+      ) {
+        console.log("Payment method error detected - showing update modal");
+        // Show payment method update modal instead of error
+        setShowPaymentMethodModal(true);
+      } else {
+        console.log("Non-payment method error - showing error message");
+        setError(
+          error.userFriendlyMessage || error.message || "Failed to change plan"
+        );
+      }
     },
   });
 
@@ -86,8 +127,10 @@ const PlanUpgradeModal: React.FC<PlanUpgradeModalProps> = ({
     if (!selectedPlan) return;
 
     setUpgradeLoading(true);
+    setError(null); // Clear previous errors
 
     try {
+      // Always call the edge function - it handles both upgrades and downgrades
       const result = await handlePlanUpgrade({
         businessId,
         currentPlan,
@@ -104,35 +147,81 @@ const PlanUpgradeModal: React.FC<PlanUpgradeModalProps> = ({
       // Check if it's a downgrade (no payment needed)
       const isDowngrade = selectedPlan.price < (currentPlanConfig?.price || 0);
 
-      if (isDowngrade) {
+      if (isDowngrade || result?.is_downgrade) {
         // Downgrade completed, no payment needed
         onSuccess();
         onClose();
-      } else if (result && result.provider === "ecomPayments") {
-        // Show payment modal for EcomPayments upgrades
-        setShowPaymentModal(true);
+      } else {
+        // Upgrade completed with customer vault
+        onSuccess();
+        onClose();
       }
-      // For Stripe, the redirect will happen automatically
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error initiating plan change:", err);
+
+      // Check if the error is about missing payment method
+      if (
+        err.message?.includes("No payment method on file") ||
+        err.message?.includes("Payment method required") ||
+        err.message?.includes("Payment method required for plan changes")
+      ) {
+        // Show payment method update modal instead of error
+        setShowPaymentMethodModal(true);
+      } else {
+        setError(err.message || "Failed to change plan");
+      }
+
       setUpgradeLoading(false);
     }
   };
 
   const handleCancelSubscription = async () => {
     setCancelLoading(true);
+    setError(null);
+
     try {
-      // Assuming a cancellation endpoint exists
-      // For now, we'll just simulate it or call a dummy endpoint
-      // In a real app, you'd call an API to cancel the subscription
-      console.log("Simulating cancellation for:", selectedPlan?.name);
-      await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulate network delay
-      onClose(); // Close modal on success
-      onSuccess(); // Call onSuccess to update UI
-    } catch (err) {
+      console.log("Cancelling subscription for business:", businessId);
+
+      const result = await callEdgeFunction<{
+        success: boolean;
+        message: string;
+        error?: string;
+      }>({
+        functionName: "cancel-subscription",
+        payload: {
+          business_id: businessId,
+        },
+      });
+
+      console.log("Cancel subscription result:", result);
+
+      if (!result.success) {
+        throw new Error(
+          result.message || result.error || "Failed to cancel subscription"
+        );
+      }
+
+      // Success - close modal and refresh
+      setShowCancelConfirmation(false);
+      setCancelLoading(false);
+
+      // Close modal and call the cancellation success callback
+      onClose();
+      onCancelSuccess();
+    } catch (err: any) {
       console.error("Error cancelling subscription:", err);
+      setError(
+        err.message ||
+          "Failed to cancel subscription. Please try again or contact support."
+      );
       setCancelLoading(false);
     }
+  };
+
+  const handlePaymentMethodSuccess = () => {
+    // After payment method is updated, retry the plan change
+    setShowPaymentMethodModal(false);
+    handlePlanChange();
   };
 
   const getPlanIcon = (planName: string) => {
@@ -220,7 +309,18 @@ const PlanUpgradeModal: React.FC<PlanUpgradeModalProps> = ({
             {error && (
               <div className="mb-4 p-4 bg-red-500/10 text-red-500 rounded-lg flex items-center">
                 <AlertCircle className="h-5 w-5 mr-2 flex-shrink-0" />
-                <span>{error.userFriendlyMessage}</span>
+                <div>
+                  <p className="font-medium">Unable to change plan</p>
+                  <p className="text-sm mt-1">{error}</p>
+                  {error.includes("payment") && (
+                    <button
+                      onClick={() => setShowPaymentMethodModal(true)}
+                      className="mt-2 text-sm text-blue-400 hover:text-blue-300 underline"
+                    >
+                      Update payment method
+                    </button>
+                  )}
+                </div>
               </div>
             )}
 
@@ -318,22 +418,12 @@ const PlanUpgradeModal: React.FC<PlanUpgradeModalProps> = ({
                       : "bg-blue-500 text-white hover:bg-blue-600"
                   }`}
                 >
-                  {isVipPlan ? (
-                    <ArrowDown className="h-4 w-4 mr-2" />
+                  {upgradeLoading ? (
+                    <ArrowUp className="h-4 w-4 mr-2 animate-spin" />
                   ) : (
                     <ArrowUp className="h-4 w-4 mr-2" />
                   )}
-                  {upgradeLoading || loading
-                    ? "Processing..."
-                    : isVipPlan
-                    ? "Downgrade Plan"
-                    : "Upgrade Plan"}
-                </button>
-                <button
-                  onClick={onClose}
-                  className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
-                >
-                  Cancel
+                  {isVipPlan ? "Downgrade Plan" : "Upgrade Plan"}
                 </button>
               </div>
             </div>
@@ -341,56 +431,86 @@ const PlanUpgradeModal: React.FC<PlanUpgradeModalProps> = ({
         </div>
       </div>
 
-      {/* Cancel Confirmation Modal */}
-      {showCancelConfirmation && (
-        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
-          <div className="bg-gray-800 rounded-lg p-6 max-w-sm w-full shadow-lg border border-gray-700">
-            <div className="flex items-center mb-4">
-              <AlertTriangle className="h-6 w-6 text-yellow-400 mr-2" />
-              <h4 className="text-lg font-semibold text-white">
-                Cancel Subscription?
-              </h4>
-            </div>
-            <p className="text-gray-300 mb-6 text-sm">
-              Are you sure you want to cancel your subscription? You will lose
-              access to premium features at the end of your billing period.
-            </p>
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => setShowCancelConfirmation(false)}
-                className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
-                disabled={cancelLoading}
-              >
-                Keep Subscription
-              </button>
-              <button
-                onClick={handleCancelSubscription}
-                className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50"
-                disabled={cancelLoading}
-              >
-                {cancelLoading ? "Cancelling..." : "Confirm Cancel"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Payment Modal */}
       {showPaymentModal && selectedPlan && (
         <PaymentModal
           isOpen={showPaymentModal}
           onClose={() => setShowPaymentModal(false)}
-          onSuccess={(paymentData) => {
-            console.log("Payment successful:", paymentData);
-            setShowPaymentModal(false);
-            onSuccess();
-            onClose();
-          }}
+          onSuccess={onSuccess}
           amount={selectedPlan.price}
           description={`${isVipPlan ? "Downgrade" : "Upgrade"} to ${
             selectedPlan.name
           } for ${businessName}`}
-          planName={selectedPlan.name}
+        />
+      )}
+
+      {/* Cancel Confirmation Modal */}
+      {showCancelConfirmation && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-900 rounded-xl max-w-md w-full">
+            <div className="p-6">
+              <div className="flex items-center mb-4">
+                <AlertTriangle className="h-6 w-6 text-red-400 mr-3" />
+                <h3 className="text-lg font-semibold text-white">
+                  Cancel Subscription
+                </h3>
+              </div>
+
+              <p className="text-gray-400 mb-6">
+                Are you sure you want to cancel your subscription for{" "}
+                <strong className="text-white">{businessName}</strong>? This
+                action cannot be undone and your business listing will be
+                removed at the end of your current billing period.
+              </p>
+
+              {error && (
+                <div className="mb-4 p-3 bg-red-500/10 text-red-400 rounded-lg text-sm">
+                  {error}
+                </div>
+              )}
+
+              {success && (
+                <div className="mb-4 p-3 bg-green-500/10 text-green-400 rounded-lg text-sm">
+                  {success}
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowCancelConfirmation(false)}
+                  disabled={cancelLoading}
+                  className="flex-1 px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50"
+                >
+                  Keep Subscription
+                </button>
+                <button
+                  onClick={handleCancelSubscription}
+                  disabled={cancelLoading}
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                >
+                  {cancelLoading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Cancelling...
+                    </>
+                  ) : (
+                    "Cancel Subscription"
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Payment Method Update Modal */}
+      {showPaymentMethodModal && (
+        <PaymentMethodUpdateModal
+          isOpen={showPaymentMethodModal}
+          onClose={() => setShowPaymentMethodModal(false)}
+          businessId={businessId}
+          businessName={businessName}
+          onSuccess={handlePaymentMethodSuccess}
         />
       )}
     </>

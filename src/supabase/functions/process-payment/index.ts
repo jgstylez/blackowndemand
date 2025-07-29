@@ -101,9 +101,11 @@ function parseNMIResponse(responseText: string) {
     responseCode: response.response_code,
     responseText: response.responsetext,
     transactionId: response.transactionid,
-    subscriptionId: response.subscription_id,
     customerVaultId: response.customer_vault_id,
+    subscriptionId: response.subscription_id,
     authCode: response.authcode,
+    avsResponse: response.avsresponse,
+    cvvResponse: response.cvvresponse,
   };
 }
 
@@ -329,17 +331,36 @@ Deno.serve(async (req) => {
 
     // Set up transaction type and amount
     if (is_recurring) {
-      // For recurring subscriptions
+      // For recurring subscriptions - use customer vault
       postData.append("type", "add_subscription");
       postData.append("plan_payments", "0"); // 0 = unlimited recurring payments
       postData.append("plan_amount", (processAmount / 100).toFixed(2)); // Convert cents to dollars
       postData.append("day_frequency", "365"); // Annual billing
       postData.append("month_frequency", "0");
       postData.append("customer_vault", "add_customer"); // Store payment info for future use
+
+      // Add required customer vault fields
+      postData.append("first_name", billingInfo.first_name);
+      postData.append("last_name", billingInfo.last_name);
+      postData.append("email", billingInfo.email);
+
+      // Add address information for customer vault
+      if (billingInfo.address1)
+        postData.append("address1", billingInfo.address1);
+      if (billingInfo.city) postData.append("city", billingInfo.city);
+      if (billingInfo.state) postData.append("state", billingInfo.state);
+      if (billingInfo.zip) postData.append("zip", billingInfo.zip);
+      if (billingInfo.country) postData.append("country", billingInfo.country);
     } else {
-      // For one-time payments
+      // For one-time payments - also store in customer vault for future use
       postData.append("type", "sale");
       postData.append("amount", (processAmount / 100).toFixed(2)); // Convert cents to dollars
+      postData.append("customer_vault", "add_customer"); // Store payment info for future use
+
+      // Add required customer vault fields
+      postData.append("first_name", billingInfo.first_name);
+      postData.append("last_name", billingInfo.last_name);
+      postData.append("email", billingInfo.email);
     }
 
     // Add description and currency

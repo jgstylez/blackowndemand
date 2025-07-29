@@ -23,6 +23,7 @@ import { getPlanConfigByName } from "../../../config/paymentConfig";
 import { Business } from "../../../types";
 import { useNavigate } from "react-router-dom";
 import PlanUpgradeModal from "./PlanUpgradeModal";
+import PaymentMethodUpdateModal from "./PaymentMethodUpdateModal";
 
 interface SubscriptionManagementSectionProps {
   businesses: Business[];
@@ -62,12 +63,17 @@ interface Subscription {
   plan_price?: number;
   total_amount?: number;
   provider: "stripe" | "ecomPayments" | "unknown";
+  subscription_created_at?: string; // Add this field
 }
 
+// Update the PaymentMethod interface
 interface PaymentMethod {
   cardNumber: string;
   expiryDate: string;
+  expiryMonth: string;
+  expiryYear: string;
   cvv: string;
+  cardholderName: string;
   billingZip: string;
 }
 
@@ -88,10 +94,21 @@ const SubscriptionManagementSection: React.FC<
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>({
     cardNumber: "",
     expiryDate: "",
+    expiryMonth: "",
+    expiryYear: "",
     cvv: "",
+    cardholderName: "",
     billingZip: "",
   });
   const [showUpgradeModal, setShowUpgradeModal] = useState<string | null>(null);
+  const [showPaymentMethodModal, setShowPaymentMethodModal] = useState(false);
+  const [
+    selectedBusinessForPaymentUpdate,
+    setSelectedBusinessForPaymentUpdate,
+  ] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
 
   useEffect(() => {
     if (businesses.length > 0) {
@@ -130,7 +147,7 @@ const SubscriptionManagementSection: React.FC<
           "business_id",
           businesses.map((b) => b.id)
         )
-        .order("current_period_start", { ascending: false });
+        .order("subscription_created_at", { ascending: false }); // Fix: use correct column name
 
       if (viewError) {
         console.error("View query error:", viewError);
@@ -138,21 +155,20 @@ const SubscriptionManagementSection: React.FC<
 
       console.log("Paid subscriptions overview data:", viewData);
 
-      // Also check businesses table for businesses with active subscription_status
+      // Also check businesses table for businesses with subscription_status (including cancelled)
       const { data: businessData, error: businessError } = await supabase
         .from("businesses")
         .select("id, name, subscription_status, plan_name, subscription_id")
         .in(
           "id",
           businesses.map((b) => b.id)
-        )
-        .eq("subscription_status", "active");
+        );
 
       if (businessError) {
         console.error("Business query error:", businessError);
       }
 
-      console.log("Businesses with active subscription:", businessData);
+      console.log("Businesses with subscription status:", businessData);
 
       // Combine both data sources
       const allSubscriptions: Subscription[] = [];
@@ -161,23 +177,20 @@ const SubscriptionManagementSection: React.FC<
       if (viewData && viewData.length > 0) {
         const typedViewData = viewData as PaidSubscriptionView[];
         const viewSubscriptions = typedViewData.map((subscription) => {
-          let providerType: "stripe" | "ecomPayments" | "unknown" =
-            "ecomPayments";
-          if (
-            subscription.subscription_id &&
-            subscription.subscription_id.startsWith("sub_")
-          ) {
-            providerType = "stripe";
-          }
+          const providerType: "stripe" | "ecomPayments" | "unknown" =
+            subscription.subscription_id?.startsWith("sub_") ||
+            subscription.subscription_id?.includes("stripe")
+              ? "stripe"
+              : "ecomPayments";
 
           return {
-            id: subscription.subscription_id || subscription.business_id || "",
+            id: subscription.subscription_id || "",
             business_id: subscription.business_id || "",
             business_name: subscription.business_name || "",
             plan_name: subscription.subscription_plans?.name || "Unknown Plan",
             status: subscription.status || "unknown",
-            next_billing_date: subscription.subscription_created_at || "",
-            last_payment_date: subscription.subscription_created_at || "",
+            next_billing_date: "", // This will be calculated or fetched separately
+            last_payment_date: "",
             payment_method_last_four: "",
             stripe_subscription_id:
               providerType === "stripe"
@@ -190,12 +203,14 @@ const SubscriptionManagementSection: React.FC<
             plan_price: subscription.subscription_plans?.price || 0,
             total_amount: subscription.subscription_plans?.price || 0,
             provider: providerType,
+            subscription_created_at:
+              subscription.subscription_created_at || undefined,
           };
         });
         allSubscriptions.push(...viewSubscriptions);
       }
 
-      // Add businesses with active subscription_status that aren't in the view
+      // Add businesses with subscription_status that aren't in the view (including cancelled)
       if (businessData && businessData.length > 0) {
         const businessSubscriptions = businessData
           .filter(
@@ -221,6 +236,7 @@ const SubscriptionManagementSection: React.FC<
               plan_price: planPrice,
               total_amount: planPrice,
               provider: "ecomPayments" as const,
+              subscription_created_at: undefined,
             };
           });
         allSubscriptions.push(...businessSubscriptions);
@@ -245,74 +261,26 @@ const SubscriptionManagementSection: React.FC<
         .replace(/(\d{4})/g, "$1 ")
         .trim();
       setPaymentMethod((prev) => ({ ...prev, [name]: formatted }));
-    } else if (name === "expiryDate") {
-      const cleaned = value.replace(/\D/g, "");
-      let formatted = cleaned;
-      if (cleaned.length > 2) {
-        formatted = `${cleaned.slice(0, 2)}/${cleaned.slice(2, 4)}`;
-      }
-      setPaymentMethod((prev) => ({ ...prev, [name]: formatted }));
+    } else if (name === "cvv") {
+      // Only allow numeric and max 4 digits
+      const numeric = value.replace(/\D/g, "").slice(0, 4);
+      setPaymentMethod((prev) => ({ ...prev, [name]: numeric }));
     } else {
       setPaymentMethod((prev) => ({ ...prev, [name]: value }));
     }
   };
 
-  const handleUpdatePaymentMethod = async (
-    e: React.FormEvent,
-    businessId: string
+  const handleUpdatePaymentMethod = (
+    businessId: string,
+    businessName: string
   ) => {
-    e.preventDefault();
-    setError(null);
-    setSuccess(null);
+    setSelectedBusinessForPaymentUpdate({ id: businessId, name: businessName });
+    setShowPaymentMethodModal(true);
+  };
 
-    try {
-      if (
-        !paymentMethod.cardNumber ||
-        !paymentMethod.expiryDate ||
-        !paymentMethod.cvv
-      ) {
-        throw new Error("Please fill out all required fields");
-      }
-
-      const result = await callEdgeFunction<{
-        success: boolean;
-        message: string;
-        last4: string;
-      }>({
-        functionName: "update-payment-method",
-        payload: {
-          business_id: businessId,
-          payment_method: {
-            card_number: paymentMethod.cardNumber,
-            expiry_date: paymentMethod.expiryDate,
-            cvv: paymentMethod.cvv,
-            billing_zip: paymentMethod.billingZip,
-          },
-        },
-      });
-
-      if (!result.success) {
-        throw new Error(result.message || "Failed to update payment method");
-      }
-
-      setSuccess("Payment method updated successfully");
-      setShowUpdateForm(null);
-
-      setPaymentMethod({
-        cardNumber: "",
-        expiryDate: "",
-        cvv: "",
-        billingZip: "",
-      });
-
-      fetchSubscriptions();
-      onUpdate();
-    } catch (err) {
-      console.error("Error updating payment method:", err);
-      setError(
-        err instanceof Error ? err.message : "Failed to update payment method"
-      );
-    }
+  const handlePaymentMethodUpdateSuccess = () => {
+    // Refresh the subscriptions data
+    fetchSubscriptions();
   };
 
   const handleCancelSubscription = async (businessId: string) => {
@@ -387,10 +355,10 @@ const SubscriptionManagementSection: React.FC<
   };
 
   // Add this function to handle upgrade success
-  const handleUpgradeSuccess = () => {
+  const handleUpgradeSuccess = (customMessage?: string) => {
     fetchSubscriptions();
     onUpdate();
-    setSuccess("Plan upgraded successfully!");
+    setSuccess(customMessage || "Plan upgraded successfully!");
     setTimeout(() => setSuccess(null), 5000);
   };
 
@@ -520,21 +488,55 @@ const SubscriptionManagementSection: React.FC<
                   </div>
                 </div>
 
-                {subscription.next_billing_date && (
-                  <div className="flex items-center p-3 bg-gray-800 rounded-lg">
-                    <div className="mr-3 p-2 bg-gray-700 rounded-full">
-                      <Calendar className="h-4 w-4 text-white" />
-                    </div>
-                    <div>
-                      <p className="text-gray-400 text-xs">Next Payment</p>
-                      <p className="text-white font-medium">
-                        {new Date(
-                          subscription.next_billing_date
-                        ).toLocaleDateString()}
-                      </p>
-                    </div>
+                {/* Next Billing Date - Always show a meaningful date */}
+                <div className="flex items-center p-3 bg-gray-800 rounded-lg">
+                  <div className="mr-3 p-2 bg-gray-700 rounded-full">
+                    <Calendar className="h-4 w-4 text-white" />
                   </div>
-                )}
+                  <div>
+                    <p className="text-gray-400 text-xs">
+                      {subscription.status.toLowerCase() === "cancelled"
+                        ? "Active Until"
+                        : "Next Payment"}
+                    </p>
+                    <p
+                      className={`font-medium ${
+                        subscription.status.toLowerCase() === "cancelled"
+                          ? "text-red-400"
+                          : "text-white"
+                      }`}
+                    >
+                      {(() => {
+                        // If we have a next_billing_date and it's not empty, use it
+                        if (
+                          subscription.next_billing_date &&
+                          subscription.next_billing_date.trim() !== ""
+                        ) {
+                          return new Date(
+                            subscription.next_billing_date
+                          ).toLocaleDateString();
+                        }
+
+                        // If we have subscription_created_at, calculate next billing date
+                        if (subscription.subscription_created_at) {
+                          const createdDate = new Date(
+                            subscription.subscription_created_at
+                          );
+                          const nextBilling = new Date(createdDate);
+                          nextBilling.setFullYear(
+                            nextBilling.getFullYear() + 1
+                          );
+                          return nextBilling.toLocaleDateString();
+                        }
+
+                        // Fallback: calculate based on current date + 1 year
+                        const nextYear = new Date();
+                        nextYear.setFullYear(nextYear.getFullYear() + 1);
+                        return nextYear.toLocaleDateString();
+                      })()}
+                    </p>
+                  </div>
+                </div>
 
                 {subscription.payment_method_last_four && (
                   <div className="flex items-center p-3 bg-gray-800 rounded-lg">
@@ -563,54 +565,63 @@ const SubscriptionManagementSection: React.FC<
                 </div>
               </div>
 
-              {/* Action Buttons - Streamlined */}
-              <div className="flex flex-wrap gap-2">
+              {/* Action Buttons - Updated UI */}
+              <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-gray-800">
+                {/* Left side - View Business */}
                 <button
                   onClick={() =>
                     navigate(`/business/${subscription.business_id}`)
                   }
-                  className="flex items-center px-3 py-2 bg-blue-500/10 text-blue-400 rounded-lg hover:bg-blue-500/20 transition-colors"
+                  className="flex items-center justify-center px-4 py-2.5 bg-gray-800 text-gray-300 rounded-lg hover:bg-gray-700 hover:text-white transition-all duration-200 border border-gray-700 hover:border-gray-600"
                 >
                   <Eye className="h-4 w-4 mr-2" />
                   View Business
                 </button>
 
-                {/* Manage Plan button - now includes cancel functionality */}
-                <button
-                  onClick={() => handlePlanUpgrade(subscription.business_id)}
-                  className="flex items-center px-3 py-2 bg-green-500/10 text-green-400 rounded-lg hover:bg-green-500/20 transition-colors"
-                >
-                  <Settings className="h-4 w-4 mr-2" />
-                  Manage Plan
-                </button>
+                {/* Right side - Action buttons */}
+                <div className="flex flex-col sm:flex-row gap-2 sm:ml-auto">
+                  {/* Manage Plan button */}
+                  <button
+                    onClick={() => handlePlanUpgrade(subscription.business_id)}
+                    className="flex items-center justify-center px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 shadow-sm hover:shadow-md"
+                  >
+                    <Settings className="h-4 w-4 mr-2" />
+                    Manage Plan
+                  </button>
 
-                {subscription.provider === "stripe" &&
-                  subscription.stripe_subscription_id && (
+                  {/* Stripe Portal button */}
+                  {subscription.provider === "stripe" &&
+                    subscription.stripe_subscription_id && (
+                      <button
+                        onClick={() =>
+                          handleOpenStripePortal(subscription.business_id)
+                        }
+                        disabled={portalLoading === subscription.business_id}
+                        className="flex items-center justify-center px-4 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all duration-200 shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <ExternalLink className="h-4 w-4 mr-2" />
+                        {portalLoading === subscription.business_id
+                          ? "Loading..."
+                          : "Stripe Portal"}
+                      </button>
+                    )}
+
+                  {/* Update Payment Method Button - EcomPayments only */}
+                  {subscription.provider === "ecomPayments" && (
                     <button
                       onClick={() =>
-                        handleOpenStripePortal(subscription.business_id)
+                        handleUpdatePaymentMethod(
+                          subscription.business_id,
+                          subscription.business_name
+                        )
                       }
-                      disabled={portalLoading === subscription.business_id}
-                      className="flex items-center px-3 py-2 bg-purple-500/10 text-purple-400 rounded-lg hover:bg-purple-500/20 transition-colors disabled:opacity-50"
+                      className="flex items-center justify-center px-4 py-2.5 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-all duration-200 shadow-sm hover:shadow-md"
                     >
-                      <ExternalLink className="h-4 w-4 mr-2" />
-                      {portalLoading === subscription.business_id
-                        ? "Loading..."
-                        : "Manage in Stripe Portal"}
+                      <CreditCard className="h-4 w-4 mr-2" />
+                      Update Payment
                     </button>
                   )}
-
-                {subscription.provider === "ecomPayments" && (
-                  <button
-                    onClick={() => setShowUpdateForm(subscription.business_id)}
-                    className="flex items-center px-3 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors"
-                  >
-                    <Edit2 className="h-4 w-4 mr-2" />
-                    Update Payment Method
-                  </button>
-                )}
-
-                {/* Remove the separate Cancel Subscription button */}
+                </div>
               </div>
             </div>
           ))}
@@ -635,107 +646,18 @@ const SubscriptionManagementSection: React.FC<
         </div>
       )}
 
-      {/* Update Payment Method Form */}
-      {showUpdateForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-900 rounded-xl p-6 max-w-md w-full">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-semibold text-white">
-                Update Payment Method
-              </h3>
-              <button
-                onClick={() => setShowUpdateForm(null)}
-                className="text-gray-400 hover:text-white transition-colors"
-              >
-                <X className="h-6 w-6" />
-              </button>
-            </div>
-
-            <form
-              onSubmit={(e) => handleUpdatePaymentMethod(e, showUpdateForm)}
-              className="space-y-4"
-            >
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Card Number
-                </label>
-                <input
-                  type="text"
-                  name="cardNumber"
-                  value={paymentMethod.cardNumber}
-                  onChange={handleInputChange}
-                  placeholder="1234 5678 9012 3456"
-                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white focus:border-transparent"
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Expiry Date
-                  </label>
-                  <input
-                    type="text"
-                    name="expiryDate"
-                    value={paymentMethod.expiryDate}
-                    onChange={handleInputChange}
-                    placeholder="MM/YY"
-                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white focus:border-transparent"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    CVV
-                  </label>
-                  <input
-                    type="text"
-                    name="cvv"
-                    value={paymentMethod.cvv}
-                    onChange={handleInputChange}
-                    placeholder="123"
-                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white focus:border-transparent"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Billing ZIP Code
-                </label>
-                <input
-                  type="text"
-                  name="billingZip"
-                  value={paymentMethod.billingZip}
-                  onChange={handleInputChange}
-                  placeholder="12345"
-                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white focus:border-transparent"
-                  required
-                />
-              </div>
-
-              <div className="flex gap-3 mt-6">
-                <button
-                  type="button"
-                  onClick={() => setShowUpdateForm(null)}
-                  className="flex-1 px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors"
-                >
-                  Cancel
-                </button>
-
-                <button
-                  type="submit"
-                  className="flex-1 px-4 py-2 bg-white text-black rounded-lg hover:bg-gray-100 transition-colors"
-                >
-                  Update Payment Method
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+      {/* Replace the inline form with the modal */}
+      {showPaymentMethodModal && selectedBusinessForPaymentUpdate && (
+        <PaymentMethodUpdateModal
+          isOpen={showPaymentMethodModal}
+          onClose={() => {
+            setShowPaymentMethodModal(false);
+            setSelectedBusinessForPaymentUpdate(null);
+          }}
+          businessId={selectedBusinessForPaymentUpdate.id}
+          businessName={selectedBusinessForPaymentUpdate.name}
+          onSuccess={handlePaymentMethodUpdateSuccess}
+        />
       )}
 
       {/* Remove the Cancel Subscription Confirmation modal since it's now in PlanUpgradeModal */}
@@ -754,7 +676,12 @@ const SubscriptionManagementSection: React.FC<
             subscriptions.find((s) => s.business_id === showUpgradeModal)
               ?.business_name || ""
           }
-          onSuccess={handleUpgradeSuccess}
+          onSuccess={() => handleUpgradeSuccess()}
+          onCancelSuccess={() =>
+            handleUpgradeSuccess(
+              "Subscription cancelled successfully. Your business listing will remain active until the end of your current billing period."
+            )
+          }
         />
       )}
     </div>

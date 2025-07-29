@@ -45,10 +45,11 @@ type Tab =
 const DashboardPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user } = useAuth();
+  const { user, signOut } = useAuth(); // Add signOut from useAuth
   const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<Tab>("businesses");
   const [success, setSuccess] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false); // Add admin state
 
   const { error, clearError } = useErrorHandler({
     context: "DashboardPage",
@@ -165,6 +166,35 @@ const DashboardPage = () => {
     }
   }, [settingsSuccess]);
 
+  // Add admin status check
+  useEffect(() => {
+    if (user) {
+      checkAdminStatus();
+    }
+  }, [user]);
+
+  const checkAdminStatus = async () => {
+    if (!user) {
+      setIsAdmin(false);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.rpc("is_admin", {
+        user_uuid: user.id,
+      });
+
+      if (!error && data === true) {
+        setIsAdmin(true);
+      } else {
+        setIsAdmin(false);
+      }
+    } catch (err) {
+      console.error("Failed to check admin status:", err);
+      setIsAdmin(false);
+    }
+  };
+
   const handleContinueBusinessListing = (business: Business) => {
     // Navigate to the business listing page with the business ID to update
     navigate("/business/new", {
@@ -175,6 +205,16 @@ const DashboardPage = () => {
         planPrice: 0, // Price is already paid
       },
     });
+  };
+
+  // Add signout handler
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      navigate("/");
+    } catch (error) {
+      console.error("Error signing out:", error);
+    }
   };
 
   if (
@@ -223,13 +263,26 @@ const DashboardPage = () => {
       <div className="min-h-screen bg-gray-950 text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* Header */}
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-white mb-2">
-              {getGreeting()}
-            </h1>
-            <p className="text-gray-400">
-              Manage your businesses, subscriptions, and account settings.
-            </p>
+          <div className="mb-8 flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-white mb-2">
+                {getGreeting()}
+              </h1>
+              <p className="text-gray-400">
+                Manage your businesses, subscriptions, and account settings.
+              </p>
+            </div>
+
+            {/* Signout Button - Only show for non-admin users */}
+            {!isAdmin && (
+              <button
+                onClick={handleSignOut}
+                className="flex items-center px-4 py-2 bg-gray-800 text-gray-300 rounded-lg hover:bg-gray-700 hover:text-white transition-colors border border-gray-700 hover:border-gray-600"
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                Sign Out
+              </button>
+            )}
           </div>
 
           {/* Tab Navigation */}

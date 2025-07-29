@@ -26,6 +26,7 @@ export interface PaymentResult {
   free_transaction?: boolean;
   provider?: string;
   transactionId?: string;
+  is_downgrade?: boolean;
 }
 
 export interface UpgradeOptions {
@@ -254,12 +255,12 @@ export class PaymentService {
         },
       });
 
-      // Check if it's a downgrade (no payment needed)
+      // Check if it's a downgrade
       if (result?.is_downgrade) {
         return {
           success: true,
           provider: "ecomPayments",
-          isDowngrade: true,
+          is_downgrade: true,
         };
       }
 
