@@ -83,6 +83,21 @@ const BusinessSummaryStep: React.FC<BusinessSummaryStepProps> = ({
           {renderField("Image", formData.imageUrl, (imageUrl) => (
             <img src={imageUrl} alt="Business" className="h-12 inline" />
           ))}
+          {renderField("Gallery Images", formData.galleryImages, (images) => (
+            <div className="flex flex-wrap gap-2">
+              {images.map(
+                (image: { id: string; url: string }, index: number) => (
+                  <img
+                    key={image.id}
+                    src={image.url}
+                    alt={`Gallery ${index + 1}`}
+                    className="h-12 w-12 object-cover rounded"
+                  />
+                )
+              )}
+              <span className="text-gray-400">({images.length} images)</span>
+            </div>
+          ))}
           {renderField("Promo Video", formData.promoVideoUrl)}
           {renderField("Social Links", formData.socialLinks, (socialLinks) => (
             <div>

@@ -45,6 +45,7 @@ export function useBusinessListingForm(location: any, navigate: any) {
     country: "",
     postalCode: "",
     imageUrl: "",
+    galleryImages: [] as Array<{ id: string; url: string; file?: File }>, // Add this
     promoVideoUrl: "",
     socialLinks: {
       facebook: "",

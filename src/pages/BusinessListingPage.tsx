@@ -393,6 +393,7 @@ const BusinessListingPage = () => {
             handleChange={handleChange}
             handleSocialLinkChange={handleSocialLinkChange}
             defaultCountryIso={defaultCountryIso}
+            planName={planName} // Add this prop
           />
         );
       case "premium_features":
