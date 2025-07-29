@@ -130,27 +130,13 @@ const SubscriptionManagementSection: React.FC<
         businesses.map((b) => b.id)
       );
 
-      // First, get subscriptions from the paid_subscriptions_overview view
-      const { data: viewData, error: viewError } = await supabase
-        .from("paid_subscriptions_overview")
-        .select(
-          `
-          *,
-          subscription_plans!inner(
-            id,
-            name,
-            price
-          )
-        `
-        )
-        .in(
-          "business_id",
-          businesses.map((b) => b.id)
-        )
-        .order("subscription_created_at", { ascending: false }); // Fix: use correct column name
+      // Use the function instead of the view
+      const { data: viewData, error: viewError } = await supabase.rpc(
+        "get_paid_subscriptions_overview"
+      );
 
       if (viewError) {
-        console.error("View query error:", viewError);
+        console.error("Function query error:", viewError);
       }
 
       console.log("Paid subscriptions overview data:", viewData);
@@ -173,41 +159,26 @@ const SubscriptionManagementSection: React.FC<
       // Combine both data sources
       const allSubscriptions: Subscription[] = [];
 
-      // Add subscriptions from the view
-      if (viewData && viewData.length > 0) {
-        const typedViewData = viewData as PaidSubscriptionView[];
-        const viewSubscriptions = typedViewData.map((subscription) => {
-          const providerType: "stripe" | "ecomPayments" | "unknown" =
-            subscription.subscription_id?.startsWith("sub_") ||
-            subscription.subscription_id?.includes("stripe")
-              ? "stripe"
-              : "ecomPayments";
-
-          return {
+      // Add subscriptions from the function
+      if (viewData && Array.isArray(viewData)) {
+        viewData.forEach((subscription: any) => {
+          allSubscriptions.push({
             id: subscription.subscription_id || "",
             business_id: subscription.business_id || "",
             business_name: subscription.business_name || "",
-            plan_name: subscription.subscription_plans?.name || "Unknown Plan",
-            status: subscription.status || "unknown",
-            next_billing_date: "", // This will be calculated or fetched separately
-            last_payment_date: "",
-            payment_method_last_four: "",
-            stripe_subscription_id:
-              providerType === "stripe"
-                ? subscription.subscription_id || undefined
-                : undefined,
-            nmi_subscription_id:
-              providerType === "ecomPayments"
-                ? subscription.subscription_id || undefined
-                : undefined,
-            plan_price: subscription.subscription_plans?.price || 0,
-            total_amount: subscription.subscription_plans?.price || 0,
-            provider: providerType,
-            subscription_created_at:
-              subscription.subscription_created_at || undefined,
-          };
+            plan_name: subscription.plan_name || "Unknown Plan",
+            status: subscription.subscription_status || "unknown",
+            next_billing_date: subscription.current_period_end || "",
+            last_payment_date: subscription.subscription_created_at || "",
+            payment_method_last_four: "", // Not available in this view
+            stripe_subscription_id: subscription.subscription_id || undefined,
+            nmi_subscription_id: undefined, // Not available in this view
+            plan_price: subscription.plan_price || 0,
+            total_amount: subscription.plan_price || 0,
+            provider: "ecomPayments" as const, // Default assumption
+            subscription_created_at: subscription.subscription_created_at || "",
+          });
         });
-        allSubscriptions.push(...viewSubscriptions);
       }
 
       // Add businesses with subscription_status that aren't in the view (including cancelled)
@@ -246,7 +217,7 @@ const SubscriptionManagementSection: React.FC<
       setSubscriptions(allSubscriptions);
     } catch (err) {
       console.error("Error fetching subscriptions:", err);
-      setSubscriptions([]);
+      setError("Failed to load subscription data");
     } finally {
       setLoadingSubscriptions(false);
     }

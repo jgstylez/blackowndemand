@@ -18,7 +18,7 @@ interface EdgeFunctionOptions {
  * @param options - The options for the edge function call
  * @returns A promise that resolves to the response from the edge function
  */
-export const callEdgeFunction = async <T = any>(
+export const callEdgeFunction = async <T = any,>(
   options: EdgeFunctionOptions
 ): Promise<T> => {
   const { functionName, payload, headers = {} } = options;
@@ -60,9 +60,22 @@ export const callEdgeFunction = async <T = any>(
         statusText: response.statusText,
         body: errorText,
       });
-      throw new Error(
-        `Edge function failed: ${response.status} ${response.statusText}`
-      );
+
+      // Try to parse the error response as JSON to get the actual error message
+      let errorMessage = `Edge function failed: ${response.status}`;
+      try {
+        const errorData = JSON.parse(errorText);
+        if (errorData.error) {
+          errorMessage = errorData.error;
+        } else if (errorData.message) {
+          errorMessage = errorData.message;
+        }
+      } catch (parseError) {
+        // If parsing fails, use the raw error text
+        errorMessage = errorText || errorMessage;
+      }
+
+      throw new Error(errorMessage);
     }
 
     const data = await response.json();

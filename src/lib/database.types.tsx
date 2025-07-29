@@ -1499,6 +1499,60 @@ export type Database = {
         Args: { flag_name: string };
         Returns: boolean;
       };
+      get_paid_subscriptions_overview: {
+        Args: Record<string, never>;
+        Returns: {
+          subscription_id: string | null;
+          plan_name: string | null;
+          plan_price: number | null;
+          subscription_status: string | null;
+          payment_status: string | null;
+          current_period_start: string | null;
+          current_period_end: string | null;
+          cancel_at_period_end: boolean | null;
+          business_id: string | null;
+          business_name: string | null;
+          is_verified: boolean | null;
+          is_featured: boolean | null;
+          city: string | null;
+          state: string | null;
+          country: string | null;
+          owner_id: string | null;
+          owner_email: string | null;
+          owner_first_name: string | null;
+          owner_last_name: string | null;
+          owner_full_name: string | null;
+          subscription_created_at: string | null;
+          subscription_updated_at: string | null;
+        }[];
+      };
+      get_all_paid_subscriptions_overview: {
+        Args: Record<string, never>;
+        Returns: {
+          subscription_id: string | null;
+          plan_name: string | null;
+          plan_price: number | null;
+          subscription_status: string | null;
+          payment_status: string | null;
+          current_period_start: string | null;
+          current_period_end: string | null;
+          cancel_at_period_end: boolean | null;
+          business_id: string | null;
+          business_name: string | null;
+          is_verified: boolean | null;
+          is_featured: boolean | null;
+          city: string | null;
+          state: string | null;
+          country: string | null;
+          owner_id: string | null;
+          owner_email: string | null;
+          owner_first_name: string | null;
+          owner_last_name: string | null;
+          owner_full_name: string | null;
+          subscription_created_at: string | null;
+          subscription_updated_at: string | null;
+        }[];
+      };
       get_subscription_stats: {
         Args: Record<PropertyKey, never>;
         Returns: {

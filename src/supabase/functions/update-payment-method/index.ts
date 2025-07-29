@@ -138,8 +138,8 @@ Deno.serve(async (req) => {
     const { data: business, error: businessError } = await supabase
       .from("businesses")
       .select(
-        "id, nmi_subscription_id, nmi_customer_vault_id, subscription_status, owner_email"
-      ) // Add owner_email
+        "id, nmi_subscription_id, nmi_customer_vault_id, subscription_status, owner_id"
+      ) // Remove owner_email, add owner_id
       .eq("id", business_id)
       .single();
 
@@ -149,6 +149,18 @@ Deno.serve(async (req) => {
         status: 404,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // Get the user's email from auth.users table
+    let userEmail = "";
+    if (business.owner_id) {
+      const { data: userData, error: userError } =
+        await supabase.auth.admin.getUserById(business.owner_id);
+      if (userError) {
+        console.error("Error fetching user:", userError);
+      } else if (userData?.user?.email) {
+        userEmail = userData.user.email;
+      }
     }
 
     // Check if business has a customer vault ID (required for storing payment method)
@@ -209,8 +221,8 @@ Deno.serve(async (req) => {
     }
 
     // Add email if available (required for customer vault)
-    if (business.owner_email) {
-      postData.append("email", business.owner_email);
+    if (userEmail) {
+      postData.append("email", userEmail);
     }
 
     console.log("Sending update payment method request to gateway");
