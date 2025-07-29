@@ -78,6 +78,63 @@ function getNMIErrorMessage(
   );
 }
 
+async function createCustomerVault(
+  business: any,
+  payment_method: any,
+  userEmail: string
+) {
+  const postData = new URLSearchParams();
+  postData.append("security_key", SECURITY_KEY);
+  postData.append("type", "sale");
+  postData.append("amount", "0.01"); // Small charge to create vault
+  postData.append("ccnumber", payment_method.card_number.replace(/\s/g, ""));
+  postData.append("ccexp", payment_method.expiry_date);
+  postData.append("cvv", payment_method.cvv);
+  postData.append("customer_vault", "add_customer");
+  postData.append("currency", "USD");
+  postData.append(
+    "order_description",
+    `Customer vault creation for ${business.name}`
+  );
+
+  // Add billing information
+  if (payment_method.cardholder_name) {
+    const nameParts = payment_method.cardholder_name.split(" ");
+    postData.append("first_name", nameParts[0] || "");
+    postData.append("last_name", nameParts.slice(1).join(" ") || "");
+  }
+  if (payment_method.billing_zip) {
+    postData.append("zip", payment_method.billing_zip);
+  }
+  if (userEmail) {
+    postData.append("email", userEmail);
+  }
+
+  const paymentResponse = await fetch(
+    "https://ecompaymentprocessing.transactiongateway.com/api/transact.php",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: postData.toString(),
+    }
+  );
+
+  const responseText = await paymentResponse.text();
+  const parsedResponse = parseNMIResponse(responseText);
+
+  if (!parsedResponse.success) {
+    return {
+      success: false,
+      error: parsedResponse.responseText,
+    };
+  }
+
+  return {
+    success: true,
+    customer_vault_id: parsedResponse.customerVaultId,
+  };
+}
+
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
@@ -165,16 +222,47 @@ Deno.serve(async (req) => {
 
     // Check if business has a customer vault ID (required for storing payment method)
     if (!business.nmi_customer_vault_id) {
-      return new Response(
-        JSON.stringify({
-          error:
-            "No customer vault found for this business. Please contact support.",
-        }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+      // Create customer vault first
+      const vaultResult = await createCustomerVault(
+        business,
+        payment_method,
+        userEmail
       );
+      if (!vaultResult.success) {
+        return new Response(
+          JSON.stringify({
+            error: vaultResult.error || "Failed to create customer vault",
+          }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
+      }
+
+      // Update business with new customer vault ID
+      const { error: updateError } = await supabase
+        .from("businesses")
+        .update({
+          nmi_customer_vault_id: vaultResult.customer_vault_id,
+          payment_method_last_four: payment_method.card_number
+            .replace(/\s/g, "")
+            .slice(-4),
+        })
+        .eq("id", business_id);
+
+      if (updateError) {
+        return new Response(
+          JSON.stringify({ error: "Failed to update business record" }),
+          {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
+      }
+
+      // Update the business object for the rest of the function
+      business.nmi_customer_vault_id = vaultResult.customer_vault_id;
     }
 
     // Allow payment method updates for both active and cancelled subscriptions
