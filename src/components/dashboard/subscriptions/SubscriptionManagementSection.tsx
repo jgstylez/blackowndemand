@@ -586,7 +586,7 @@ const SubscriptionManagementSection: React.FC<
                           subscription.business_name
                         )
                       }
-                      className="flex items-center justify-center px-4 py-2.5 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-all duration-200 shadow-sm hover:shadow-md"
+                      className="hidden flex items-center justify-center px-4 py-2.5 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-all duration-200 shadow-sm hover:shadow-md"
                     >
                       <CreditCard className="h-4 w-4 mr-2" />
                       Update Payment
