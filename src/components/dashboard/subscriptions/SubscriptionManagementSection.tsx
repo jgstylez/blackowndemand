@@ -16,6 +16,7 @@ import {
   Eye,
   Zap,
   CreditCard as CreditCardIcon,
+  ArrowUp,
 } from "lucide-react";
 import { supabase } from "../../../lib/supabase";
 import { callEdgeFunction } from "../../../lib/edgeFunctions";
@@ -23,6 +24,7 @@ import { usePaymentProvider } from "../../../hooks/usePaymentProvider";
 import { getPlanConfigByName } from "../../../config/paymentConfig";
 import { Business } from "../../../types";
 import { useNavigate } from "react-router-dom";
+import PlanUpgradeModal from "./PlanUpgradeModal";
 
 interface SubscriptionManagementSectionProps {
   businesses: Business[];
@@ -73,6 +75,7 @@ const SubscriptionManagementSection: React.FC<
     cvv: "",
     billingZip: "",
   });
+  const [showUpgradeModal, setShowUpgradeModal] = useState<string | null>(null);
 
   useEffect(() => {
     if (businesses.length > 0) {
@@ -361,6 +364,19 @@ const SubscriptionManagementSection: React.FC<
     }
   };
 
+  // Add this function to handle plan upgrade
+  const handlePlanUpgrade = (businessId: string) => {
+    setShowUpgradeModal(businessId);
+  };
+
+  // Add this function to handle upgrade success
+  const handleUpgradeSuccess = () => {
+    fetchSubscriptions();
+    onUpdate();
+    setSuccess("Plan upgraded successfully!");
+    setTimeout(() => setSuccess(null), 5000);
+  };
+
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
       case "active":
@@ -540,6 +556,15 @@ const SubscriptionManagementSection: React.FC<
                 >
                   <Eye className="h-4 w-4 mr-2" />
                   View Business
+                </button>
+
+                {/* Add Upgrade Plan button */}
+                <button
+                  onClick={() => handlePlanUpgrade(subscription.business_id)}
+                  className="flex items-center px-3 py-2 bg-green-500/10 text-green-400 rounded-lg hover:bg-green-500/20 transition-colors"
+                >
+                  <ArrowUp className="h-4 w-4 mr-2" />
+                  Change Plan
                 </button>
 
                 {subscription.provider === "stripe" &&
@@ -747,6 +772,24 @@ const SubscriptionManagementSection: React.FC<
             </div>
           </div>
         </div>
+      )}
+
+      {/* Plan Upgrade Modal */}
+      {showUpgradeModal && (
+        <PlanUpgradeModal
+          isOpen={!!showUpgradeModal}
+          onClose={() => setShowUpgradeModal(null)}
+          currentPlan={
+            subscriptions.find((s) => s.business_id === showUpgradeModal)
+              ?.plan_name || ""
+          }
+          businessId={showUpgradeModal}
+          businessName={
+            subscriptions.find((s) => s.business_id === showUpgradeModal)
+              ?.business_name || ""
+          }
+          onSuccess={handleUpgradeSuccess}
+        />
       )}
     </div>
   );

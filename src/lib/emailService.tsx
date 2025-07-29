@@ -1,11 +1,15 @@
 /**
  * Email Service
- * 
+ *
  * This module provides functions for sending emails through Supabase Edge Functions.
  */
 
-import { PRIMARY_SUPPORT_EMAIL, SECONDARY_SUPPORT_EMAIL, NOREPLY_EMAIL } from './emailConfig';
-import { callEdgeFunction } from './edgeFunctions';
+import {
+  PRIMARY_SUPPORT_EMAIL,
+  SECONDARY_SUPPORT_EMAIL,
+  NOREPLY_EMAIL,
+} from "./emailConfig";
+import { callEdgeFunction } from "./edgeFunctions";
 
 interface EmailOptions {
   to: string;
@@ -19,14 +23,14 @@ interface EmailOptions {
 
 /**
  * Sends an email using the Supabase Edge Function
- * 
+ *
  * @param options Email options including recipient, subject, and content
  * @returns Promise resolving to the response from the edge function
  */
 export const sendEmail = async (options: EmailOptions) => {
   try {
     return await callEdgeFunction<{ success: boolean }>({
-      functionName: 'send-email',
+      functionName: "send-email",
       payload: {
         from: `BlackOWNDemand <${NOREPLY_EMAIL}>`, // now explicitly using no-reply
         to: options.to,
@@ -35,18 +39,18 @@ export const sendEmail = async (options: EmailOptions) => {
         text: options.text,
         replyTo: options.replyTo || PRIMARY_SUPPORT_EMAIL,
         cc: options.cc || [],
-        bcc: options.bcc || [SECONDARY_SUPPORT_EMAIL]
-      }
+        bcc: options.bcc || [SECONDARY_SUPPORT_EMAIL],
+      },
     });
   } catch (error) {
-    console.error('Email service error:', error);
+    console.error("Email service error:", error);
     throw error;
   }
 };
 
 /**
  * Sends a contact form submission email
- * 
+ *
  * @param name Sender's name
  * @param email Sender's email
  * @param subject Email subject
@@ -61,28 +65,31 @@ export const sendContactFormEmail = async (
   message: string,
   category?: string
 ) => {
-  return await callEdgeFunction<{success: boolean}>({
-    functionName: 'send-contact-email',
+  return await callEdgeFunction<{ success: boolean }>({
+    functionName: "send-contact-email",
     payload: {
       name,
       email,
       subject,
       message,
-      category
-    }
+      category,
+    },
   });
 };
 
 /**
  * Sends a welcome email to a new user
- * 
+ *
  * @param userEmail User's email address
  * @param firstName User's first name (optional)
  * @returns Promise resolving to the response from sendEmail
  */
-export const sendWelcomeEmail = async (userEmail: string, firstName?: string) => {
-  const greeting = firstName ? `Hi ${firstName},` : 'Hi there,';
-  
+export const sendWelcomeEmail = async (
+  userEmail: string,
+  firstName?: string
+) => {
+  const greeting = firstName ? `Hi ${firstName},` : "Hi there,";
+
   const htmlContent = `
     <h2>Welcome to BlackOWNDemand!</h2>
     <p>${greeting}</p>
@@ -99,33 +106,51 @@ export const sendWelcomeEmail = async (userEmail: string, firstName?: string) =>
 
   return await sendEmail({
     to: userEmail,
-    subject: 'Welcome to BlackOWNDemand!',
-    html: htmlContent
+    subject: "Welcome to BlackOWNDemand!",
+    html: htmlContent,
   });
 };
 
 /**
  * Sends a payment confirmation email to a user
- * 
+ *
  * @param userEmail User's email address
  * @param amount Payment amount
  * @param description Description of the purchase
  * @param planName Name of the subscription plan (optional)
+ * @param transactionId Transaction ID for record keeping (optional)
+ * @param paymentMethodLast4 Last 4 digits of payment method (optional)
+ * @param nextBillingDate Next billing date for recurring payments (optional)
  * @returns Promise resolving to the response from sendEmail
  */
 export const sendPaymentConfirmationEmail = async (
   userEmail: string,
   amount: number,
   description: string,
-  planName?: string
+  planName?: string,
+  transactionId?: string,
+  paymentMethodLast4?: string,
+  nextBillingDate?: string
 ) => {
   const formattedAmount = amount.toFixed(2);
-  const date = new Date().toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
+  const date = new Date().toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
   });
-  
+
+  // Calculate next billing date if not provided
+  const nextBilling =
+    nextBillingDate ||
+    new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toLocaleDateString(
+      "en-US",
+      {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      }
+    );
+
   const htmlContent = `
     <h2>Payment Confirmation</h2>
     <p>Thank you for your payment to BlackOWNDemand!</p>
@@ -135,7 +160,18 @@ export const sendPaymentConfirmationEmail = async (
       <p><strong>Date:</strong> ${date}</p>
       <p><strong>Amount:</strong> $${formattedAmount}</p>
       <p><strong>Description:</strong> ${description}</p>
-      ${planName ? `<p><strong>Plan:</strong> ${planName}</p>` : ''}
+      ${planName ? `<p><strong>Plan:</strong> ${planName}</p>` : ""}
+      ${
+        transactionId
+          ? `<p><strong>Transaction ID:</strong> ${transactionId}</p>`
+          : ""
+      }
+      ${
+        paymentMethodLast4
+          ? `<p><strong>Payment Method:</strong> ****${paymentMethodLast4}</p>`
+          : ""
+      }
+      <p><strong>Next Billing Date:</strong> ${nextBilling}</p>
     </div>
     
     <p>Your payment has been processed successfully. You can now proceed with setting up your business listing.</p>
@@ -149,14 +185,14 @@ export const sendPaymentConfirmationEmail = async (
 
   return await sendEmail({
     to: userEmail,
-    subject: 'Payment Confirmation - BlackOWNDemand',
-    html: htmlContent
+    subject: "Payment Confirmation - BlackOWNDemand",
+    html: htmlContent,
   });
 };
 
 /**
  * Sends an account deletion confirmation email to a user
- * 
+ *
  * @param userEmail User's email address
  * @param firstName User's first name (optional)
  * @param lastName User's last name (optional)
@@ -168,12 +204,12 @@ export const sendAccountDeletionEmail = async (
   lastName?: string
 ) => {
   return await callEdgeFunction<{ success: boolean }>({
-    functionName: 'send-account-deletion-email',
+    functionName: "send-account-deletion-email",
     payload: {
       email: userEmail,
       firstName,
-      lastName
-    }
+      lastName,
+    },
   });
 };
 
@@ -182,5 +218,5 @@ export default {
   sendContactFormEmail,
   sendWelcomeEmail,
   sendPaymentConfirmationEmail,
-  sendAccountDeletionEmail
+  sendAccountDeletionEmail,
 };

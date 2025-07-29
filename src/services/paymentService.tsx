@@ -28,6 +28,18 @@ export interface PaymentResult {
   transactionId?: string;
 }
 
+export interface UpgradeOptions {
+  businessId: string;
+  currentPlan: string;
+  newPlan: string;
+  planPrice: number;
+  customerEmail?: string;
+  discountCode?: string;
+  discountedAmount?: number;
+  metadata?: Record<string, any>;
+  provider?: "stripe" | "ecomPayments";
+}
+
 export class PaymentService {
   static async createPaymentSession(
     options: PaymentOptions
@@ -195,5 +207,111 @@ export class PaymentService {
       return !!PAYMENT_CONFIG.ecomPaymentsConfig.securityKey;
     }
     return false;
+  }
+
+  static async upgradePlan(options: UpgradeOptions): Promise<PaymentResult> {
+    try {
+      const provider = options.provider || this.getCurrentProvider();
+      const planConfig = getPlanConfigByProvider(options.newPlan, provider);
+
+      if (!planConfig) {
+        throw new Error(
+          `Plan "${options.newPlan}" is not configured for ${provider}`
+        );
+      }
+
+      if (provider === "ecomPayments") {
+        return this.upgradePlanEcomPayments(options);
+      } else {
+        return this.upgradePlanStripe(options);
+      }
+    } catch (error) {
+      console.error("Error upgrading plan:", error);
+      return {
+        success: false,
+        error:
+          error instanceof Error ? error.message : "Failed to upgrade plan",
+        provider: options.provider || this.getCurrentProvider(),
+      };
+    }
+  }
+
+  static async upgradePlanEcomPayments(
+    options: UpgradeOptions
+  ): Promise<PaymentResult> {
+    try {
+      const result = await callEdgeFunction<any>({
+        functionName: "upgrade-plan",
+        payload: {
+          businessId: options.businessId,
+          currentPlan: options.currentPlan,
+          newPlan: options.newPlan,
+          planPrice: options.planPrice,
+          customerEmail: options.customerEmail,
+          discountCode: options.discountCode,
+          discountedAmount: options.discountedAmount,
+          metadata: options.metadata,
+        },
+      });
+
+      return {
+        success: true,
+        transactionId: result?.transaction_id,
+        messageId: result?.messageId,
+        provider: "ecomPayments",
+      };
+    } catch (error) {
+      console.error("Error upgrading plan with EcomPayments:", error);
+      return {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to upgrade plan with EcomPayments",
+        provider: "ecomPayments",
+      };
+    }
+  }
+
+  static async upgradePlanStripe(
+    options: UpgradeOptions
+  ): Promise<PaymentResult> {
+    try {
+      const result = await callEdgeFunction<any>({
+        functionName: "create-checkout-session",
+        payload: {
+          planPrice: options.planPrice,
+          planName: options.newPlan,
+          successUrl: `${
+            PAYMENT_CONFIG.stripeConfig.successUrl
+          }${encodeURIComponent(options.newPlan)}`,
+          cancelUrl: PAYMENT_CONFIG.stripeConfig.cancelUrl,
+          discountCode: options.discountCode,
+          discountedAmount: options.discountedAmount,
+          metadata: {
+            ...options.metadata,
+            upgrade_from: options.currentPlan,
+            upgrade_to: options.newPlan,
+            business_id: options.businessId,
+          },
+        },
+      });
+
+      return {
+        success: true,
+        url: result?.url,
+        provider: "stripe",
+      };
+    } catch (error) {
+      console.error("Error upgrading plan with Stripe:", error);
+      return {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to upgrade plan with Stripe",
+        provider: "stripe",
+      };
+    }
   }
 }

@@ -25,6 +25,18 @@ export interface PaymentFormData {
   billingZip: string;
 }
 
+export interface UpgradeOptions {
+  businessId: string;
+  currentPlan: string;
+  newPlan: string;
+  planPrice: number;
+  customerEmail?: string;
+  discountCode?: string;
+  discountedAmount?: number;
+  metadata?: Record<string, any>;
+  provider?: "stripe" | "ecomPayments";
+}
+
 export const useUnifiedPayment = (options: UseUnifiedPaymentOptions = {}) => {
   const { user } = useAuth();
   const { provider } = usePaymentProvider();
@@ -148,6 +160,68 @@ export const useUnifiedPayment = (options: UseUnifiedPaymentOptions = {}) => {
     [user, options]
   );
 
+  const handlePlanUpgrade = useCallback(
+    async (upgradeOptions: UpgradeOptions) => {
+      if (!user) {
+        sessionStorage.setItem(
+          "pendingUpgrade",
+          JSON.stringify(upgradeOptions)
+        );
+        navigate("/login");
+        return;
+      }
+
+      setLoading(true);
+      setError(null);
+      setStep("processing");
+
+      try {
+        const result = await PaymentService.upgradePlan({
+          ...upgradeOptions,
+          provider: upgradeOptions.provider || provider,
+        });
+
+        if (!result.success) {
+          throw new Error(result.error || "Plan upgrade failed");
+        }
+
+        if (result.provider === "ecomPayments") {
+          if (options.showPaymentModal) {
+            return result;
+          } else {
+            throw new Error("Ecom Payments requires PaymentModal flow");
+          }
+        } else {
+          if (result.url) {
+            window.location.href = result.url;
+          } else {
+            throw new Error("No checkout URL received");
+          }
+        }
+      } catch (err) {
+        const paymentError = UnifiedErrorHandler.normalizeError(err, {
+          context: "PlanUpgrade",
+          provider: provider,
+        });
+        setError(paymentError);
+        setStep("payment");
+
+        if (options.onError) {
+          options.onError(paymentError);
+        }
+
+        UnifiedErrorHandler.logError(paymentError, {
+          upgradeOptions,
+          provider,
+          userId: user?.id,
+        });
+      } finally {
+        setLoading(false);
+      }
+    },
+    [user, provider, navigate, options]
+  );
+
   const handlePaymentSuccess = useCallback(
     async (result: any, paymentOptions: PaymentOptions) => {
       setStep("success");
@@ -159,7 +233,10 @@ export const useUnifiedPayment = (options: UseUnifiedPaymentOptions = {}) => {
             paymentOptions.customerEmail,
             paymentOptions.planPrice,
             paymentOptions.planName,
-            paymentOptions.planName
+            paymentOptions.planName,
+            result.transactionId || result.transaction_id,
+            result.payment_method_details?.card?.last4,
+            result.next_billing_date
           );
           console.log("Payment confirmation email sent successfully");
         } catch (emailError) {
@@ -180,7 +257,7 @@ export const useUnifiedPayment = (options: UseUnifiedPaymentOptions = {}) => {
             planName: paymentOptions.planName,
             planPrice: paymentOptions.planPrice,
             paymentCompleted: true,
-            transactionId: result.transactionId,
+            transactionId: result.transactionId || result.transaction_id,
           },
         });
       }
@@ -211,6 +288,7 @@ export const useUnifiedPayment = (options: UseUnifiedPaymentOptions = {}) => {
   return {
     handlePayment,
     handleEcomPaymentsPayment,
+    handlePlanUpgrade, // Add this to the return object
     retryPayment,
     loading,
     error,
