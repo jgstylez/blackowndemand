@@ -44,99 +44,193 @@ const LocationFields: React.FC<LocationFieldsProps> = ({
   const [selectedCity, setSelectedCity] = useState<LocationOption | null>(
     city ? { value: city, label: city } : null
   );
+  const [loadingTimeout, setLoadingTimeout] = useState(false);
 
-  // Fetch countries on mount
+  // Add timeout and retry logic
+  const fetchWithTimeout = async (
+    url: string,
+    options?: RequestInit,
+    timeout = 10000
+  ) => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+    try {
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      return response;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      throw error;
+    }
+  };
+
+  // Add caching logic
+  const getCachedData = (key: string) => {
+    try {
+      const cached = localStorage.getItem(key);
+      return cached ? JSON.parse(cached) : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const setCachedData = (key: string, data: any) => {
+    try {
+      localStorage.setItem(key, JSON.stringify(data));
+    } catch {
+      // Ignore storage errors
+    }
+  };
+
+  // Fetch countries on mount with timeout and retry
   useEffect(() => {
     const fetchCountries = async () => {
       setLoadingCountries(true);
-      try {
-        const response = await fetch(
-          "https://countriesnow.space/api/v0.1/countries"
-        );
-        const data = await response.json();
-        if (!data.error && data.data) {
-          const countryOptions = data.data.map((c: any) => ({
-            value: c.country,
-            label: c.country,
-          }));
-          setCountries(countryOptions);
+      let retries = 3;
+
+      while (retries > 0) {
+        try {
+          const response = await fetchWithTimeout(
+            "https://countriesnow.space/api/v0.1/countries",
+            undefined,
+            10000 // 10 second timeout
+          );
+          const data = await response.json();
+          if (!data.error && data.data) {
+            const countryOptions = data.data.map((c: any) => ({
+              value: c.country,
+              label: c.country,
+            }));
+            setCountries(countryOptions);
+            break; // Success, exit retry loop
+          }
+        } catch (e) {
+          retries--;
+          if (retries === 0) {
+            console.error("Failed to fetch countries after 3 attempts:", e);
+            // Set a fallback list of common countries
+            setCountries([
+              { value: "United States", label: "United States" },
+              { value: "Canada", label: "Canada" },
+              { value: "United Kingdom", label: "United Kingdom" },
+              // Add more common countries as needed
+            ]);
+          } else {
+            // Wait before retrying
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+          }
         }
-      } catch (e) {
-        // ignore
-      } finally {
-        setLoadingCountries(false);
       }
+      setLoadingCountries(false);
     };
     fetchCountries();
   }, []);
 
-  // Fetch states when country changes
+  // Add timeout detection
+  useEffect(() => {
+    if (loadingCountries) {
+      const timeoutId = setTimeout(() => setLoadingTimeout(true), 5000);
+      return () => clearTimeout(timeoutId);
+    } else {
+      setLoadingTimeout(false);
+    }
+  }, [loadingCountries]);
+
+  // Fetch states when country changes with timeout and retry
   useEffect(() => {
     if (!selectedCountry) return;
+
     const fetchStates = async () => {
       setLoadingStates(true);
       setStates([]);
       setCities([]);
       setSelectedState(null);
       setSelectedCity(null);
-      try {
-        const response = await fetch(
-          "https://countriesnow.space/api/v0.1/countries/states",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ country: selectedCountry.value }),
+
+      let retries = 3;
+      while (retries > 0) {
+        try {
+          const response = await fetchWithTimeout(
+            "https://countriesnow.space/api/v0.1/countries/states",
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ country: selectedCountry.value }),
+            },
+            10000
+          );
+          const data = await response.json();
+          if (!data.error && data.data?.states) {
+            const stateOptions = data.data.states.map((s: any) => ({
+              value: s.name,
+              label: s.name,
+            }));
+            setStates(stateOptions);
+            break;
           }
-        );
-        const data = await response.json();
-        if (!data.error && data.data?.states) {
-          const stateOptions = data.data.states.map((s: any) => ({
-            value: s.name,
-            label: s.name,
-          }));
-          setStates(stateOptions);
+        } catch (e) {
+          retries--;
+          if (retries === 0) {
+            console.error("Failed to fetch states after 3 attempts:", e);
+            // Allow manual input if API fails
+          } else {
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+          }
         }
-      } catch (e) {
-        // ignore
-      } finally {
-        setLoadingStates(false);
       }
+      setLoadingStates(false);
     };
     fetchStates();
   }, [selectedCountry]);
 
-  // Fetch cities when state changes
+  // Fetch cities when state changes with timeout and retry
   useEffect(() => {
     if (!selectedCountry || !selectedState) return;
+
     const fetchCities = async () => {
       setLoadingCities(true);
       setCities([]);
       setSelectedCity(null);
-      try {
-        const response = await fetch(
-          "https://countriesnow.space/api/v0.1/countries/state/cities",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              country: selectedCountry.value,
-              state: selectedState.value,
-            }),
+
+      let retries = 3;
+      while (retries > 0) {
+        try {
+          const response = await fetchWithTimeout(
+            "https://countriesnow.space/api/v0.1/countries/state/cities",
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                country: selectedCountry.value,
+                state: selectedState.value,
+              }),
+            },
+            10000
+          );
+          const data = await response.json();
+          if (!data.error && data.data) {
+            const cityOptions = data.data.map((c: string) => ({
+              value: c,
+              label: c,
+            }));
+            setCities(cityOptions);
+            break;
           }
-        );
-        const data = await response.json();
-        if (!data.error && data.data) {
-          const cityOptions = data.data.map((c: string) => ({
-            value: c,
-            label: c,
-          }));
-          setCities(cityOptions);
+        } catch (e) {
+          retries--;
+          if (retries === 0) {
+            console.error("Failed to fetch cities after 3 attempts:", e);
+            // Allow manual input if API fails
+          } else {
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+          }
         }
-      } catch (e) {
-        // ignore
-      } finally {
-        setLoadingCities(false);
       }
+      setLoadingCities(false);
     };
     fetchCities();
   }, [selectedCountry, selectedState]);
@@ -173,7 +267,9 @@ const LocationFields: React.FC<LocationFieldsProps> = ({
           {loadingCountries ? (
             <div className="pl-10 w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-gray-400 flex items-center">
               <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              Loading countries...
+              {loadingTimeout
+                ? "Taking longer than expected..."
+                : "Loading countries..."}
             </div>
           ) : (
             <Select
@@ -217,7 +313,7 @@ const LocationFields: React.FC<LocationFieldsProps> = ({
               noOptionsMessage={() => "No countries found"}
               onInputChange={(input) => {
                 if (!input) return;
-                // Allow free text fallback
+                // Always allow manual input as fallback
                 onChange("country", input);
               }}
             />
