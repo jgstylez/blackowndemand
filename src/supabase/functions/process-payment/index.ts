@@ -164,9 +164,10 @@ Deno.serve(async (req) => {
 
     // Parse request body
     const requestBody = await req.json();
+    // ✅ SECURE: Log only non-sensitive information
     console.log(
-      "Full request body received:",
-      JSON.stringify(requestBody, null, 2)
+      "Payment request received for amount:",
+      requestBody.amount || requestBody.final_amount
     );
 
     const {
@@ -181,27 +182,15 @@ Deno.serve(async (req) => {
       is_recurring = true, // Default to recurring payments
     } = requestBody;
 
-    console.log("Received amount:", amount);
-    console.log("Received final_amount:", final_amount);
+    // ✅ SECURE: Log only safe information
     console.log(
-      "Received payment_method:",
-      payment_method ? "Present (details masked)" : "Missing"
+      "Processing payment - Amount:",
+      amount,
+      "Final Amount:",
+      final_amount
     );
-    console.log(
-      "Payment method details:",
-      payment_method
-        ? {
-            card_number: payment_method.card_number
-              ? `****${payment_method.card_number.slice(-4)}`
-              : "Missing",
-            expiry_date: payment_method.expiry_date || "Missing",
-            cvv: payment_method.cvv ? "***" : "Missing",
-            cardholder_name: payment_method.cardholder_name
-              ? "Present (masked)"
-              : "Missing",
-          }
-        : "No payment method provided"
-    );
+    console.log("Payment method present:", !!payment_method);
+    console.log("Customer email:", customer_email ? "Provided" : "Missing");
 
     // Validate required fields - improved validation
     // If amount is 0, we don't need payment method
@@ -238,7 +227,7 @@ Deno.serve(async (req) => {
           console.error("Error applying discount code:", discountError);
           // Continue with payment even if discount application fails
         } else {
-          console.log("Discount code applied successfully:", discountApplied);
+          console.log("Discount code applied successfully");
         }
       } catch (discountErr) {
         console.error("Exception applying discount code:", discountErr);
@@ -367,15 +356,11 @@ Deno.serve(async (req) => {
     if (description) postData.append("order_description", description);
     postData.append("currency", currency || "USD");
 
-    console.log("Sending payment request to gateway with data:", {
+    // ✅ SECURE: Log only safe payment information
+    console.log("Sending payment request to gateway:", {
       type: is_recurring ? "add_subscription" : "sale",
       amount: (processAmount / 100).toFixed(2),
-      ccnumber:
-        "****" + payment_method.card_number.replace(/\s/g, "").slice(-4),
-      ccexp: payment_method.expiry_date,
-      cvv: "***",
-      security_key: SECURITY_KEY ? "****" : "MISSING",
-      ...billingInfo,
+      currency: currency || "USD",
       environment: NODE_ENV,
     });
 
@@ -402,18 +387,15 @@ Deno.serve(async (req) => {
       clearTimeout(timeoutId);
 
       console.log("Payment gateway response status:", paymentResponse.status);
-      console.log(
-        "Payment gateway response headers:",
-        Object.fromEntries(paymentResponse.headers.entries())
-      );
+      // ✅ SECURE: Don't log response headers as they may contain sensitive info
 
       // Get the response text
       responseText = await paymentResponse.text();
-      console.log("Raw payment gateway response string:", responseText);
+      // ✅ SECURE: Don't log raw response text as it may contain sensitive data
     } catch (networkError) {
       console.error(
         "Network error when contacting payment gateway:",
-        networkError
+        networkError.message
       );
       console.log("Falling back to simulation mode due to network error");
 
@@ -436,7 +418,11 @@ Deno.serve(async (req) => {
 
     // Parse the NMI response
     const parsedResponse = parseNMIResponse(responseText);
-    console.log("Parsed payment gateway response:", parsedResponse);
+    // ✅ SECURE: Log only success/failure status, not full response
+    console.log("Payment gateway response:", {
+      success: parsedResponse.success,
+      responseCode: parsedResponse.responseCode,
+    });
 
     // Check if the payment was successful (response code 1 means approved)
     if (!parsedResponse.success) {
@@ -444,7 +430,7 @@ Deno.serve(async (req) => {
         "Payment failed with response code:",
         parsedResponse.responseCode
       );
-      console.error("Response text:", parsedResponse.responseText);
+      // ✅ SECURE: Don't log response text as it may contain sensitive data
 
       // In development mode, if we get a decline and it's a test card, fall back to simulation
       if (NODE_ENV === "development" && parsedResponse.responseCode === "2") {

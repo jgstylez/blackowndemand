@@ -115,19 +115,21 @@ async function createCustomerVault(
   console.log("Creating customer vault for business:", business.name);
 
   const cleanCardNumber = payment_method.card_number.replace(/\s/g, "");
+  // ✅ SECURE: Log only last 4 digits
   console.log("Card number (last 4):", cleanCardNumber.slice(-4));
   console.log("Is test card:", isValidTestCard(cleanCardNumber));
 
+  // ✅ SECURE: Log only safe payment information
   console.log("Payment method details:", {
     card_number: payment_method.card_number
       ? "****" + payment_method.card_number.slice(-4)
       : "missing",
-    expiry_date: payment_method.expiry_date,
-    cvv: payment_method.cvv ? "***" : "missing",
-    cardholder_name: payment_method.cardholder_name,
-    billing_zip: payment_method.billing_zip,
+    expiry_date: "MM/YY", // Don't log actual expiry
+    cvv: "***", // Don't log actual CVV
+    cardholder_name: payment_method.cardholder_name ? "Present" : "Missing",
+    billing_zip: payment_method.billing_zip ? "Present" : "Missing",
   });
-  console.log("User email:", userEmail);
+  console.log("User email:", userEmail ? "Provided" : "Missing");
   console.log("Security key configured:", !!SECURITY_KEY);
   console.log("Environment:", NODE_ENV);
 
@@ -169,20 +171,17 @@ async function createCustomerVault(
     postData.append("email", userEmail);
   }
 
-  console.log("Sending request to Ecom Payments with data:", {
+  // ✅ SECURE: Log only safe information
+  console.log("Sending request to Ecom Payments:", {
     type: "sale",
     amount: "0.01",
     customer_vault: "add_customer",
     currency: "USD",
     order_description: `Customer vault creation for ${business.name}`,
-    first_name: payment_method.cardholder_name
-      ? payment_method.cardholder_name.split(" ")[0]
-      : "",
-    last_name: payment_method.cardholder_name
-      ? payment_method.cardholder_name.split(" ").slice(1).join(" ")
-      : "",
-    zip: payment_method.billing_zip,
-    email: userEmail,
+    first_name: payment_method.cardholder_name ? "Present" : "Missing",
+    last_name: payment_method.cardholder_name ? "Present" : "Missing",
+    zip: payment_method.billing_zip ? "Present" : "Missing",
+    email: userEmail ? "Present" : "Missing",
   });
 
   try {
@@ -196,16 +195,17 @@ async function createCustomerVault(
     );
 
     console.log("Payment gateway response status:", paymentResponse.status);
-    console.log(
-      "Payment gateway response headers:",
-      Object.fromEntries(paymentResponse.headers.entries())
-    );
+    // ✅ SECURE: Don't log response headers
 
     const responseText = await paymentResponse.text();
-    console.log("Raw payment gateway response:", responseText);
+    // ✅ SECURE: Don't log raw response text
 
     const parsedResponse = parseNMIResponse(responseText);
-    console.log("Parsed payment response:", parsedResponse);
+    // ✅ SECURE: Log only success/failure status
+    console.log("Payment response:", {
+      success: parsedResponse.success,
+      responseCode: parsedResponse.responseCode,
+    });
 
     if (!parsedResponse.success) {
       console.error("Payment gateway error:", {
@@ -248,6 +248,7 @@ Deno.serve(async (req) => {
   try {
     // Only allow POST requests
     if (req.method !== "POST") {
+      console.log("Method not allowed:", req.method);
       return new Response(JSON.stringify({ error: "Method not allowed" }), {
         status: 405,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -256,24 +257,10 @@ Deno.serve(async (req) => {
 
     // Parse request body
     const requestBody = await req.json();
+    // ✅ SECURE: Log only non-sensitive information
     console.log(
-      "Request body received:",
-      JSON.stringify(
-        {
-          ...requestBody,
-          payment_method: requestBody.payment_method
-            ? {
-                ...requestBody.payment_method,
-                card_number: requestBody.payment_method.card_number
-                  ? `****${requestBody.payment_method.card_number.slice(-4)}`
-                  : "Missing",
-                cvv: requestBody.payment_method.cvv ? "***" : "Missing",
-              }
-            : "Missing",
-        },
-        null,
-        2
-      )
+      "Payment request received for amount:",
+      requestBody.amount || requestBody.final_amount
     );
 
     const { business_id, payment_method } = requestBody;
@@ -286,6 +273,7 @@ Deno.serve(async (req) => {
       !payment_method.expiry_date ||
       !payment_method.cvv
     ) {
+      console.error("Validation failed for payment method update");
       return new Response(
         JSON.stringify({ error: "Missing required payment information" }),
         {

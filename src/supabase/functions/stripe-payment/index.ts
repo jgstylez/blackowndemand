@@ -4,7 +4,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
@@ -61,11 +62,11 @@ function shouldUseSimulation(cardNumber: string): boolean {
   const cleanCardNumber = cardNumber.replace(/\s/g, "");
   const testCards = [
     "4000000000000002", // Visa test card
-    "5555555555554444", // Mastercard test card  
-    "378282246310005",  // Amex test card
+    "5555555555554444", // Mastercard test card
+    "378282246310005", // Amex test card
     "4000000000000127", // Visa simulation card
   ];
-  
+
   // Always simulate for test cards or if no Stripe key
   return testCards.includes(cleanCardNumber) || !stripeSecretKey;
 }
@@ -88,7 +89,11 @@ serve(async (req) => {
 
     // Parse request body
     const requestBody = await req.json();
-    console.log("Stripe payment request received:", JSON.stringify(requestBody, null, 2));
+    // ✅ SECURE: Log only non-sensitive information
+    console.log(
+      "Stripe payment request received for amount:",
+      requestBody.amount || requestBody.final_amount
+    );
 
     const {
       amount,
@@ -124,9 +129,12 @@ serve(async (req) => {
     // Handle discount code if provided
     if (discount_code_id) {
       try {
-        const { error: discountError } = await supabase.rpc("apply_discount_code", {
-          p_code: discount_code_id,
-        });
+        const { error: discountError } = await supabase.rpc(
+          "apply_discount_code",
+          {
+            p_code: discount_code_id,
+          }
+        );
         if (discountError) {
           console.error("Error applying discount code:", discountError);
         }
@@ -138,7 +146,7 @@ serve(async (req) => {
     // For zero-amount transactions, skip payment processing
     if (isZeroAmount) {
       console.log("Zero amount transaction - skipping Stripe processing");
-      
+
       const transactionId = `free_stripe_${Date.now()}_${Math.random()
         .toString(36)
         .substring(2, 10)}`;
@@ -167,9 +175,9 @@ serve(async (req) => {
     // Check if we should use simulation mode
     if (shouldUseSimulation(payment_method.card_number)) {
       console.log("Using simulation mode for Stripe payment");
-      
+
       await new Promise((resolve) => setTimeout(resolve, 1000));
-      
+
       const simulatedResponse = createSimulatedResponse(
         processAmount,
         currency,
@@ -189,11 +197,11 @@ serve(async (req) => {
 
     // Find or create customer
     let customerId: string | undefined;
-    const customers = await stripe.customers.list({ 
-      email: customer_email, 
-      limit: 1 
+    const customers = await stripe.customers.list({
+      email: customer_email,
+      limit: 1,
     });
-    
+
     if (customers.data.length > 0) {
       customerId = customers.data[0].id;
       console.log("Found existing Stripe customer:", customerId);
@@ -209,7 +217,7 @@ serve(async (req) => {
     if (is_recurring) {
       // Create subscription
       console.log("Creating Stripe subscription");
-      
+
       // Create payment method
       const paymentMethod = await stripe.paymentMethods.create({
         type: "card",
@@ -253,9 +261,11 @@ serve(async (req) => {
       // Create subscription
       const subscription = await stripe.subscriptions.create({
         customer: customerId,
-        items: [{
-          price: price.id,
-        }],
+        items: [
+          {
+            price: price.id,
+          },
+        ],
         default_payment_method: paymentMethod.id,
         expand: ["latest_invoice.payment_intent"],
       });
@@ -287,7 +297,6 @@ serve(async (req) => {
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
-
     } else {
       // One-time payment
       console.log("Creating Stripe one-time payment");
@@ -326,12 +335,19 @@ serve(async (req) => {
           description,
           customer_email,
           payment_date: new Date().toISOString(),
-          status: paymentIntent.status === "succeeded" ? "approved" : paymentIntent.status,
+          status:
+            paymentIntent.status === "succeeded"
+              ? "approved"
+              : paymentIntent.status,
           payment_method_details: {
             type: "card",
             card: {
-              brand: paymentIntent.charges?.data[0]?.payment_method_details?.card?.brand || "unknown",
-              last4: paymentIntent.charges?.data[0]?.payment_method_details?.card?.last4 || "0000",
+              brand:
+                paymentIntent.charges?.data[0]?.payment_method_details?.card
+                  ?.brand || "unknown",
+              last4:
+                paymentIntent.charges?.data[0]?.payment_method_details?.card
+                  ?.last4 || "0000",
             },
           },
           stripe_mode: true,
@@ -339,12 +355,12 @@ serve(async (req) => {
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-
   } catch (error) {
     console.error("Stripe payment error:", error);
-    
-    const errorMessage = error instanceof Error ? error.message : "Payment processing failed";
-    
+
+    const errorMessage =
+      error instanceof Error ? error.message : "Payment processing failed";
+
     return new Response(
       JSON.stringify({
         error: errorMessage,
