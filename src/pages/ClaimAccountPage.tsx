@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Mail, Lock, User, Building2, Search, Crown } from 'lucide-react';
-import Layout from '../components/layout/Layout';
-import { supabase, getBusinessImageUrl } from '../lib/supabase';
+import React, { useState, useEffect } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Mail, Lock, User, Building2, Search, Crown } from "lucide-react";
+import Layout from "../components/layout/Layout";
+import { supabase, getBusinessImageUrl } from "../lib/supabase";
 
 interface MigratedBusiness {
   id: string;
@@ -17,21 +17,22 @@ interface MigratedBusiness {
 const ClaimAccountPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const businessId = searchParams.get('business');
-  
-  const [step, setStep] = useState<'search' | 'verify' | 'create'>('search');
-  const [searchTerm, setSearchTerm] = useState('');
+  const businessId = searchParams.get("business");
+
+  const [step, setStep] = useState<"search" | "verify" | "create">("search");
+  const [searchTerm, setSearchTerm] = useState("");
   const [searchResults, setSearchResults] = useState<MigratedBusiness[]>([]);
-  const [selectedBusiness, setSelectedBusiness] = useState<MigratedBusiness | null>(null);
+  const [selectedBusiness, setSelectedBusiness] =
+    useState<MigratedBusiness | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [migratedPlanId, setMigratedPlanId] = useState<string | null>(null);
-  
+
   const [accountData, setAccountData] = useState({
-    email: '',
-    password: '',
-    confirmPassword: '',
-    businessEmail: '',
+    email: "",
+    password: "",
+    confirmPassword: "",
+    businessEmail: "",
     subscribeToNewsletter: true,
   });
 
@@ -40,22 +41,22 @@ const ClaimAccountPage = () => {
     const fetchMigratedPlan = async () => {
       try {
         const { data, error } = await supabase
-          .from('subscription_plans')
-          .select('id')
-          .eq('name', 'Migrated')
+          .from("subscription_plans")
+          .select("id")
+          .eq("name", "Migrated")
           .single();
 
         if (error) {
-          console.error('Error fetching Migrated plan:', error);
+          console.error("Error fetching Migrated plan:", error);
           return;
         }
 
         if (data) {
           setMigratedPlanId(data.id);
-          console.log('Migrated plan ID found:', data.id);
+          console.log("Migrated plan ID found:", data.id);
         }
       } catch (err) {
-        console.error('Failed to fetch Migrated plan:', err);
+        console.error("Failed to fetch Migrated plan:", err);
       }
     };
 
@@ -73,22 +74,25 @@ const ClaimAccountPage = () => {
     try {
       setLoading(true);
       const { data, error } = await supabase
-        .from('businesses')
-        .select('*')
-        .eq('id', id)
-        .not('migration_source', 'is', null)
-        .is('claimed_at', null)
+        .from("businesses")
+        .select("*")
+        .eq("id", id)
+        .not("migration_source", "is", null)
+        .is("claimed_at", null)
         .single();
 
       if (error) throw error;
-      
+
       if (data) {
         setSelectedBusiness(data);
-        setAccountData(prev => ({ ...prev, businessEmail: data.email || '' }));
-        setStep('verify');
+        setAccountData((prev) => ({
+          ...prev,
+          businessEmail: data.email || "",
+        }));
+        setStep("verify");
       }
     } catch (err) {
-      setError('Business not found or already claimed');
+      setError("Business not found or already claimed");
     } finally {
       setLoading(false);
     }
@@ -102,17 +106,33 @@ const ClaimAccountPage = () => {
       setError(null);
 
       const { data, error } = await supabase
-        .from('businesses')
-        .select('*')
-        .not('migration_source', 'is', null)
-        .is('claimed_at', null)
-        .or(`name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%`)
+        .from("businesses")
+        .select("*")
+        .not("migration_source", "is", null)
+        .is("claimed_at", null)
+        .or(
+          `name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%`
+        )
         .limit(10);
 
       if (error) throw error;
-      setSearchResults(data || []);
+
+      // Transform the data to match MigratedBusiness interface
+      const migratedBusinesses: MigratedBusiness[] = (data || []).map(
+        (business) => ({
+          id: business.id,
+          name: business.name,
+          description: business.description || "",
+          email: business.email || "",
+          image_url: business.image_url || "",
+          migration_source: business.migration_source || "",
+          claimed_at: business.claimed_at || null,
+        })
+      );
+
+      setSearchResults(migratedBusinesses);
     } catch (err) {
-      setError('Error searching businesses');
+      setError("Error searching businesses");
     } finally {
       setLoading(false);
     }
@@ -120,38 +140,44 @@ const ClaimAccountPage = () => {
 
   const selectBusiness = (business: MigratedBusiness) => {
     setSelectedBusiness(business);
-    setAccountData(prev => ({ ...prev, businessEmail: business.email || '' }));
-    setStep('verify');
+    setAccountData((prev) => ({
+      ...prev,
+      businessEmail: business.email || "",
+    }));
+    setStep("verify");
   };
 
   const handleAccountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
-    setAccountData(prev => ({ 
-      ...prev, 
-      [name]: type === 'checkbox' ? checked : value 
+    setAccountData((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? checked : value,
     }));
     setError(null);
   };
 
   const subscribeToEmailList = async (userEmail: string) => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/subscribe`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-        },
-        body: JSON.stringify({ email: userEmail }),
-      });
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/subscribe`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          },
+          body: JSON.stringify({ email: userEmail }),
+        }
+      );
 
       const data = await response.json();
-      
+
       if (!data.success) {
-        console.warn('Newsletter subscription failed:', data.error);
+        console.warn("Newsletter subscription failed:", data.error);
         // Don't throw error - newsletter subscription failure shouldn't block account creation
       }
     } catch (error) {
-      console.warn('Newsletter subscription error:', error);
+      console.warn("Newsletter subscription error:", error);
       // Don't throw error - newsletter subscription failure shouldn't block account creation
     }
   };
@@ -164,19 +190,22 @@ const ClaimAccountPage = () => {
 
     // Validate passwords match
     if (accountData.password !== accountData.confirmPassword) {
-      setError('Passwords do not match');
+      setError("Passwords do not match");
       return;
     }
 
     // Validate business email matches (if provided)
-    if (selectedBusiness.email && accountData.businessEmail !== selectedBusiness.email) {
-      setError('Business email does not match our records');
+    if (
+      selectedBusiness.email &&
+      accountData.businessEmail !== selectedBusiness.email
+    ) {
+      setError("Business email does not match our records");
       return;
     }
 
     // Check if we have the Migrated plan ID
     if (!migratedPlanId) {
-      setError('Unable to process claim. Please try again.');
+      setError("Unable to process claim. Please try again.");
       return;
     }
 
@@ -191,8 +220,13 @@ const ClaimAccountPage = () => {
 
       if (authError) {
         // Check if user already exists
-        if (authError.message.includes('User already registered') || authError.message.includes('user_already_exists')) {
-          setError('An account with this email already exists. Please sign in instead or use a different email address.');
+        if (
+          authError.message.includes("User already registered") ||
+          authError.message.includes("user_already_exists")
+        ) {
+          setError(
+            "An account with this email already exists. Please sign in instead or use a different email address."
+          );
           return;
         }
         throw authError;
@@ -204,43 +238,60 @@ const ClaimAccountPage = () => {
           await subscribeToEmailList(accountData.email);
         }
 
-        // Create a subscription for the Migrated plan
-        const { data: subscriptionData, error: subscriptionError } = await supabase
-          .from('subscriptions')
-          .insert({
-            business_id: selectedBusiness.id,
-            plan_id: migratedPlanId,
-            status: 'active',
-            current_period_start: new Date().toISOString(),
-            current_period_end: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(), // 1 year from now
-            payment_status: 'paid'
-          })
-          .select()
-          .single();
-
-        if (subscriptionError) {
-          console.error('Subscription creation error:', subscriptionError);
-          throw subscriptionError;
-        }
-
-        // Claim the business with the subscription ID
-        const { error: claimError } = await supabase.rpc('claim_business', {
+        // First, claim the business (this will set the owner_id)
+        const { error: claimError } = await supabase.rpc("claim_business", {
           business_id: selectedBusiness.id,
           user_id: authData.user.id,
-          new_subscription_id: subscriptionData.id
+          new_subscription_id: null, // We'll create this after claiming
         });
 
         if (claimError) {
-          console.error('Business claim error:', claimError);
+          console.error("Business claim error:", claimError);
           throw claimError;
         }
 
+        // Now create a subscription for the Migrated plan (user now owns the business)
+        const { data: subscriptionData, error: subscriptionError } =
+          await supabase
+            .from("subscriptions")
+            .insert({
+              business_id: selectedBusiness.id,
+              plan_id: migratedPlanId,
+              status: "active",
+              current_period_start: new Date().toISOString(),
+              current_period_end: new Date(
+                Date.now() + 365 * 24 * 60 * 60 * 1000
+              ).toISOString(), // 1 year from now
+              payment_status: "paid",
+            })
+            .select("id")
+            .single();
+
+        if (subscriptionError) {
+          console.error("Subscription creation error:", subscriptionError);
+          throw subscriptionError;
+        }
+
+        // Update the business with the subscription ID
+        const { error: updateError } = await supabase
+          .from("businesses")
+          .update({
+            subscription_id: subscriptionData.id,
+            subscription_status: "active",
+          })
+          .eq("id", selectedBusiness.id);
+
+        if (updateError) {
+          console.error("Business update error:", updateError);
+          throw updateError;
+        }
+
         // Redirect to dashboard
-        navigate('/dashboard?claimed=true');
+        navigate("/dashboard?claimed=true");
       }
     } catch (err) {
-      console.error('Account creation error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to create account');
+      console.error("Account creation error:", err);
+      setError(err instanceof Error ? err.message : "Failed to create account");
     } finally {
       setLoading(false);
     }
@@ -254,13 +305,17 @@ const ClaimAccountPage = () => {
           <h2 className="text-3xl font-bold text-white">Claim Your Business</h2>
         </div>
         <p className="text-gray-400">
-          Search for your business in our directory to claim ownership and create your account.
+          Search for your business in our directory to claim ownership and
+          create your account.
         </p>
       </div>
 
       <div className="space-y-6">
         <div>
-          <label htmlFor="search" className="block text-sm font-medium text-gray-300 mb-2">
+          <label
+            htmlFor="search"
+            className="block text-sm font-medium text-gray-300 mb-2"
+          >
             Search for your business
           </label>
           <div className="relative">
@@ -272,7 +327,7 @@ const ClaimAccountPage = () => {
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && searchBusinesses()}
+              onKeyPress={(e) => e.key === "Enter" && searchBusinesses()}
               className="appearance-none relative block w-full px-3 py-3 pl-10 border border-gray-700 rounded-lg bg-gray-900 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white focus:border-transparent"
               placeholder="Enter business name, email, or description"
             />
@@ -284,13 +339,13 @@ const ClaimAccountPage = () => {
           disabled={loading || !searchTerm.trim()}
           className="w-full py-3 px-4 bg-white hover:bg-gray-100 text-black rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
         >
-          {loading ? 'Searching...' : 'Search Businesses'}
+          {loading ? "Searching..." : "Search Businesses"}
         </button>
 
         {searchResults.length > 0 && (
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-white">Search Results</h3>
-            {searchResults.map(business => (
+            {searchResults.map((business) => (
               <div
                 key={business.id}
                 onClick={() => selectBusiness(business)}
@@ -304,16 +359,21 @@ const ClaimAccountPage = () => {
                       className="w-full h-full object-cover"
                       onError={(e) => {
                         const target = e.target as HTMLImageElement;
-                        target.src = 'https://images.pexels.com/photos/3184292/pexels-photo-3184292.jpeg';
+                        target.src =
+                          "https://images.pexels.com/photos/3184292/pexels-photo-3184292.jpeg";
                       }}
                     />
                   </div>
                   <div className="flex-grow">
                     <div className="flex items-center gap-2 mb-1">
-                      <h4 className="text-white font-semibold">{business.name}</h4>
+                      <h4 className="text-white font-semibold">
+                        {business.name}
+                      </h4>
                       <Crown className="h-4 w-4 text-yellow-400" />
                     </div>
-                    <p className="text-gray-400 text-sm mb-2">{business.description}</p>
+                    <p className="text-gray-400 text-sm mb-2">
+                      {business.description}
+                    </p>
                     {business.email && (
                       <p className="text-gray-500 text-xs">{business.email}</p>
                     )}
@@ -327,7 +387,7 @@ const ClaimAccountPage = () => {
 
       <div className="text-center">
         <p className="text-gray-400 text-sm">
-          Don't see your business?{' '}
+          Don't see your business?{" "}
           <Link to="/contact" className="text-white hover:text-gray-300">
             Contact us for help
           </Link>
@@ -339,7 +399,9 @@ const ClaimAccountPage = () => {
   const renderVerifyStep = () => (
     <div className="max-w-md w-full space-y-8">
       <div className="text-center">
-        <h2 className="text-3xl font-bold text-white">Verify Business Ownership</h2>
+        <h2 className="text-3xl font-bold text-white">
+          Verify Business Ownership
+        </h2>
         <p className="mt-2 text-gray-400">
           Confirm this is your business to proceed with account creation.
         </p>
@@ -355,22 +417,30 @@ const ClaimAccountPage = () => {
                 className="w-full h-full object-cover"
                 onError={(e) => {
                   const target = e.target as HTMLImageElement;
-                  target.src = 'https://images.pexels.com/photos/3184292/pexels-photo-3184292.jpeg';
+                  target.src =
+                    "https://images.pexels.com/photos/3184292/pexels-photo-3184292.jpeg";
                 }}
               />
             </div>
             <div className="flex-grow">
               <div className="flex items-center gap-2 mb-2">
-                <h3 className="text-xl font-bold text-white">{selectedBusiness.name}</h3>
+                <h3 className="text-xl font-bold text-white">
+                  {selectedBusiness.name}
+                </h3>
                 <Crown className="h-5 w-5 text-yellow-400" />
               </div>
-              <p className="text-gray-400 text-sm">{selectedBusiness.description}</p>
+              <p className="text-gray-400 text-sm">
+                {selectedBusiness.description}
+              </p>
             </div>
           </div>
 
           {selectedBusiness.email && (
             <div>
-              <label htmlFor="businessEmail" className="block text-sm font-medium text-gray-300 mb-2">
+              <label
+                htmlFor="businessEmail"
+                className="block text-sm font-medium text-gray-300 mb-2"
+              >
                 Verify business email
               </label>
               <input
@@ -393,13 +463,13 @@ const ClaimAccountPage = () => {
 
       <div className="flex gap-4">
         <button
-          onClick={() => setStep('search')}
+          onClick={() => setStep("search")}
           className="flex-1 py-3 px-4 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors"
         >
           Back to Search
         </button>
         <button
-          onClick={() => setStep('create')}
+          onClick={() => setStep("create")}
           className="flex-1 py-3 px-4 bg-white hover:bg-gray-100 text-black rounded-lg transition-colors font-medium"
         >
           Continue
@@ -419,7 +489,10 @@ const ClaimAccountPage = () => {
 
       <form onSubmit={handleCreateAccount} className="space-y-6">
         <div>
-          <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-2">
+          <label
+            htmlFor="email"
+            className="block text-sm font-medium text-gray-300 mb-2"
+          >
             Your Email Address
           </label>
           <div className="relative">
@@ -441,7 +514,10 @@ const ClaimAccountPage = () => {
         </div>
 
         <div>
-          <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-2">
+          <label
+            htmlFor="password"
+            className="block text-sm font-medium text-gray-300 mb-2"
+          >
             Password
           </label>
           <div className="relative">
@@ -463,7 +539,10 @@ const ClaimAccountPage = () => {
         </div>
 
         <div>
-          <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-300 mb-2">
+          <label
+            htmlFor="confirmPassword"
+            className="block text-sm font-medium text-gray-300 mb-2"
+          >
             Confirm Password
           </label>
           <div className="relative">
@@ -494,15 +573,19 @@ const ClaimAccountPage = () => {
             onChange={handleAccountChange}
             className="h-4 w-4 rounded border-gray-700 bg-gray-900 text-white focus:ring-white focus:ring-offset-gray-900"
           />
-          <label htmlFor="subscribeToNewsletter" className="ml-2 block text-sm text-gray-400">
-            Subscribe to our newsletter for updates on Black businesses and community news
+          <label
+            htmlFor="subscribeToNewsletter"
+            className="ml-2 block text-sm text-gray-400"
+          >
+            Subscribe to our newsletter for updates on Black businesses and
+            community news
           </label>
         </div>
 
         <div className="flex gap-4">
           <button
             type="button"
-            onClick={() => setStep('verify')}
+            onClick={() => setStep("verify")}
             className="flex-1 py-3 px-4 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors"
           >
             Back
@@ -512,18 +595,28 @@ const ClaimAccountPage = () => {
             disabled={loading}
             className="flex-1 py-3 px-4 bg-white hover:bg-gray-100 text-black rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
           >
-            {loading ? 'Creating Account...' : 'Claim Business'}
+            {loading ? "Creating Account..." : "Claim Business"}
           </button>
         </div>
       </form>
 
       <p className="text-xs text-gray-400 text-center">
-        By creating an account, you agree to our{' '}
-        <a href="https://www.blackdollarnetwork.com/terms-of-use" target="_blank" rel="noopener noreferrer" className="text-gray-300 hover:text-white">
+        By creating an account, you agree to our{" "}
+        <a
+          href="https://www.blackdollarnetwork.com/terms-of-use"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-gray-300 hover:text-white"
+        >
           Terms of Use
         </a>
-        {' and '}
-        <a href="https://www.blackdollarnetwork.com/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-gray-300 hover:text-white">
+        {" and "}
+        <a
+          href="https://www.blackdollarnetwork.com/privacy-policy"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-gray-300 hover:text-white"
+        >
           Privacy Policy
         </a>
       </p>
@@ -536,9 +629,12 @@ const ClaimAccountPage = () => {
         {error && (
           <div className="fixed top-4 right-4 bg-red-500/10 text-red-500 p-4 rounded-lg text-sm max-w-md z-50">
             {error}
-            {error.includes('already exists') && (
+            {error.includes("already exists") && (
               <div className="mt-2">
-                <Link to="/login" className="text-red-400 hover:text-red-300 underline">
+                <Link
+                  to="/login"
+                  className="text-red-400 hover:text-red-300 underline"
+                >
                   Sign in instead
                 </Link>
               </div>
@@ -546,13 +642,13 @@ const ClaimAccountPage = () => {
           </div>
         )}
 
-        {step === 'search' && renderSearchStep()}
-        {step === 'verify' && renderVerifyStep()}
-        {step === 'create' && renderCreateStep()}
+        {step === "search" && renderSearchStep()}
+        {step === "verify" && renderVerifyStep()}
+        {step === "create" && renderCreateStep()}
 
         <div className="absolute bottom-8 text-center">
           <p className="text-gray-400 text-sm">
-            Already have an account?{' '}
+            Already have an account?{" "}
             <Link to="/login" className="text-white hover:text-gray-300">
               Sign in
             </Link>

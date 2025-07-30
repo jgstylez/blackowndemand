@@ -155,7 +155,7 @@ Deno.serve(async (req) => {
     // Get the business and subscription details
     const { data: business, error: businessError } = await supabase
       .from("businesses")
-      .select("id, nmi_subscription_id, nmi_customer_vault_id")
+      .select("id, nmi_subscription_id, nmi_customer_vault_id, owner_id")
       .eq("id", business_id)
       .single();
 
@@ -167,21 +167,80 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Get the user's email from auth.users table
+    let userEmail = "";
+    if (business.owner_id) {
+      const { data: userData, error: userError } =
+        await supabase.auth.admin.getUserById(business.owner_id);
+      if (userError) {
+        console.error("Error fetching user:", userError);
+      } else if (userData?.user?.email) {
+        userEmail = userData.user.email;
+      }
+    }
+
     // Check if business has a customer vault ID (required for storing payment method)
     if (!business.nmi_customer_vault_id) {
-      console.log("No customer vault found for business:", business_id);
+      console.log(
+        "No customer vault found, creating one for business:",
+        business_id
+      );
 
-      return new Response(
-        JSON.stringify({
-          error:
-            "No payment method on file. Please contact support to set up your payment method.",
-          code: "no_payment_method",
-          details: "Customer vault not found for this business",
-        }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+      // Create customer vault first
+      const vaultResult = await createCustomerVault(
+        business,
+        payment_method,
+        userEmail
+      );
+      console.log("Customer vault creation result:", vaultResult);
+
+      if (!vaultResult.success) {
+        console.error("Failed to create customer vault:", vaultResult.error);
+        return new Response(
+          JSON.stringify({
+            error: vaultResult.error || "Failed to create customer vault",
+          }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
+      }
+
+      console.log(
+        "Customer vault created successfully, updating business record"
+      );
+
+      // Update business with new customer vault ID
+      const { error: updateError } = await supabase
+        .from("businesses")
+        .update({
+          nmi_customer_vault_id: vaultResult.customer_vault_id,
+          payment_method_last_four: payment_method.card_number
+            .replace(/\s/g, "")
+            .slice(-4),
+        })
+        .eq("id", business_id);
+
+      if (updateError) {
+        console.error(
+          "Error updating business with customer vault ID:",
+          updateError
+        );
+        return new Response(
+          JSON.stringify({ error: "Failed to update business record" }),
+          {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
+      }
+
+      // Update the business object for the rest of the function
+      business.nmi_customer_vault_id = vaultResult.customer_vault_id;
+      console.log(
+        "Business updated with customer vault ID:",
+        vaultResult.customer_vault_id
       );
     }
 
