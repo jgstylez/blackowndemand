@@ -321,6 +321,51 @@ Deno.serve(async (req) => {
           ? "No security key configured"
           : "Development mode with test card"
       );
+
+      // ADD THIS: Store simulated response in database
+      if (is_recurring && simulatedResponse.subscription_id) {
+        try {
+          const { data: businessData, error: businessError } = await supabase
+            .from("businesses")
+            .select("id")
+            .eq("email", customer_email)
+            .single();
+
+          if (businessData) {
+            await supabase
+              .from("businesses")
+              .update({
+                nmi_subscription_id: simulatedResponse.subscription_id,
+                nmi_customer_vault_id: simulatedResponse.customer_vault_id,
+                subscription_status: "active",
+                plan_name: plan_name,
+                next_billing_date: new Date(
+                  Date.now() + 365 * 24 * 60 * 60 * 1000
+                ).toISOString(),
+                last_payment_date: new Date().toISOString(),
+                payment_method_last_four: payment_method.card_number
+                  .replace(/\s/g, "")
+                  .slice(-4),
+              })
+              .eq("id", businessData.id);
+
+            await supabase.from("payment_history").insert({
+              business_id: businessData.id,
+              nmi_transaction_id: simulatedResponse.transaction_id,
+              amount: processAmount / 100,
+              status: "approved",
+              type: "initial_subscription",
+              response_text: JSON.stringify(simulatedResponse),
+            });
+          }
+        } catch (dbError) {
+          console.error(
+            "Database error when storing simulated subscription details:",
+            dbError
+          );
+        }
+      }
+
       return new Response(JSON.stringify(simulatedResponse), {
         headers: {
           ...corsHeaders,
