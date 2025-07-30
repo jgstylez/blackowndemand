@@ -84,16 +84,15 @@ const MyBookmarksSection: React.FC<MyBookmarksSectionProps> = ({
                         {business.tagline}
                       </p>
                       <div className="flex items-center gap-4 text-sm text-gray-500">
-                        {business.city && business.state && (
-                          <span>
-                            {business.city}, {business.state}
-                          </span>
-                        )}
                         {business.category && (
                           <>
-                            <span>•</span>
                             <span>{business.category}</span>
                           </>
+                        )}
+                        {business.city && business.state && (
+                          <span>
+                            • &nbsp;&nbsp; {business.city}, {business.state}
+                          </span>
                         )}
                       </div>
                     </div>
