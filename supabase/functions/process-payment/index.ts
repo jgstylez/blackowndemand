@@ -554,22 +554,38 @@ Deno.serve(async (req) => {
     // For recurring payments, store subscription details in the database
     if (is_recurring && parsedResponse.subscriptionId) {
       try {
-        // Get the business ID from the customer email
         const { data: businessData, error: businessError } = await supabase
           .from("businesses")
           .select("id")
           .eq("email", customer_email)
           .single();
 
-        if (businessError) {
-          console.error("Error finding business:", businessError);
-        } else if (businessData) {
-          // Update the business with subscription details
+        if (businessData) {
+          // Create or update subscription record
+          const { error: subscriptionError } = await supabase
+            .from("subscriptions")
+            .upsert({
+              business_id: businessData.id,
+              plan_id: null, // You might want to add plan_id mapping
+              status: "active",
+              payment_status: "paid",
+              current_period_start: new Date().toISOString(),
+              current_period_end: new Date(
+                Date.now() + 365 * 24 * 60 * 60 * 1000
+              ).toISOString(),
+              payment_provider: "nmi",
+              nmi_subscription_id: parsedResponse.subscriptionId,
+              nmi_customer_vault_id: parsedResponse.customerVaultId,
+            });
+
+          if (subscriptionError) {
+            console.error("Error creating subscription:", subscriptionError);
+          }
+
+          // Update business with basic subscription info
           const { error: updateError } = await supabase
             .from("businesses")
             .update({
-              nmi_subscription_id: parsedResponse.subscriptionId,
-              nmi_customer_vault_id: parsedResponse.customerVaultId, // Make sure this is stored
               subscription_status: "active",
               plan_name: plan_name,
               next_billing_date: new Date(
@@ -581,33 +597,11 @@ Deno.serve(async (req) => {
             .eq("id", businessData.id);
 
           if (updateError) {
-            console.error(
-              "Error updating business with subscription details:",
-              updateError
-            );
-          }
-
-          // Log the payment in payment_history
-          const { error: historyError } = await supabase
-            .from("payment_history")
-            .insert({
-              business_id: businessData.id,
-              nmi_transaction_id: parsedResponse.transactionId,
-              amount: processAmount / 100,
-              status: "approved",
-              type: "initial_subscription",
-              response_text: JSON.stringify(parsedResponse), // Store full response for debugging
-            });
-
-          if (historyError) {
-            console.error("Error logging payment history:", historyError);
+            console.error("Error updating business:", updateError);
           }
         }
       } catch (dbError) {
-        console.error(
-          "Database error when storing subscription details:",
-          dbError
-        );
+        console.error("Database error:", dbError);
       }
     }
     // Payment successful - return the response
