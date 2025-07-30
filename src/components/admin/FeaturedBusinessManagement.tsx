@@ -103,38 +103,25 @@ const FeaturedBusinessManagement: React.FC = () => {
     setError(null);
 
     try {
-      console.log("🔍 Starting drag reorder:", {
-        oldIndex,
-        newIndex,
-        activeId: active.id,
-        overId: over.id,
-      });
-
       // Create new array with reordered items
       const newBusinesses = [...businesses];
       const [movedItem] = newBusinesses.splice(oldIndex, 1);
       newBusinesses.splice(newIndex, 0, movedItem);
 
-      // Assign sequential featured_position values (1, 2, 3, ...)
-      const updatedBusinesses = newBusinesses.map((business, index) => ({
-        ...business,
-        featured_position: index + 1,
-      }));
+      // First, set all positions to NULL to avoid conflicts
+      for (const business of newBusinesses) {
+        await supabase
+          .from("businesses")
+          .update({ featured_position: null })
+          .eq("id", business.id);
+      }
 
-      console.log(
-        "🔍 Updated positions:",
-        updatedBusinesses.map((b) => ({
-          id: b.id,
-          name: b.name,
-          position: b.featured_position,
-        }))
-      );
-
-      // Update positions sequentially to avoid deadlocks
-      for (const business of updatedBusinesses) {
+      // Then assign new sequential positions
+      for (let i = 0; i < newBusinesses.length; i++) {
+        const business = newBusinesses[i];
         const { error } = await supabase
           .from("businesses")
-          .update({ featured_position: business.featured_position })
+          .update({ featured_position: i + 1 })
           .eq("id", business.id);
 
         if (error) {
@@ -145,8 +132,11 @@ const FeaturedBusinessManagement: React.FC = () => {
       }
 
       // Update local state
+      const updatedBusinesses = newBusinesses.map((business, index) => ({
+        ...business,
+        featured_position: index + 1,
+      }));
       setBusinesses(updatedBusinesses);
-      console.log("✅ Featured business positions updated successfully");
     } catch (err: any) {
       console.error("❌ Error updating business positions:", err);
       setError(err.message || "Failed to update business positions");
