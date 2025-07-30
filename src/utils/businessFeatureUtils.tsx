@@ -53,12 +53,41 @@ export const isUnclaimedMigratedBusiness = (business: any): boolean => {
 };
 
 /**
+ * Gets the effective plan name for a business
+ * @param business The business object
+ * @returns The effective plan name
+ */
+export const getEffectivePlanName = (business: any): string => {
+  // If it's an unclaimed migrated business, show as "Migrated" regardless of plan_name
+  if (isUnclaimedMigratedBusiness(business)) {
+    return "Migrated";
+  }
+
+  // Otherwise return the actual plan name
+  return business?.plan_name || "Free";
+};
+
+/**
  * Determines if a business is a VIP member
  * @param business The business object
  * @returns boolean indicating if the business is a VIP member
  */
 export const isVipMember = (business: any): boolean => {
-  return business?.subscription_plans === "VIP Plan";
+  // Unclaimed migrated businesses are not active VIP members
+  if (isUnclaimedMigratedBusiness(business)) {
+    return false;
+  }
+
+  return business?.plan_name === "VIP Plan";
+};
+
+/**
+ * Checks if a business should show VIP features
+ * @param business The business object
+ * @returns boolean indicating if VIP features should be shown
+ */
+export const shouldShowVipFeatures = (business: any): boolean => {
+  return isVipMember(business) && !isUnclaimedMigratedBusiness(business);
 };
 
 /**

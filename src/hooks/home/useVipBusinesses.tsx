@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../../lib/supabase";
 import { logError } from "../../lib/errorLogger";
+import { isVipMember } from "../../utils/businessFeatureUtils";
 
 export const useVipBusinesses = (limit: number = 50) => {
   const [businesses, setBusinesses] = useState<any[]>([]);
@@ -12,7 +13,7 @@ export const useVipBusinesses = (limit: number = 50) => {
       setLoading(true);
       setError(null);
 
-      // Simple direct query to businesses table
+      // Fetch all businesses and filter for actual VIP members
       const { data, error: fetchError } = await supabase
         .from("businesses")
         .select(
@@ -31,20 +32,28 @@ export const useVipBusinesses = (limit: number = 50) => {
           phone,
           email,
           featured_position,
-          subscription_status
+          subscription_status,
+          plan_name,
+          migration_source,
+          claimed_at
         `
         )
         .eq("is_active", true)
-        .eq("subscription_status", "VIP Plan")
+        .eq("subscription_status", "active")
         .order("featured_position", { ascending: true, nullsFirst: false })
         .order("created_at", { ascending: false })
-        .limit(limit);
+        .limit(limit * 2); // Fetch more to account for filtering
 
       if (fetchError) {
         throw fetchError;
       }
 
-      setBusinesses(data || []);
+      // Filter for actual VIP members (not unclaimed migrated businesses)
+      const vipBusinesses = (data || []).filter((business) =>
+        isVipMember(business)
+      );
+
+      setBusinesses(vipBusinesses.slice(0, limit));
     } catch (err) {
       const error = err as Error;
       setError(error);

@@ -109,7 +109,7 @@ const BusinessManagement: React.FC<BusinessManagementProps> = ({
           total: data[0].total_businesses || 0,
           verified: data[0].verified_businesses || 0,
           featured: data[0].featured_businesses || 0,
-          members: data[0].founder_businesses || 0,
+          members: data[0].vip_members || 0, // Use vip_members instead of founder_businesses
           unclaimed: data[0].unclaimed_businesses || 0,
           inactive: data[0].inactive_businesses || 0,
         });

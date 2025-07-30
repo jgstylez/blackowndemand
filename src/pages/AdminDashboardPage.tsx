@@ -42,6 +42,7 @@ interface BusinessStats {
   featured_businesses: number;
   member_businesses: number;
   unclaimed_businesses: number;
+  // Remove vip_members from interface
 }
 
 type AdminTab =
@@ -86,8 +87,9 @@ const AdminDashboardPage = () => {
           inactive_businesses: statsData.inactive_businesses || 0,
           verified_businesses: statsData.verified_businesses || 0,
           featured_businesses: statsData.featured_businesses || 0,
-          member_businesses: statsData.founder_businesses || 0,
+          member_businesses: statsData.founder_businesses || 0, // Changed from member_businesses to founder_businesses
           unclaimed_businesses: statsData.unclaimed_businesses || 0,
+          // Remove vip_members line since it's not returned by get_business_stats()
         });
       }
     } catch (err) {
@@ -312,19 +314,7 @@ const AdminDashboardPage = () => {
             </div>
           </div>
 
-          <div className="bg-gray-900 rounded-xl p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-400 text-sm">VIP Members</p>
-                <p className="text-3xl font-bold text-white">
-                  {loading
-                    ? "..."
-                    : stats?.member_businesses?.toLocaleString() || 0}
-                </p>
-              </div>
-              <Crown className="h-8 w-8 text-yellow-500" />
-            </div>
-          </div>
+          {/* Remove VIP Members card */}
         </div>
 
         {/* Quick Actions */}
@@ -463,14 +453,12 @@ const AdminDashboardPage = () => {
 
             <div className="flex items-center justify-between p-4 bg-gray-800 rounded-lg">
               <div>
-                <p className="text-white font-medium">
-                  Unclaimed VIP Businesses
-                </p>
+                <p className="text-white font-medium">Unclaimed Businesses</p>
                 <p className="text-gray-400 text-sm">
-                  VIP businesses waiting to be claimed
+                  Migrated businesses waiting to be claimed
                 </p>
               </div>
-              <span className="text-2xl font-bold text-yellow-500">
+              <span className="text-2xl font-bold text-orange-500">
                 {loading
                   ? "..."
                   : stats?.unclaimed_businesses?.toLocaleString() || 0}
