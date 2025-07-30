@@ -87,18 +87,9 @@ serve(async (req) => {
       throw new Error("Business not found or access denied");
     }
 
-    // Additional validation: check if business is active
-    if (!business.is_active) {
-      throw new Error("Cannot modify plan for inactive business");
-    }
-
-    // Check if business has a subscription (active or cancelled - both can be modified)
-    if (!business.plan_name) {
-      throw new Error("Business must have a subscription to modify plans");
-    }
-
-    // Calculate the upgrade amount (difference between plans)
-    const currentPlanPrice = business.plan_price || 0;
+    // Remove the plan_name check - allow any active business to upgrade
+    // const currentPlanPrice = business.plan_price || 0;
+    const currentPlanPrice = 0; // Treat as free plan if no plan_price set
     const planChangeAmount = planPrice - currentPlanPrice;
     const isUpgrade = planChangeAmount > 0;
     const isDowngrade = planChangeAmount < 0;

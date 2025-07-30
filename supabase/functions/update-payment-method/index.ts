@@ -96,6 +96,138 @@ function isValidTestCard(cardNumber: string): boolean {
   return TEST_CARDS.includes(cleanCardNumber);
 }
 
+async function createCustomerVault(
+  business: any,
+  payment_method: any,
+  userEmail: string
+) {
+  console.log("Creating customer vault for business:", business.name);
+
+  const cleanCardNumber = payment_method.card_number.replace(/\s/g, "");
+  // ✅ SECURE: Log only last 4 digits
+  console.log("Card number (last 4):", cleanCardNumber.slice(-4));
+  console.log("Is test card:", isValidTestCard(cleanCardNumber));
+
+  // ✅ SECURE: Log only safe payment information
+  console.log("Payment method details:", {
+    card_number: payment_method.card_number
+      ? "****" + payment_method.card_number.slice(-4)
+      : "missing",
+    expiry_date: "MM/YY", // Don't log actual expiry
+    cvv: "***", // Don't log actual CVV
+    cardholder_name: payment_method.cardholder_name ? "Present" : "Missing",
+    billing_zip: payment_method.billing_zip ? "Present" : "Missing",
+  });
+  console.log("User email:", userEmail ? "Provided" : "Missing");
+  console.log("Security key configured:", !!SECURITY_KEY);
+  console.log("Environment:", NODE_ENV);
+
+  // Add validation for test cards
+  if (!isValidTestCard(cleanCardNumber)) {
+    console.error("Invalid test card number:", cleanCardNumber.slice(-4));
+    return {
+      success: false,
+      error: "Invalid test card. Please use a valid test card number.",
+      details:
+        "For testing, use: 4000000000000002 (Visa), 5555555555554444 (Mastercard), or 378282246310005 (Amex)",
+    };
+  }
+
+  const postData = new URLSearchParams();
+  postData.append("security_key", SECURITY_KEY);
+  postData.append("type", "sale");
+  postData.append("amount", "0.01"); // Small charge to create vault
+  postData.append("ccnumber", payment_method.card_number.replace(/\s/g, ""));
+  postData.append("ccexp", payment_method.expiry_date);
+  postData.append("cvv", payment_method.cvv);
+  postData.append("customer_vault", "add_customer");
+  postData.append("currency", "USD");
+  postData.append(
+    "order_description",
+    `Customer vault creation for ${business.name}`
+  );
+
+  // Add billing information
+  if (payment_method.cardholder_name) {
+    const nameParts = payment_method.cardholder_name.split(" ");
+    postData.append("first_name", nameParts[0] || "");
+    postData.append("last_name", nameParts.slice(1).join(" ") || "");
+  }
+  if (payment_method.billing_zip) {
+    postData.append("zip", payment_method.billing_zip);
+  }
+  if (userEmail) {
+    postData.append("email", userEmail);
+  }
+
+  // ✅ SECURE: Log only safe information
+  console.log("Sending request to Ecom Payments:", {
+    type: "sale",
+    amount: "0.01",
+    customer_vault: "add_customer",
+    currency: "USD",
+    order_description: `Customer vault creation for ${business.name}`,
+    first_name: payment_method.cardholder_name ? "Present" : "Missing",
+    last_name: payment_method.cardholder_name ? "Present" : "Missing",
+    zip: payment_method.billing_zip ? "Present" : "Missing",
+    email: userEmail ? "Present" : "Missing",
+  });
+
+  try {
+    const paymentResponse = await fetch(
+      "https://ecompaymentprocessing.transactiongateway.com/api/transact.php",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: postData.toString(),
+      }
+    );
+
+    console.log("Payment gateway response status:", paymentResponse.status);
+    // ✅ SECURE: Don't log response headers
+
+    const responseText = await paymentResponse.text();
+    // ✅ SECURE: Don't log raw response text
+
+    const parsedResponse = parseNMIResponse(responseText);
+    // ✅ SECURE: Log only success/failure status
+    console.log("Payment response:", {
+      success: parsedResponse.success,
+      responseCode: parsedResponse.responseCode,
+    });
+
+    if (!parsedResponse.success) {
+      console.error("Payment gateway error:", {
+        responseCode: parsedResponse.responseCode,
+        responseText: parsedResponse.responseText,
+        success: parsedResponse.success,
+      });
+      return {
+        success: false,
+        error: parsedResponse.responseText || "Payment gateway error",
+        responseCode: parsedResponse.responseCode,
+      };
+    }
+
+    console.log("Customer vault created successfully:", {
+      customerVaultId: parsedResponse.customer_vault_id,
+      transactionId: parsedResponse.transactionId,
+    });
+
+    return {
+      success: true,
+      customer_vault_id: parsedResponse.customer_vault_id,
+      transaction_id: parsedResponse.transactionId,
+    };
+  } catch (error) {
+    console.error("Error making payment gateway request:", error);
+    return {
+      success: false,
+      error: error.message || "Network error",
+    };
+  }
+}
+
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
