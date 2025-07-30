@@ -5,6 +5,7 @@
     - Add promo_video_url field to the SELECT statement
     - Add other missing fields that are needed for business display
     - Ensure all business fields are properly returned
+    - NOTE: nmi_subscription_id and nmi_customer_vault_id are accessed from subscriptions table, not businesses table
 */
 
 CREATE OR REPLACE FUNCTION public.get_businesses_with_plan_details(

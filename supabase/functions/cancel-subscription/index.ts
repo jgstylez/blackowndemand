@@ -69,13 +69,25 @@ Deno.serve(async (req) => {
     }
 
     // Get the business and subscription details
-    const { data: business, error: businessError } = await supabase
+    const { data: business } = await supabase
       .from("businesses")
-      .select("id, nmi_subscription_id")
+      .select(
+        `
+        id, 
+        subscription_id,
+        subscription_status,
+        plan_name,
+        subscriptions!inner(
+          id,
+          nmi_subscription_id,
+          stripe_subscription_id
+        )
+      `
+      )
       .eq("id", business_id)
       .single();
 
-    if (businessError) {
+    if (!business) {
       console.error("Error fetching business:", businessError);
       return new Response(JSON.stringify({ error: "Business not found" }), {
         status: 404,
@@ -83,7 +95,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (!business.nmi_subscription_id) {
+    if (!business.subscriptions?.nmi_subscription_id) {
       return new Response(
         JSON.stringify({
           error: "No active subscription found for this business",
@@ -98,7 +110,10 @@ Deno.serve(async (req) => {
     // Prepare the data for canceling the subscription
     const postData = new URLSearchParams();
     postData.append("security_key", SECURITY_KEY);
-    postData.append("subscription_id", business.nmi_subscription_id);
+    postData.append(
+      "subscription_id",
+      business.subscriptions.nmi_subscription_id
+    );
     postData.append("type", "delete_subscription");
 
     console.log("Sending cancel subscription request to gateway");

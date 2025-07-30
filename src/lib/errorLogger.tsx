@@ -1,3 +1,5 @@
+import { supabase } from "./supabase";
+
 export interface ErrorLogEntry {
   timestamp: string;
   message: string;

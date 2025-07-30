@@ -110,6 +110,8 @@ Tracks active business subscriptions:
 - `current_period_end` (timestamp with time zone) - Current period end
 - `cancel_at_period_end` (boolean) - Cancel at period end flag
 - `stripe_subscription_id` (text) - Stripe subscription ID
+- `nmi_subscription_id` (text) - NMI subscription ID
+- `nmi_customer_vault_id` (text) - NMI customer vault ID
 
 **Timestamps:**
 

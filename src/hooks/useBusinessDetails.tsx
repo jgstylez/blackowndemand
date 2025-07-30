@@ -69,6 +69,7 @@ export const useBusinessDetails = (id: string | undefined): BusinessDetails => {
           "get_businesses_with_plan_details",
           {
             p_business_id: id,
+            p_is_active: true,
           }
         );
 
@@ -107,9 +108,8 @@ export const useBusinessDetails = (id: string | undefined): BusinessDetails => {
           const { data: similar, error: similarError } = await supabase.rpc(
             "get_businesses_with_plan_details",
             {
-              p_category: data[0].category,
-              p_is_active: true,
-              p_limit: 4,
+              p_business_id: id,
+              p_is_active: null, // Allow both active and inactive for admin view
             }
           );
 

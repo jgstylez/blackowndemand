@@ -284,14 +284,25 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Get the business and subscription details
-    const { data: business, error: businessError } = await supabase
+    // Update the query to get nmi fields from subscriptions table
+    const { data: business } = await supabase
       .from("businesses")
-      .select("id, nmi_subscription_id, nmi_customer_vault_id, owner_id")
+      .select(
+        `
+        id, 
+        owner_id,
+        subscription_id,
+        subscriptions!inner(
+          id,
+          nmi_subscription_id,
+          nmi_customer_vault_id
+        )
+      `
+      )
       .eq("id", business_id)
       .single();
 
-    if (businessError) {
+    if (!business) {
       console.error("Error fetching business:", businessError);
       return new Response(JSON.stringify({ error: "Business not found" }), {
         status: 404,
@@ -312,7 +323,7 @@ Deno.serve(async (req) => {
     }
 
     // Check if business has a customer vault ID (required for storing payment method)
-    if (!business.nmi_customer_vault_id) {
+    if (!business.subscriptions?.nmi_customer_vault_id) {
       console.log(
         "No customer vault found, creating one for business:",
         business_id
@@ -343,16 +354,13 @@ Deno.serve(async (req) => {
         "Customer vault created successfully, updating business record"
       );
 
-      // Update business with new customer vault ID
+      // Update the business update to use subscription_id
       const { error: updateError } = await supabase
-        .from("businesses")
+        .from("subscriptions")
         .update({
           nmi_customer_vault_id: vaultResult.customer_vault_id,
-          payment_method_last_four: payment_method.card_number
-            .replace(/\s/g, "")
-            .slice(-4),
         })
-        .eq("id", business_id);
+        .eq("id", business.subscription_id);
 
       if (updateError) {
         console.error(
@@ -369,7 +377,8 @@ Deno.serve(async (req) => {
       }
 
       // Update the business object for the rest of the function
-      business.nmi_customer_vault_id = vaultResult.customer_vault_id;
+      business.subscriptions.nmi_customer_vault_id =
+        vaultResult.customer_vault_id;
       console.log(
         "Business updated with customer vault ID:",
         vaultResult.customer_vault_id
@@ -379,7 +388,10 @@ Deno.serve(async (req) => {
     // Prepare the payment data for updating the customer vault
     const postData = new URLSearchParams();
     postData.append("security_key", SECURITY_KEY);
-    postData.append("customer_vault_id", business.nmi_customer_vault_id);
+    postData.append(
+      "customer_vault_id",
+      business.subscriptions.nmi_customer_vault_id
+    );
     postData.append("customer_vault", "update_customer");
     postData.append("ccnumber", payment_method.card_number.replace(/\s/g, ""));
     postData.append("ccexp", payment_method.expiry_date);
