@@ -85,31 +85,33 @@ const PlanUpgradeModal: React.FC<PlanUpgradeModalProps> = ({
     },
     onError: (error) => {
       console.error("Plan change failed:", error);
-      console.log("Error details:", {
-        message: error.message,
-        userFriendlyMessage: error.userFriendlyMessage,
-        details: error.details,
-        code: error.code,
-      });
       setUpgradeLoading(false);
 
-      // Check if the error is about missing payment method
+      // Enhanced error detection for payment method issues
       const errorMessage = error.userFriendlyMessage || error.message || "";
       const errorDetails = error.details?.error || error.details?.message || "";
       const fullErrorText = `${errorMessage} ${errorDetails}`.toLowerCase();
 
-      console.log("Checking for payment method error in:", fullErrorText);
+      // Check for various payment method error patterns
+      const paymentMethodErrors = [
+        "no payment method on file",
+        "payment method required",
+        "payment method required for plan changes",
+        "please update your payment method",
+        "requires_payment_method",
+        "customer vault",
+        "payment information",
+        "billing information",
+      ];
 
-      if (
-        fullErrorText.includes("no payment method on file") ||
-        fullErrorText.includes("payment method required") ||
-        fullErrorText.includes("payment method required for plan changes") ||
-        fullErrorText.includes("please update your payment method") ||
-        fullErrorText.includes("requires_payment_method")
-      ) {
+      const isPaymentMethodError = paymentMethodErrors.some((pattern) =>
+        fullErrorText.includes(pattern)
+      );
+
+      if (isPaymentMethodError) {
         console.log("Payment method error detected - showing update modal");
-        // Show payment method update modal instead of error
         setShowPaymentMethodModal(true);
+        setError(null); // Clear error since we're showing the payment method modal
       } else {
         console.log("Non-payment method error - showing error message");
         setError(
@@ -127,16 +129,15 @@ const PlanUpgradeModal: React.FC<PlanUpgradeModalProps> = ({
     if (!selectedPlan) return;
 
     setUpgradeLoading(true);
-    setError(null); // Clear previous errors
+    setError(null);
 
     try {
-      // Always call the edge function - it handles both upgrades and downgrades
       const result = await handlePlanUpgrade({
         businessId,
         currentPlan,
         newPlan: selectedPlan.name,
         planPrice: selectedPlan.price,
-        customerEmail: "", // Will be filled by the hook
+        customerEmail: "",
         metadata: {
           business_id: businessId,
           upgrade_from: currentPlan,
@@ -148,25 +149,32 @@ const PlanUpgradeModal: React.FC<PlanUpgradeModalProps> = ({
       const isDowngrade = selectedPlan.price < (currentPlanConfig?.price || 0);
 
       if (isDowngrade || result?.is_downgrade) {
-        // Downgrade completed, no payment needed
         onSuccess();
         onClose();
       } else {
-        // Upgrade completed with customer vault
         onSuccess();
         onClose();
       }
     } catch (err: any) {
       console.error("Error initiating plan change:", err);
 
-      // Check if the error is about missing payment method
-      if (
-        err.message?.includes("No payment method on file") ||
-        err.message?.includes("Payment method required") ||
-        err.message?.includes("Payment method required for plan changes")
-      ) {
-        // Show payment method update modal instead of error
+      // Enhanced error handling for payment method issues
+      const errorMessage = err.message || "";
+      const paymentMethodErrors = [
+        "No payment method on file",
+        "Payment method required",
+        "Payment method required for plan changes",
+        "customer vault",
+        "payment information",
+      ];
+
+      const isPaymentMethodError = paymentMethodErrors.some((pattern) =>
+        errorMessage.toLowerCase().includes(pattern.toLowerCase())
+      );
+
+      if (isPaymentMethodError) {
         setShowPaymentMethodModal(true);
+        setError(null);
       } else {
         setError(err.message || "Failed to change plan");
       }
@@ -221,6 +229,7 @@ const PlanUpgradeModal: React.FC<PlanUpgradeModalProps> = ({
   const handlePaymentMethodSuccess = () => {
     // After payment method is updated, retry the plan change
     setShowPaymentMethodModal(false);
+    setError(null); // Clear any previous errors
     handlePlanChange();
   };
 

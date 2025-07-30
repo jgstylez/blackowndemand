@@ -79,21 +79,21 @@ function getNMIErrorMessage(
   );
 }
 
+// Standardized test cards - keep in sync with frontend
+const TEST_CARDS = [
+  "4000000000000002", // Visa success
+  "5555555555554444", // Mastercard success
+  "378282246310005", // Amex success
+  "4000000000000127", // Visa simulation
+  "4111111111111111", // Visa test
+  "4222222222222222", // Visa test
+  "5105105105105100", // Mastercard test
+  "371449635398431", // Amex test
+];
+
 function isValidTestCard(cardNumber: string): boolean {
   const cleanCardNumber = cardNumber.replace(/\s/g, "");
-  const testCards = [
-    "4000000000000002", // Visa success
-    "4000000000000127", // Visa simulation
-    "5555555555554444", // Mastercard success
-    "378282246310005", // Amex success
-    "4111111111111111", // Visa test
-    "4222222222222222", // Visa test
-    "5555555555554444", // Mastercard test
-    "5105105105105100", // Mastercard test
-    "378282246310005", // Amex test
-    "371449635398431", // Amex test
-  ];
-  return testCards.includes(cleanCardNumber);
+  return TEST_CARDS.includes(cleanCardNumber);
 }
 
 Deno.serve(async (req) => {

@@ -67,15 +67,20 @@ function createSimulatedResponse(
     simulation_reason: reason,
   };
 }
-// Helper function to determine if we should use simulation mode
-function shouldUseSimulation(cardNumber) {
+// Standardized test cards - keep in sync with frontend
+const TEST_CARDS = [
+  "4000000000000002", // Visa success
+  "5555555555554444", // Mastercard success
+  "378282246310005", // Amex success
+  "4000000000000127", // Visa simulation
+  "4111111111111111", // Visa test
+  "4222222222222222", // Visa test
+  "5105105105105100", // Mastercard test
+  "371449635398431", // Amex test
+];
+
+function shouldUseSimulation(cardNumber: string): boolean {
   const cleanCardNumber = cardNumber.replace(/\s/g, "");
-  const testCards = [
-    "4000000000000002",
-    "5555555555554444",
-    "378282246310005",
-    "4000000000000127",
-  ];
 
   // If no security key, always simulate
   if (!SECURITY_KEY) {
@@ -84,7 +89,7 @@ function shouldUseSimulation(cardNumber) {
   }
 
   // For test cards, allow real processing if security key is available
-  if (testCards.includes(cleanCardNumber)) {
+  if (TEST_CARDS.includes(cleanCardNumber)) {
     console.log(
       "Test card detected, but security key available - processing real transaction"
     );
