@@ -113,8 +113,7 @@ const BusinessManagement: React.FC<BusinessManagementProps> = ({
 
       let query = supabase.from("businesses").select(
         `
-          *,
-          vip_member(*)
+          *
         `,
         { count: "exact" }
       );
@@ -209,7 +208,7 @@ const BusinessManagement: React.FC<BusinessManagementProps> = ({
       setTotalCount(count || 0);
     } catch (err) {
       if (mounted.current) {
-        handleError(err, { message: "Failed to fetch businesses" });
+        handleError(err, { defaultMessage: "Failed to fetch businesses" });
       }
     } finally {
       if (mounted.current) {
@@ -291,7 +290,7 @@ const BusinessManagement: React.FC<BusinessManagementProps> = ({
       fetchStats();
       onBusinessUpdate?.();
     } catch (err) {
-      handleError(err, `Failed to ${action} business`);
+      handleError(err, { defaultMessage: `Failed to ${action} business` });
     } finally {
       setLoading(false);
     }
@@ -321,7 +320,7 @@ const BusinessManagement: React.FC<BusinessManagementProps> = ({
 
       setSelectedBusinesses([]);
     } catch (err) {
-      handleError(err, `Failed to perform bulk ${action}`);
+      handleError(err, { defaultMessage: `Failed to perform bulk ${action}` });
     } finally {
       setLoading(false);
     }
@@ -351,7 +350,7 @@ const BusinessManagement: React.FC<BusinessManagementProps> = ({
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
     } catch (err) {
-      handleError(err, "Failed to export businesses");
+      handleError(err, { defaultMessage: "Failed to export businesses" });
     } finally {
       setLoading(false);
     }
@@ -377,13 +376,7 @@ const BusinessManagement: React.FC<BusinessManagementProps> = ({
 
   // If there's an error, show the error fallback
   if (error && !loading) {
-    return (
-      <ErrorFallback
-        error={error.details}
-        message={error.message || "Failed to load businesses"}
-        resetErrorBoundary={fetchBusinesses}
-      />
-    );
+    return <ErrorFallback error={error} resetErrorBoundary={fetchBusinesses} />;
   }
 
   // Extract business list rendering logic
