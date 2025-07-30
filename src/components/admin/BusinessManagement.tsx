@@ -8,6 +8,7 @@ import BusinessStatsCards from "./business/BusinessStatsCards";
 import BusinessFilters from "./business/BusinessFilters";
 import BusinessListItem from "./business/BusinessListItem";
 import PaginationControls from "../common/PaginationControls";
+import AdminActionConfirmationModal from "./AdminActionConfirmationModal";
 
 interface Business {
   id: string;
@@ -68,6 +69,21 @@ const BusinessManagement: React.FC<BusinessManagementProps> = ({
     unclaimed: 0,
     inactive: 0,
   });
+
+  // Add confirmation modal state
+  const [confirmationModal, setConfirmationModal] = useState<{
+    isOpen: boolean;
+    action: string;
+    businessId: string | null;
+    businessName: string;
+    businessCount?: number;
+  }>({
+    isOpen: false,
+    action: "",
+    businessId: null,
+    businessName: "",
+  });
+  const [actionLoading, setActionLoading] = useState(false);
 
   const { error, handleError, clearError } = useErrorHandler({
     context: "BusinessManagement",
@@ -233,8 +249,27 @@ const BusinessManagement: React.FC<BusinessManagementProps> = ({
   }, [fetchBusinesses]);
 
   const handleBusinessAction = async (action: string, businessId: string) => {
+    // For destructive actions, show confirmation modal
+    if (["delete", "deactivate"].includes(action)) {
+      const business = businesses.find((b) => b.id === businessId);
+      if (business) {
+        setConfirmationModal({
+          isOpen: true,
+          action,
+          businessId,
+          businessName: business.name,
+        });
+      }
+      return;
+    }
+
+    // For non-destructive actions, proceed immediately
+    await executeBusinessAction(action, businessId);
+  };
+
+  const executeBusinessAction = async (action: string, businessId: string) => {
     try {
-      setLoading(true);
+      setActionLoading(true);
       clearError();
 
       switch (action) {
@@ -275,13 +310,7 @@ const BusinessManagement: React.FC<BusinessManagementProps> = ({
             .eq("id", businessId);
           break;
         case "delete":
-          if (
-            window.confirm(
-              "Are you sure you want to delete this business? This action cannot be undone."
-            )
-          ) {
-            await supabase.from("businesses").delete().eq("id", businessId);
-          }
+          await supabase.from("businesses").delete().eq("id", businessId);
           break;
       }
 
@@ -292,38 +321,73 @@ const BusinessManagement: React.FC<BusinessManagementProps> = ({
     } catch (err) {
       handleError(err, { defaultMessage: `Failed to ${action} business` });
     } finally {
-      setLoading(false);
+      setActionLoading(false);
     }
   };
 
   const handleBulkAction = async (action: string) => {
     if (selectedBusinesses.length === 0) return;
 
-    let confirmMessage = `Are you sure you want to ${action} ${selectedBusinesses.length} businesses?`;
-
-    // Add specific warnings for destructive actions
-    if (action === "delete") {
-      confirmMessage = `⚠️ WARNING: Are you sure you want to PERMANENTLY DELETE ${selectedBusinesses.length} businesses? This action cannot be undone and will remove all business data, including subscriptions and analytics.`;
-    } else if (action === "deactivate") {
-      confirmMessage = `Are you sure you want to deactivate ${selectedBusinesses.length} businesses? They will be hidden from the directory but can be reactivated later.`;
+    // For destructive actions, show confirmation modal
+    if (["delete", "deactivate"].includes(action)) {
+      setConfirmationModal({
+        isOpen: true,
+        action,
+        businessId: null,
+        businessName: "",
+        businessCount: selectedBusinesses.length,
+      });
+      return;
     }
 
-    if (!window.confirm(confirmMessage)) return;
+    // For non-destructive actions, proceed immediately
+    await executeBulkAction(action);
+  };
 
+  const executeBulkAction = async (action: string) => {
     try {
-      setLoading(true);
+      setActionLoading(true);
       clearError();
 
       for (const businessId of selectedBusinesses) {
-        await handleBusinessAction(action, businessId);
+        await executeBusinessAction(action, businessId);
       }
 
       setSelectedBusinesses([]);
     } catch (err) {
       handleError(err, { defaultMessage: `Failed to perform bulk ${action}` });
     } finally {
-      setLoading(false);
+      setActionLoading(false);
     }
+  };
+
+  const handleConfirmAction = async () => {
+    if (!confirmationModal.businessId && confirmationModal.businessCount) {
+      // Bulk action
+      await executeBulkAction(confirmationModal.action);
+    } else if (confirmationModal.businessId) {
+      // Single action
+      await executeBusinessAction(
+        confirmationModal.action,
+        confirmationModal.businessId
+      );
+    }
+
+    setConfirmationModal({
+      isOpen: false,
+      action: "",
+      businessId: null,
+      businessName: "",
+    });
+  };
+
+  const handleCancelAction = () => {
+    setConfirmationModal({
+      isOpen: false,
+      action: "",
+      businessId: null,
+      businessName: "",
+    });
   };
 
   const exportBusinesses = async () => {
@@ -545,6 +609,17 @@ const BusinessManagement: React.FC<BusinessManagementProps> = ({
           setCurrentPage={setCurrentPage}
         />
       )}
+
+      {/* Admin Action Confirmation Modal */}
+      <AdminActionConfirmationModal
+        isOpen={confirmationModal.isOpen}
+        onClose={handleCancelAction}
+        onConfirm={handleConfirmAction}
+        action={confirmationModal.action}
+        businessName={confirmationModal.businessName}
+        businessCount={confirmationModal.businessCount}
+        loading={actionLoading}
+      />
     </div>
   );
 };
