@@ -11,6 +11,10 @@ import {
   CreditCard,
   Menu,
   X,
+  AlertTriangle,
+  Eye,
+  Edit2,
+  EyeOff,
 } from "lucide-react";
 import Layout from "../components/layout/Layout";
 import { supabase } from "../lib/supabase";
@@ -35,6 +39,7 @@ import UserPreferencesSection from "../components/dashboard/settings/UserPrefere
 import AccountDeletionModal from "../components/dashboard/account/AccountDeletionModal";
 import BusinessAnalyticsSection from "../components/dashboard/analytics/BusinessAnalyticsSection";
 import SubscriptionManagementSection from "../components/dashboard/subscriptions/SubscriptionManagementSection";
+import DeactivateBusinessModal from "../components/dashboard/businesses/DeactivateBusinessModal";
 
 type Tab =
   | "businesses"
@@ -53,6 +58,18 @@ const DashboardPage = () => {
   const [success, setSuccess] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // Add deactivation modal state
+  const [deactivateModal, setDeactivateModal] = useState<{
+    isOpen: boolean;
+    businessId: string | null;
+    businessName: string;
+  }>({
+    isOpen: false,
+    businessId: null,
+    businessName: "",
+  });
+  const [deactivating, setDeactivating] = useState(false);
 
   const { error, clearError } = useErrorHandler({
     context: "DashboardPage",
@@ -208,6 +225,83 @@ const DashboardPage = () => {
         planPrice: 0, // Price is already paid
       },
     });
+  };
+
+  const handleDeactivateBusiness = async (
+    businessId: string
+  ): Promise<boolean> => {
+    try {
+      const { error } = await supabase
+        .from("businesses")
+        .update({ is_active: false })
+        .eq("id", businessId);
+
+      if (error) {
+        console.error("Error deactivating business:", error);
+        return false;
+      }
+
+      // Refresh the businesses list
+      fetchUserBusinesses();
+      return true;
+    } catch (error) {
+      console.error("Error deactivating business:", error);
+      return false;
+    }
+  };
+
+  const handleReactivateBusiness = async (
+    businessId: string
+  ): Promise<boolean> => {
+    try {
+      const { error } = await supabase
+        .from("businesses")
+        .update({ is_active: true })
+        .eq("id", businessId);
+
+      if (error) {
+        console.error("Error reactivating business:", error);
+        return false;
+      }
+
+      // Refresh the businesses list
+      fetchUserBusinesses();
+      setSuccess(
+        "Business has been reactivated and is now visible in the directory."
+      );
+      setTimeout(() => setSuccess(null), 5000);
+      return true;
+    } catch (error) {
+      console.error("Error reactivating business:", error);
+      return false;
+    }
+  };
+
+  const handleDeactivateCancel = () => {
+    setDeactivateModal({ isOpen: false, businessId: null, businessName: "" });
+  };
+
+  const handleDeactivateConfirm = async () => {
+    if (!deactivateModal.businessId) return;
+
+    try {
+      setDeactivating(true);
+      const success = await handleDeactivateBusiness(
+        deactivateModal.businessId
+      );
+
+      if (success) {
+        setSuccess(
+          `"${deactivateModal.businessName}" has been deactivated and is now hidden from the directory.`
+        );
+        setTimeout(() => setSuccess(null), 5000);
+      }
+    } catch (error) {
+      console.error("Error deactivating business:", error);
+    } finally {
+      setDeactivating(false);
+      setDeactivateModal({ isOpen: false, businessId: null, businessName: "" });
+    }
   };
 
   // Add signout handler
@@ -451,6 +545,8 @@ const DashboardPage = () => {
                 onDeleteBusiness={handleDeleteBusiness as any}
                 onContinueListing={handleContinueBusinessListing}
                 onBusinessUpdated={fetchUserBusinesses}
+                onDeactivateBusiness={handleDeactivateBusiness}
+                onReactivateBusiness={handleReactivateBusiness}
               />
             )}
 
@@ -489,6 +585,15 @@ const DashboardPage = () => {
             onClose={() => window.location.reload()}
             onConfirm={deleteUserAccount}
             loading={deletionLoading}
+          />
+
+          {/* Deactivation Modal */}
+          <DeactivateBusinessModal
+            isOpen={deactivateModal.isOpen}
+            onClose={handleDeactivateCancel}
+            onConfirm={handleDeactivateConfirm}
+            businessName={deactivateModal.businessName}
+            loading={deactivating}
           />
         </div>
       </div>
