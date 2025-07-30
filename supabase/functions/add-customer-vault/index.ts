@@ -1,4 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js";
+import { Resend } from "npm:resend";
+
 const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -152,6 +154,7 @@ Deno.serve(async (req) => {
           .slice(-4),
       })
       .eq("id", business_id);
+
     if (updateError) {
       console.error("Error updating business:", updateError);
       return new Response(
@@ -167,6 +170,43 @@ Deno.serve(async (req) => {
         }
       );
     }
+
+    // Send payment method update email
+    try {
+      const { data: userData } = await supabase.auth.admin.getUserById(
+        business.owner_id
+      );
+      const userEmail = userData?.user?.email;
+
+      if (userEmail) {
+        await fetch(
+          `${supabaseUrl}/functions/v1/send-payment-method-update-email`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${supabaseServiceKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              userEmail,
+              businessName: business.name,
+              paymentMethodLast4: payment_method.card_number
+                .replace(/\s/g, "")
+                .slice(-4),
+              updateDate: new Date().toLocaleDateString("en-US", {
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              }),
+            }),
+          }
+        );
+      }
+    } catch (emailError) {
+      console.error("Error sending payment method update email:", emailError);
+      // Don't fail the main operation if email fails
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
