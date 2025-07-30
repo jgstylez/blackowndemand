@@ -29,6 +29,8 @@ import {
   Flag,
   Percent,
   DollarSign,
+  Menu,
+  X,
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 
@@ -62,6 +64,7 @@ type AdminTab =
 
 const AdminDashboardPage = () => {
   const [activeTab, setActiveTab] = useState<AdminTab>("overview");
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [stats, setStats] = useState<BusinessStats | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -175,14 +178,25 @@ const AdminDashboardPage = () => {
       }`}
     >
       <div className="flex h-full">
+        {/* Mobile Menu Toggle - Updated positioning and styling */}
+        <button
+          onClick={() => setIsMobileOpen(true)}
+          className="lg:hidden fixed top-20 right-4 z-30 p-3 bg-white text-gray-900 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 border border-gray-200 hover:bg-gray-50"
+          aria-label="Open admin menu"
+        >
+          <Menu className="h-5 w-5" />
+        </button>
+
         {/* Sidebar */}
         <AdminSidebar
           activeTab={activeTab}
           setActiveTab={(tab: string) => setActiveTab(tab as AdminTab)}
+          isMobileOpen={isMobileOpen}
+          setIsMobileOpen={setIsMobileOpen}
         />
 
         {/* Main Content */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-4 lg:p-6">
           {/* Overview */}
           {activeTab === "overview" && renderOverview()}
 
