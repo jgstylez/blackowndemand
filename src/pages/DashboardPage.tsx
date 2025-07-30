@@ -425,9 +425,18 @@ const DashboardPage = () => {
           </div>
 
           {success && (
-            <div className="mb-6 p-4 bg-green-500/10 text-green-500 rounded-lg flex items-center">
-              <CheckCircle className="h-5 w-5 mr-2 flex-shrink-0" />
-              <span className="text-sm sm:text-base">{success}</span>
+            <div className="mb-6 p-4 bg-green-500/10 text-green-500 rounded-lg flex items-center justify-between">
+              <div className="flex items-center">
+                <CheckCircle className="h-5 w-5 mr-2 flex-shrink-0" />
+                <span className="text-sm sm:text-base">{success}</span>
+              </div>
+              <button
+                onClick={() => setSuccess(null)}
+                className="ml-4 p-1 text-green-500 hover:text-green-400 hover:bg-green-500/20 rounded transition-colors"
+                aria-label="Dismiss success message"
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
           )}
 

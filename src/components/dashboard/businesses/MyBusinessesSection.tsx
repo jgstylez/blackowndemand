@@ -220,19 +220,27 @@ const MyBusinessesSection: React.FC<MyBusinessesSectionProps> = ({
                       </span>
                     </div>
                   </div>
-                  <div className="flex flex-row sm:flex-col gap-2 mt-4 sm:mt-0">
+                  {/* Action Buttons - Updated to match subscription section */}
+                  <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t sm:border-t-0 border-gray-800">
+                    {/* Left side - Complete Listing */}
                     <button
                       onClick={() => onContinueListing(business)}
-                      className="px-4 py-2 sm:px-4 sm:py-2 rounded-lg bg-white text-black hover:bg-gray-100 transition-colors"
+                      className="flex items-center justify-center px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 shadow-sm hover:shadow-md"
                     >
+                      <Plus className="h-4 w-4 mr-2" />
                       Complete Listing
                     </button>
-                    <button
-                      onClick={() => onDeleteBusiness(business.id)}
-                      className="p-3 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors"
-                    >
-                      <Trash2 className="h-5 w-5" />
-                    </button>
+
+                    {/* Right side - Delete button */}
+                    <div className="flex flex-col sm:flex-row gap-2 sm:ml-auto">
+                      <button
+                        onClick={() => onDeleteBusiness(business.id)}
+                        className="flex items-center justify-center px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all duration-200 shadow-sm hover:shadow-md"
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete Business
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -305,28 +313,34 @@ const MyBusinessesSection: React.FC<MyBusinessesSectionProps> = ({
                         )}
                       </div>
                     </div>
-                    <div className="flex flex-row sm:flex-col gap-2 mt-4 sm:mt-0">
+                    {/* Action Buttons - Updated to match subscription section */}
+                    <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t sm:border-t-0 border-gray-800">
+                      {/* Left side - View Business */}
                       <button
                         onClick={() => handleViewClick(business.id)}
-                        className="p-3 rounded-lg bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-colors"
-                        title="View business page"
+                        className="flex items-center justify-center px-4 py-2.5 bg-gray-800 text-gray-300 rounded-lg hover:bg-gray-700 hover:text-white transition-all duration-200 border border-gray-700 hover:border-gray-600"
                       >
-                        <Eye className="h-5 w-5" />
+                        <Eye className="h-4 w-4 mr-2" />
+                        View Business
                       </button>
-                      <button
-                        onClick={() => handleEditClick(business)}
-                        className="p-3 rounded-lg bg-gray-800 text-white hover:bg-gray-700 transition-colors"
-                        title="Edit business"
-                      >
-                        <Edit2 className="h-5 w-5" />
-                      </button>
-                      <button
-                        onClick={() => onDeleteBusiness(business.id)}
-                        className="p-3 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors"
-                        title="Delete business"
-                      >
-                        <Trash2 className="h-5 w-5" />
-                      </button>
+
+                      {/* Right side - Action buttons */}
+                      <div className="flex flex-col sm:flex-row gap-2 sm:ml-auto">
+                        <button
+                          onClick={() => handleEditClick(business)}
+                          className="flex items-center justify-center px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 shadow-sm hover:shadow-md"
+                        >
+                          <Edit2 className="h-4 w-4 mr-2" />
+                          Edit Business
+                        </button>
+                        <button
+                          onClick={() => onDeleteBusiness(business.id)}
+                          className="flex items-center justify-center px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all duration-200 shadow-sm hover:shadow-md"
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Delete Business
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
