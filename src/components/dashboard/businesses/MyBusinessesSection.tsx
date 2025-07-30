@@ -9,6 +9,7 @@ import {
   Crown,
   CheckCircle,
   Eye,
+  EyeOff,
 } from "lucide-react";
 import { Business } from "../../../types";
 import InlineBusinessEdit from "./InlineBusinessEdit";
@@ -19,9 +20,10 @@ interface MyBusinessesSectionProps {
   incompleteBusinesses: Business[];
   loading: boolean;
   hasBusinesses: boolean;
-  onDeleteBusiness: (businessId: string) => Promise<boolean>;
+  onDeleteBusiness: (businessId: string) => Promise<boolean>; // Keep for incomplete businesses
+  onDeactivateBusiness: (businessId: string) => Promise<boolean>; // New prop for deactivation
   onContinueListing: (business: Business) => void;
-  onBusinessUpdated?: () => void; // Add this prop
+  onBusinessUpdated?: () => void;
 }
 
 const MyBusinessesSection: React.FC<MyBusinessesSectionProps> = ({
@@ -30,8 +32,9 @@ const MyBusinessesSection: React.FC<MyBusinessesSectionProps> = ({
   loading,
   hasBusinesses,
   onDeleteBusiness,
+  onDeactivateBusiness, // Add this prop
   onContinueListing,
-  onBusinessUpdated, // Add this prop
+  onBusinessUpdated,
 }) => {
   const navigate = useNavigate();
   const [editingBusinessId, setEditingBusinessId] = useState<string | null>(
@@ -136,6 +139,24 @@ const MyBusinessesSection: React.FC<MyBusinessesSectionProps> = ({
 
   const handleCancelEdit = () => {
     setEditingBusinessId(null);
+  };
+
+  const handleDeactivateClick = async (businessId: string) => {
+    if (
+      window.confirm(
+        "Are you sure you want to deactivate this business? It will be hidden from the directory but can be reactivated later."
+      )
+    ) {
+      try {
+        const success = await onDeactivateBusiness(businessId);
+        if (success) {
+          // Optionally show success message
+          console.log("Business deactivated successfully");
+        }
+      } catch (error) {
+        console.error("Error deactivating business:", error);
+      }
+    }
   };
 
   if (loading) {
@@ -334,11 +355,11 @@ const MyBusinessesSection: React.FC<MyBusinessesSectionProps> = ({
                           Edit Business
                         </button>
                         <button
-                          onClick={() => onDeleteBusiness(business.id)}
-                          className="flex items-center justify-center px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all duration-200 shadow-sm hover:shadow-md"
+                          onClick={() => handleDeactivateClick(business.id)}
+                          className="flex items-center justify-center px-4 py-2.5 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-all duration-200 shadow-sm hover:shadow-md"
                         >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Delete Business
+                          <EyeOff className="h-4 w-4 mr-2" />
+                          Deactivate Business
                         </button>
                       </div>
                     </div>

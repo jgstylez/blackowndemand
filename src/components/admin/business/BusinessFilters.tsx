@@ -1,5 +1,5 @@
-import React from 'react';
-import { Search } from 'lucide-react';
+import React from "react";
+import { Search } from "lucide-react";
 
 interface BusinessFiltersProps {
   searchTerm: string;
@@ -24,9 +24,9 @@ const BusinessFilters: React.FC<BusinessFiltersProps> = ({
   onSearchChange,
   onFilterChange,
   onSortChange,
-  
+
   onBulkAction,
-  toggleSelectAll
+  toggleSelectAll,
 }) => {
   return (
     <>
@@ -72,26 +72,39 @@ const BusinessFilters: React.FC<BusinessFiltersProps> = ({
         <div className="bg-gray-900 rounded-lg p-4 mt-6">
           <div className="flex items-center justify-between">
             <span className="text-white">
-              {selectedBusinesses.length} business{selectedBusinesses.length !== 1 ? 'es' : ''} selected
+              {selectedBusinesses.length} business
+              {selectedBusinesses.length !== 1 ? "es" : ""} selected
             </span>
             <div className="flex gap-2">
               <button
-                onClick={() => onBulkAction('verify')}
+                onClick={() => onBulkAction("verify")}
                 className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 transition-colors text-sm"
               >
                 Verify
               </button>
               <button
-                onClick={() => onBulkAction('feature')}
+                onClick={() => onBulkAction("feature")}
                 className="px-3 py-1 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors text-sm"
               >
                 Feature
               </button>
               <button
-                onClick={() => onBulkAction('deactivate')}
-                className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 transition-colors text-sm"
+                onClick={() => onBulkAction("activate")}
+                className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors text-sm"
+              >
+                Activate
+              </button>
+              <button
+                onClick={() => onBulkAction("deactivate")}
+                className="px-3 py-1 bg-orange-600 text-white rounded hover:bg-orange-700 transition-colors text-sm"
               >
                 Deactivate
+              </button>
+              <button
+                onClick={() => onBulkAction("delete")}
+                className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 transition-colors text-sm"
+              >
+                Delete
               </button>
             </div>
           </div>
@@ -102,7 +115,10 @@ const BusinessFilters: React.FC<BusinessFiltersProps> = ({
       <div className="flex items-center gap-3 p-4 bg-gray-900 rounded-lg mt-6">
         <input
           type="checkbox"
-          checked={selectedBusinesses.length === businesses.length && businesses.length > 0}
+          checked={
+            selectedBusinesses.length === businesses.length &&
+            businesses.length > 0
+          }
           onChange={toggleSelectAll}
           className="w-4 h-4 rounded border-gray-700 bg-gray-800 text-white focus:ring-white"
         />

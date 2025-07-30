@@ -209,7 +209,7 @@ const BusinessManagement: React.FC<BusinessManagementProps> = ({
       setTotalCount(count || 0);
     } catch (err) {
       if (mounted.current) {
-        handleError(err, "Failed to fetch businesses");
+        handleError(err, { message: "Failed to fetch businesses" });
       }
     } finally {
       if (mounted.current) {
@@ -300,7 +300,15 @@ const BusinessManagement: React.FC<BusinessManagementProps> = ({
   const handleBulkAction = async (action: string) => {
     if (selectedBusinesses.length === 0) return;
 
-    const confirmMessage = `Are you sure you want to ${action} ${selectedBusinesses.length} businesses?`;
+    let confirmMessage = `Are you sure you want to ${action} ${selectedBusinesses.length} businesses?`;
+
+    // Add specific warnings for destructive actions
+    if (action === "delete") {
+      confirmMessage = `⚠️ WARNING: Are you sure you want to PERMANENTLY DELETE ${selectedBusinesses.length} businesses? This action cannot be undone and will remove all business data, including subscriptions and analytics.`;
+    } else if (action === "deactivate") {
+      confirmMessage = `Are you sure you want to deactivate ${selectedBusinesses.length} businesses? They will be hidden from the directory but can be reactivated later.`;
+    }
+
     if (!window.confirm(confirmMessage)) return;
 
     try {
@@ -486,6 +494,50 @@ const BusinessManagement: React.FC<BusinessManagementProps> = ({
         onBulkAction={handleBulkAction}
         toggleSelectAll={toggleSelectAll}
       />
+
+      {/* Bulk Actions */}
+      {selectedBusinesses.length > 0 && (
+        <div className="bg-gray-900 rounded-lg p-4 mt-6">
+          <div className="flex items-center justify-between">
+            <span className="text-white">
+              {selectedBusinesses.length} business
+              {selectedBusinesses.length !== 1 ? "es" : ""} selected
+            </span>
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleBulkAction("verify")}
+                className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 transition-colors text-sm"
+              >
+                Verify
+              </button>
+              <button
+                onClick={() => handleBulkAction("feature")}
+                className="px-3 py-1 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors text-sm"
+              >
+                Feature
+              </button>
+              <button
+                onClick={() => handleBulkAction("activate")}
+                className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors text-sm"
+              >
+                Activate
+              </button>
+              <button
+                onClick={() => handleBulkAction("deactivate")}
+                className="px-3 py-1 bg-orange-600 text-white rounded hover:bg-orange-700 transition-colors text-sm"
+              >
+                Deactivate
+              </button>
+              <button
+                onClick={() => handleBulkAction("delete")}
+                className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 transition-colors text-sm"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Business List */}
       {businessListContent}
