@@ -161,7 +161,7 @@ export class PaymentService {
           plan_name: options.planName,
           discount_code_id: options.discountInfo?.discount_id,
           payment_method: options.paymentMethod,
-          is_recurring: false,
+          is_recurring: true,
         },
       });
 
