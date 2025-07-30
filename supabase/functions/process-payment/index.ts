@@ -30,13 +30,23 @@ function createSimulatedResponse(
   reason
 ) {
   console.log(`Creating simulated payment response. Reason: ${reason}`);
-  // Generate a simulated transaction ID
+
+  // Generate simulated IDs for testing
   const transactionId = `sim_${Date.now()}_${Math.random()
     .toString(36)
     .substring(2, 10)}`;
+  const customerVaultId = `vault_${Date.now()}_${Math.random()
+    .toString(36)
+    .substring(2, 10)}`;
+  const subscriptionId = `sub_${Date.now()}_${Math.random()
+    .toString(36)
+    .substring(2, 10)}`;
+
   return {
     success: true,
     transaction_id: transactionId,
+    customer_vault_id: customerVaultId, // Add this
+    subscription_id: subscriptionId, // Add this
     amount: processAmount / 100,
     currency,
     description,
@@ -66,31 +76,39 @@ function shouldUseSimulation(cardNumber) {
     "378282246310005",
     "4000000000000127",
   ];
-  // Always simulate for test cards
-  if (testCards.includes(cleanCardNumber)) {
-    return true;
-  }
-  // Still simulate if no security key
+
+  // If no security key, always simulate
   if (!SECURITY_KEY) {
+    console.log("No security key configured, using simulation mode");
     return true;
   }
+
+  // For test cards, allow real processing if security key is available
+  if (testCards.includes(cleanCardNumber)) {
+    console.log(
+      "Test card detected, but security key available - processing real transaction"
+    );
+    return false; // Allow real processing
+  }
+
   return false;
 }
 // Parse NMI response text into an object
-function parseNMIResponse(responseText) {
+function parseNMIResponse(responseText: string) {
   const params = new URLSearchParams(responseText);
-  const response = {};
+  const response: Record<string, string> = {};
+
   for (const [key, value] of params.entries()) {
     response[key] = value;
   }
+
   return {
     success: response.response === "1",
     responseCode: response.response_code,
     responseText: response.responsetext,
     transactionId: response.transactionid,
+    customerVaultId: response.customer_vault_id, // Make sure this is extracted
     subscriptionId: response.subscription_id,
-    customerVaultId: response.customer_vault_id,
-    authCode: response.authcode,
   };
 }
 // Map NMI response codes to user-friendly messages
@@ -333,13 +351,26 @@ Deno.serve(async (req) => {
     });
     // Set up transaction type and amount
     if (is_recurring) {
-      // For recurring subscriptions
+      // For recurring subscriptions - use customer vault
       postData.append("type", "add_subscription");
       postData.append("plan_payments", "0"); // 0 = unlimited recurring payments
-      postData.append("plan_amount", formattedAmount); // Use formatted amount
+      postData.append("plan_amount", (processAmount / 100).toFixed(2));
       postData.append("day_frequency", "365"); // Annual billing
       postData.append("month_frequency", "0");
-      postData.append("customer_vault", "add_customer"); // Store payment info for future use
+      postData.append("customer_vault", "add_customer");
+
+      // Add required customer vault fields
+      postData.append("first_name", billingInfo.first_name);
+      postData.append("last_name", billingInfo.last_name);
+      postData.append("email", billingInfo.email);
+
+      // Add address information for customer vault
+      if (billingInfo.address1)
+        postData.append("address1", billingInfo.address1);
+      if (billingInfo.city) postData.append("city", billingInfo.city);
+      if (billingInfo.state) postData.append("state", billingInfo.state);
+      if (billingInfo.zip) postData.append("zip", billingInfo.zip);
+      if (billingInfo.country) postData.append("country", billingInfo.country);
     } else {
       // For one-time payments
       postData.append("type", "sale");
@@ -479,6 +510,7 @@ Deno.serve(async (req) => {
           .select("id")
           .eq("email", customer_email)
           .single();
+
         if (businessError) {
           console.error("Error finding business:", businessError);
         } else if (businessData) {
@@ -487,7 +519,7 @@ Deno.serve(async (req) => {
             .from("businesses")
             .update({
               nmi_subscription_id: parsedResponse.subscriptionId,
-              nmi_customer_vault_id: parsedResponse.customerVaultId,
+              nmi_customer_vault_id: parsedResponse.customerVaultId, // Make sure this is stored
               subscription_status: "active",
               plan_name: plan_name,
               next_billing_date: new Date(
@@ -497,12 +529,14 @@ Deno.serve(async (req) => {
               payment_method_last_four: last4,
             })
             .eq("id", businessData.id);
+
           if (updateError) {
             console.error(
               "Error updating business with subscription details:",
               updateError
             );
           }
+
           // Log the payment in payment_history
           const { error: historyError } = await supabase
             .from("payment_history")
@@ -512,8 +546,9 @@ Deno.serve(async (req) => {
               amount: processAmount / 100,
               status: "approved",
               type: "initial_subscription",
-              response_text: responseText,
+              response_text: JSON.stringify(parsedResponse), // Store full response for debugging
             });
+
           if (historyError) {
             console.error("Error logging payment history:", historyError);
           }
