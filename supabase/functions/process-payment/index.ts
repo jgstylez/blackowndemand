@@ -89,20 +89,16 @@ const TEST_CARDS = [
 function shouldUseSimulation(cardNumber: string): boolean {
   const cleanCardNumber = cardNumber.replace(/\s/g, "");
 
-  // If no security key, always simulate
+  // If no security key, we must simulate
   if (!SECURITY_KEY) {
-    console.log("No security key configured, using simulation mode");
+    console.log("❌ No security key configured, using simulation mode");
     return true;
   }
 
-  // For test cards, allow real processing if security key is available
-  if (TEST_CARDS.includes(cleanCardNumber)) {
-    console.log(
-      "Test card detected, but security key available - processing real transaction"
-    );
-    return false; // Allow real processing
-  }
-
+  // Always attempt real processing if security key is available
+  console.log(
+    "✅ Security key available - attempting real EcomPayments processing"
+  );
   return false;
 }
 // Parse NMI response text into an object
@@ -155,6 +151,26 @@ function getNMIErrorMessage(responseCode, responseText) {
     "Payment processing failed. Please try again."
   );
 }
+
+// At the top of the file, add better logging for environment setup
+
+console.log("🔧 EcomPayments Environment Setup:", {
+  environment: NODE_ENV,
+  securityKeyConfigured: !!SECURITY_KEY,
+  securityKeyLength: SECURITY_KEY ? SECURITY_KEY.length : 0,
+  apiUrl:
+    "https://ecompaymentprocessing.transactiongateway.com/api/transact.php",
+});
+
+if (!SECURITY_KEY) {
+  console.error("❌ CRITICAL: EcomPayments security key not configured!");
+  console.error(
+    "Please set ECOM_LIVE_SECURITY_KEY or ECOM_TEST_SECURITY_KEY environment variable"
+  );
+} else {
+  console.log("✅ EcomPayments security key configured successfully");
+}
+
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
@@ -313,9 +329,9 @@ Deno.serve(async (req) => {
         }
       );
     }
-    // Check if we should use simulation mode
-    if (shouldUseSimulation(payment_method.card_number)) {
-      console.log("Using simulation mode for payment processing");
+    // Always attempt real processing if security key is available
+    if (!SECURITY_KEY) {
+      console.log("❌ No security key configured, falling back to simulation");
       // Simulate processing delay
       await new Promise((resolve) => setTimeout(resolve, 1000));
       const simulatedResponse = createSimulatedResponse(
@@ -324,9 +340,7 @@ Deno.serve(async (req) => {
         description,
         customer_email,
         payment_method,
-        !SECURITY_KEY
-          ? "No security key configured"
-          : "Development mode with test card"
+        "No security key configured"
       );
 
       // ADD THIS: Store simulated response in database
@@ -423,6 +437,9 @@ Deno.serve(async (req) => {
         },
       });
     }
+    // REAL EcomPayments processing - always attempt this if security key is available
+    console.log("🚀 Attempting real EcomPayments processing with security key");
+
     // Prepare the billing information
     const billingInfo = {
       first_name: payment_method.cardholder_name?.split(" ")[0] || "",
@@ -438,20 +455,25 @@ Deno.serve(async (req) => {
       country: payment_method.billing_address?.country || "US",
       email: customer_email || "",
     };
+
     // Prepare the payment data according to the API
     const postData = new URLSearchParams();
+
     // Common fields for all transaction types
     postData.append("security_key", SECURITY_KEY);
     postData.append("ccnumber", payment_method.card_number.replace(/\s/g, ""));
     postData.append("ccexp", payment_method.expiry_date);
     postData.append("cvv", payment_method.cvv);
+
     // Add billing information
     Object.entries(billingInfo).forEach(([key, value]) => {
       if (value) postData.append(key, value);
     });
+
     // Set up transaction type and amount
     if (is_recurring) {
-      // For recurring subscriptions - use customer vault
+      // For recurring subscriptions - use customer vault with add_subscription
+      console.log("📋 Setting up recurring subscription with customer vault");
       postData.append("type", "add_subscription");
       postData.append("plan_payments", "0"); // 0 = unlimited recurring payments
       postData.append("plan_amount", (processAmount / 100).toFixed(2));
@@ -474,28 +496,44 @@ Deno.serve(async (req) => {
     } else {
       // For one-time payments
       postData.append("type", "sale");
-      postData.append("amount", formattedAmount); // Use formatted amount
+      postData.append("amount", (processAmount / 100).toFixed(2));
     }
+
     // Add description and currency
     if (description) postData.append("order_description", description);
     postData.append("currency", currency || "USD");
-    console.log("Sending payment request to gateway with data:", {
+
+    console.log("📤 Sending real payment request to EcomPayments gateway:", {
       type: is_recurring ? "add_subscription" : "sale",
       amount: (processAmount / 100).toFixed(2),
       ccnumber:
         "****" + payment_method.card_number.replace(/\s/g, "").slice(-4),
       ccexp: payment_method.expiry_date,
       cvv: "***",
+      customer_vault: is_recurring ? "add_customer" : "not_used",
       security_key: SECURITY_KEY ? "****" : "MISSING",
-      ...billingInfo,
       environment: NODE_ENV,
+      billing_info: {
+        first_name: billingInfo.first_name,
+        last_name: billingInfo.last_name,
+        email: billingInfo.email,
+        has_address: !!billingInfo.address1,
+        has_city: !!billingInfo.city,
+        has_state: !!billingInfo.state,
+        has_zip: !!billingInfo.zip,
+      },
     });
+
     let paymentResponse;
     let responseText;
+
     try {
       // Make the request to the payment gateway with timeout and error handling
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
+      console.log("🌐 Making HTTP request to EcomPayments gateway...");
+
       paymentResponse = await fetch(
         "https://ecompaymentprocessing.transactiongateway.com/api/transact.php",
         {
@@ -507,22 +545,28 @@ Deno.serve(async (req) => {
           signal: controller.signal,
         }
       );
+
       clearTimeout(timeoutId);
-      console.log("Payment gateway response status:", paymentResponse.status);
       console.log(
-        "Payment gateway response headers:",
+        "📥 EcomPayments gateway response status:",
+        paymentResponse.status
+      );
+      console.log(
+        "📋 EcomPayments gateway response headers:",
         Object.fromEntries(paymentResponse.headers.entries())
       );
+
       // Get the response text
       responseText = await paymentResponse.text();
-      console.log("Raw payment gateway response string:", responseText);
+      console.log("📄 Raw EcomPayments gateway response:", responseText);
     } catch (networkError) {
       console.error(
-        "Network error when contacting payment gateway:",
+        "💥 Network error when contacting EcomPayments gateway:",
         networkError
       );
-      console.log("Falling back to simulation mode due to network error");
-      // Network request failed - fall back to simulation mode
+
+      // Only fall back to simulation if it's a network error
+      console.log("🔄 Falling back to simulation due to network error");
       await new Promise((resolve) => setTimeout(resolve, 1000));
       const simulatedResponse = createSimulatedResponse(
         processAmount,
@@ -539,56 +583,38 @@ Deno.serve(async (req) => {
         },
       });
     }
+
     // Parse the NMI response
     const parsedResponse = parseNMIResponse(responseText);
-    console.log("Parsed payment gateway response:", parsedResponse);
+    console.log("🔍 Parsed EcomPayments response:", {
+      success: parsedResponse.success,
+      responseCode: parsedResponse.responseCode,
+      responseText: parsedResponse.responseText,
+      transactionId: parsedResponse.transactionId,
+      customerVaultId: parsedResponse.customerVaultId,
+      subscriptionId: parsedResponse.subscriptionId,
+    });
+
     // Check if the payment was successful (response code 1 means approved)
     if (!parsedResponse.success) {
-      console.error(
-        "Payment failed with response code:",
-        parsedResponse.responseCode
-      );
-      console.error("Response text:", parsedResponse.responseText);
-      // In development mode, if we get a decline and it's a test card, fall back to simulation
-      if (NODE_ENV === "development" && parsedResponse.responseCode === "2") {
-        const cleanCardNumber = payment_method.card_number.replace(/\s/g, "");
-        const knownTestCards = [
-          "4000000000000002",
-          "5555555555554444",
-          "378282246310005",
-        ];
-        if (knownTestCards.includes(cleanCardNumber)) {
-          console.log(
-            "Test card declined by gateway, falling back to simulation mode"
-          );
-          await new Promise((resolve) => setTimeout(resolve, 500));
-          const simulatedResponse = createSimulatedResponse(
-            processAmount,
-            currency,
-            description,
-            customer_email,
-            payment_method,
-            "Test card declined by gateway - using simulation"
-          );
-          return new Response(JSON.stringify(simulatedResponse), {
-            headers: {
-              ...corsHeaders,
-              "Content-Type": "application/json",
-            },
-          });
-        }
-      }
+      console.error("❌ EcomPayments payment failed:", {
+        responseCode: parsedResponse.responseCode,
+        responseText: parsedResponse.responseText,
+      });
+
       // Get user-friendly error message
       const errorMessage = getNMIErrorMessage(
         parsedResponse.responseCode,
         parsedResponse.responseText
       );
+
       return new Response(
         JSON.stringify({
           error: errorMessage,
           code: parsedResponse.responseCode || "unknown_error",
           details:
             parsedResponse.responseText || "No additional details available",
+          gateway_response: parsedResponse,
         }),
         {
           status: 400,
@@ -599,6 +625,10 @@ Deno.serve(async (req) => {
         }
       );
     }
+
+    // SUCCESS! Real EcomPayments payment processed
+    console.log("🎉 Real EcomPayments payment successful!");
+
     // Extract the last 4 digits of the card number for storage
     const last4 = payment_method.card_number.replace(/\s/g, "").slice(-4);
 
