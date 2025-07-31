@@ -403,9 +403,6 @@ const BusinessDetailPage = () => {
             ) : shouldShowPremiumContent(business) ? (
               // Business has premium plan - show video or placeholder
               <div className="mb-8">
-                {/* <h2 className="text-xl font-semibold text-white mb-4">
-                  Promo Video
-                </h2> */}
                 <div className="aspect-video w-full bg-gray-800 rounded-lg overflow-hidden">
                   {business.promo_video_url ? (
                     <iframe
