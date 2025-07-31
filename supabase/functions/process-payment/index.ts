@@ -97,7 +97,8 @@ function shouldUseSimulation(cardNumber: string): boolean {
 
   // Always attempt real processing if security key is available
   console.log(
-    "✅ Security key available - attempting real EcomPayments processing"
+    "✅ Security key available - attempting real EcomPayments processing",
+    SECURITY_KEY
   );
   return false;
 }
