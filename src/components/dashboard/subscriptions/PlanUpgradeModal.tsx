@@ -38,16 +38,18 @@ const PlanUpgradeModal: React.FC<PlanUpgradeModalProps> = ({
   businessId,
   businessName,
   onSuccess,
-  onCancelSuccess, // Add this new prop
+  onCancelSuccess,
 }) => {
   const [selectedPlan, setSelectedPlan] = useState<PlanConfig | null>(null);
+  const [upgradeLoading, setUpgradeLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showPaymentMethodModal, setShowPaymentMethodModal] = useState(false);
-  const [upgradeLoading, setUpgradeLoading] = useState(false);
   const [showCancelConfirmation, setShowCancelConfirmation] = useState(false);
   const [cancelLoading, setCancelLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0); // Add retry counter
+  const [lastUpgradeAttempt, setLastUpgradeAttempt] =
+    useState<UpgradeOptions | null>(null); // Track last attempt
 
   const plans = getAllPlans();
   const currentPlanConfig = getPlanConfigByName(currentPlan);
@@ -72,14 +74,12 @@ const PlanUpgradeModal: React.FC<PlanUpgradeModalProps> = ({
     ? "Choose a plan that better fits your business needs"
     : "Choose a plan that better fits your business needs";
 
-  const {
-    handlePlanUpgrade,
-    loading,
-    error: hookError,
-  } = useUnifiedPayment({
+  const { handlePlanUpgrade, loading } = useUnifiedPayment({
     onSuccess: (result) => {
       console.log("Plan change successful:", result);
       setShowPaymentModal(false);
+      setRetryCount(0); // Reset retry count on success
+      setLastUpgradeAttempt(null); // Clear last attempt
       onSuccess();
       onClose();
     },
@@ -108,15 +108,20 @@ const PlanUpgradeModal: React.FC<PlanUpgradeModalProps> = ({
         fullErrorText.includes(pattern)
       );
 
-      if (isPaymentMethodError) {
+      if (isPaymentMethodError && retryCount < 2) {
+        // Limit retries to prevent infinite loops
         console.log("Payment method error detected - showing update modal");
         setShowPaymentMethodModal(true);
         setError(null); // Clear error since we're showing the payment method modal
       } else {
-        console.log("Non-payment method error - showing error message");
+        console.log(
+          "Non-payment method error or max retries reached - showing error message"
+        );
         setError(
           error.userFriendlyMessage || error.message || "Failed to change plan"
         );
+        setRetryCount(0); // Reset retry count
+        setLastUpgradeAttempt(null); // Clear last attempt
       }
     },
   });
@@ -131,19 +136,23 @@ const PlanUpgradeModal: React.FC<PlanUpgradeModalProps> = ({
     setUpgradeLoading(true);
     setError(null);
 
+    // Store the upgrade attempt for potential retry
+    const upgradeOptions = {
+      businessId,
+      currentPlan,
+      newPlan: selectedPlan.name,
+      planPrice: selectedPlan.price,
+      customerEmail: "",
+      metadata: {
+        business_id: businessId,
+        upgrade_from: currentPlan,
+        upgrade_to: selectedPlan.name,
+      },
+    };
+    setLastUpgradeAttempt(upgradeOptions);
+
     try {
-      const result = await handlePlanUpgrade({
-        businessId,
-        currentPlan,
-        newPlan: selectedPlan.name,
-        planPrice: selectedPlan.price,
-        customerEmail: "",
-        metadata: {
-          business_id: businessId,
-          upgrade_from: currentPlan,
-          upgrade_to: selectedPlan.name,
-        },
-      });
+      const result = await handlePlanUpgrade(upgradeOptions);
 
       // Check if it's a downgrade (no payment needed)
       const isDowngrade = selectedPlan.price < (currentPlanConfig?.price || 0);
@@ -172,11 +181,13 @@ const PlanUpgradeModal: React.FC<PlanUpgradeModalProps> = ({
         errorMessage.toLowerCase().includes(pattern.toLowerCase())
       );
 
-      if (isPaymentMethodError) {
+      if (isPaymentMethodError && retryCount < 2) {
         setShowPaymentMethodModal(true);
         setError(null);
       } else {
         setError(err.message || "Failed to change plan");
+        setRetryCount(0);
+        setLastUpgradeAttempt(null);
       }
 
       setUpgradeLoading(false);
@@ -230,7 +241,22 @@ const PlanUpgradeModal: React.FC<PlanUpgradeModalProps> = ({
     // After payment method is updated, retry the plan change
     setShowPaymentMethodModal(false);
     setError(null); // Clear any previous errors
-    handlePlanChange();
+    setRetryCount((prev) => prev + 1); // Increment retry count
+
+    // Add a small delay to ensure the payment method update is processed
+    setTimeout(() => {
+      if (lastUpgradeAttempt) {
+        console.log(
+          "Retrying plan change after payment method update, attempt:",
+          retryCount + 1
+        );
+        handlePlanUpgrade(lastUpgradeAttempt);
+      } else {
+        console.error("No last upgrade attempt found for retry");
+        setError("Failed to retry plan change. Please try again.");
+        setRetryCount(0);
+      }
+    }, 1000); // 1 second delay
   };
 
   const getPlanIcon = (planName: string) => {

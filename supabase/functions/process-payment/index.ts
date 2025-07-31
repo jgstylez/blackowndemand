@@ -42,11 +42,18 @@ function createSimulatedResponse(
     .toString(36)
     .substring(2, 10)}`;
 
+  console.log("🎭 Generated simulated IDs:", {
+    transactionId,
+    customerVaultId,
+    subscriptionId,
+    reason,
+  });
+
   return {
     success: true,
     transaction_id: transactionId,
-    customer_vault_id: customerVaultId, // Add this
-    subscription_id: subscriptionId, // Add this
+    customer_vault_id: customerVaultId,
+    subscription_id: subscriptionId,
     amount: processAmount / 100,
     currency,
     description,
@@ -324,19 +331,50 @@ Deno.serve(async (req) => {
 
       // ADD THIS: Store simulated response in database
       if (is_recurring && simulatedResponse.subscription_id) {
+        console.log("🎭 Processing simulated subscription data");
         try {
           const { data: businessData, error: businessError } = await supabase
             .from("businesses")
-            .select("id")
+            .select("id, name")
             .eq("email", customer_email)
             .single();
 
           if (businessData) {
-            await supabase
-              .from("businesses")
-              .update({
+            console.log(" Found business for simulated subscription:", {
+              businessId: businessData.id,
+              businessName: businessData.name,
+            });
+
+            // Create subscription record with simulated data
+            const { error: subscriptionError } = await supabase
+              .from("subscriptions")
+              .upsert({
+                business_id: businessData.id,
+                plan_id: null,
+                status: "active",
+                payment_status: "paid",
+                current_period_start: new Date().toISOString(),
+                current_period_end: new Date(
+                  Date.now() + 365 * 24 * 60 * 60 * 1000
+                ).toISOString(),
+                payment_provider: "nmi",
                 nmi_subscription_id: simulatedResponse.subscription_id,
                 nmi_customer_vault_id: simulatedResponse.customer_vault_id,
+              });
+
+            if (subscriptionError) {
+              console.error(
+                "❌ Error creating simulated subscription:",
+                subscriptionError
+              );
+            } else {
+              console.log("✅ Simulated subscription record created");
+            }
+
+            // Update business (without customer vault ID)
+            const { error: updateError } = await supabase
+              .from("businesses")
+              .update({
                 subscription_status: "active",
                 plan_name: plan_name,
                 next_billing_date: new Date(
@@ -349,18 +387,30 @@ Deno.serve(async (req) => {
               })
               .eq("id", businessData.id);
 
+            if (updateError) {
+              console.error(
+                "❌ Error updating business for simulated payment:",
+                updateError
+              );
+            } else {
+              console.log("✅ Business updated for simulated payment");
+            }
+
+            // Log payment history
             await supabase.from("payment_history").insert({
               business_id: businessData.id,
               nmi_transaction_id: simulatedResponse.transaction_id,
               amount: processAmount / 100,
               status: "approved",
               type: "initial_subscription",
-              response_text: JSON.stringify(simulatedResponse),
+              response_text: `Simulated subscription payment for ${plan_name}`,
             });
+
+            console.log("✅ Simulated payment history logged");
           }
         } catch (dbError) {
           console.error(
-            "Database error when storing simulated subscription details:",
+            "💥 Database error when storing simulated subscription details:",
             dbError
           );
         }
@@ -551,90 +601,177 @@ Deno.serve(async (req) => {
     }
     // Extract the last 4 digits of the card number for storage
     const last4 = payment_method.card_number.replace(/\s/g, "").slice(-4);
+
+    console.log(
+      "✅ Payment successful! Processing customer vault and subscription data:",
+      {
+        transactionId: parsedResponse.transactionId,
+        subscriptionId: parsedResponse.subscriptionId,
+        customerVaultId: parsedResponse.customerVaultId,
+        isRecurring: is_recurring,
+        customerEmail: customer_email,
+        planName: plan_name,
+      }
+    );
+
     // For recurring payments, store subscription details in the database
     if (is_recurring && parsedResponse.subscriptionId) {
       try {
+        console.log(
+          "🔄 Processing recurring subscription for customer:",
+          customer_email
+        );
+
         const { data: businessData, error: businessError } = await supabase
           .from("businesses")
-          .select("id")
+          .select("id, name")
           .eq("email", customer_email)
           .single();
 
+        if (businessError) {
+          console.error("❌ Error finding business by email:", businessError);
+          // Try alternative lookup methods if needed
+        }
+
         if (businessData) {
+          console.log(" Found business for subscription:", {
+            businessId: businessData.id,
+            businessName: businessData.name,
+            customerEmail: customer_email,
+          });
+
           // Create or update subscription record
+          const subscriptionData = {
+            business_id: businessData.id,
+            plan_id: null, // You might want to add plan_id mapping
+            status: "active",
+            payment_status: "paid",
+            current_period_start: new Date().toISOString(),
+            current_period_end: new Date(
+              Date.now() + 365 * 24 * 60 * 60 * 1000
+            ).toISOString(),
+            payment_provider: "nmi",
+            nmi_subscription_id: parsedResponse.subscriptionId,
+            nmi_customer_vault_id: parsedResponse.customerVaultId,
+          };
+
+          console.log("📝 Creating/updating subscription record:", {
+            businessId: businessData.id,
+            subscriptionId: parsedResponse.subscriptionId,
+            customerVaultId: parsedResponse.customerVaultId,
+          });
+
           const { error: subscriptionError } = await supabase
             .from("subscriptions")
-            .upsert({
-              business_id: businessData.id,
-              plan_id: null, // You might want to add plan_id mapping
-              status: "active",
-              payment_status: "paid",
-              current_period_start: new Date().toISOString(),
-              current_period_end: new Date(
-                Date.now() + 365 * 24 * 60 * 60 * 1000
-              ).toISOString(),
-              payment_provider: "nmi",
-              nmi_subscription_id: parsedResponse.subscriptionId,
-              nmi_customer_vault_id: parsedResponse.customerVaultId,
-            });
+            .upsert(subscriptionData);
 
           if (subscriptionError) {
-            console.error("Error creating subscription:", subscriptionError);
+            console.error("❌ Error creating subscription:", subscriptionError);
+          } else {
+            console.log("✅ Subscription record created/updated successfully");
           }
 
-          // Update business with basic subscription info
+          // Update business with basic subscription info (but NOT customer vault ID)
+          const businessUpdateData = {
+            subscription_status: "active",
+            plan_name: plan_name,
+            next_billing_date: new Date(
+              Date.now() + 365 * 24 * 60 * 60 * 1000
+            ).toISOString(),
+            last_payment_date: new Date().toISOString(),
+            payment_method_last_four: last4,
+            // Remove nmi_customer_vault_id from here - it should only be in subscriptions table
+          };
+
+          console.log("📝 Updating business record:", {
+            businessId: businessData.id,
+            planName: plan_name,
+            last4: last4,
+          });
+
           const { error: updateError } = await supabase
             .from("businesses")
-            .update({
-              subscription_status: "active",
-              plan_name: plan_name,
-              next_billing_date: new Date(
-                Date.now() + 365 * 24 * 60 * 60 * 1000
-              ).toISOString(),
-              last_payment_date: new Date().toISOString(),
-              payment_method_last_four: last4,
-            })
+            .update(businessUpdateData)
             .eq("id", businessData.id);
 
           if (updateError) {
-            console.error("Error updating business:", updateError);
+            console.error("❌ Error updating business:", updateError);
+          } else {
+            console.log("✅ Business record updated successfully");
           }
+
+          // Log payment history
+          const { error: historyError } = await supabase
+            .from("payment_history")
+            .insert({
+              business_id: businessData.id,
+              nmi_transaction_id: parsedResponse.transactionId,
+              amount: processAmount / 100,
+              status: "approved",
+              type: "initial_subscription",
+              response_text: `Initial subscription payment for ${plan_name}`,
+            });
+
+          if (historyError) {
+            console.error("❌ Error logging payment history:", historyError);
+          } else {
+            console.log("✅ Payment history logged successfully");
+          }
+        } else {
+          console.error("❌ No business found for email:", customer_email);
         }
       } catch (dbError) {
-        console.error("Database error:", dbError);
+        console.error(
+          "💥 Database error during subscription processing:",
+          dbError
+        );
       }
+    } else if (is_recurring && !parsedResponse.subscriptionId) {
+      console.warn(
+        "⚠️ Recurring payment but no subscription ID received from gateway"
+      );
+    } else {
+      console.log("ℹ️ One-time payment - no subscription processing needed");
     }
+
     // Payment successful - return the response
-    return new Response(
-      JSON.stringify({
-        success: true,
-        transaction_id: parsedResponse.transactionId,
-        subscription_id: parsedResponse.subscriptionId,
-        customer_vault_id: parsedResponse.customerVaultId,
-        amount: processAmount / 100,
-        currency: currency || "USD",
-        description: description,
-        customer_email: customer_email,
-        payment_date: new Date().toISOString(),
-        status: "approved",
-        payment_method_details: {
-          type: "card",
-          card: {
-            last4: last4,
-            exp_month: payment_method.expiry_date.split("/")[0],
-            exp_year: `20${payment_method.expiry_date.split("/")[1]}`,
-          },
+    const successResponse = {
+      success: true,
+      transaction_id: parsedResponse.transactionId,
+      subscription_id: parsedResponse.subscriptionId,
+      customer_vault_id: parsedResponse.customerVaultId,
+      amount: processAmount / 100,
+      currency: currency || "USD",
+      description: description,
+      customer_email: customer_email,
+      payment_date: new Date().toISOString(),
+      status: "approved",
+      payment_method_details: {
+        type: "card",
+        card: {
+          last4: last4,
+          exp_month: payment_method.expiry_date.split("/")[0],
+          exp_year: `20${payment_method.expiry_date.split("/")[1]}`,
         },
-        gateway_response: parsedResponse,
-        environment: NODE_ENV,
-      }),
-      {
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json",
-        },
-      }
-    );
+      },
+      gateway_response: parsedResponse,
+      environment: NODE_ENV,
+    };
+
+    console.log("🎉 Final success response:", {
+      transactionId: successResponse.transaction_id,
+      subscriptionId: successResponse.subscription_id,
+      customerVaultId: successResponse.customer_vault_id,
+      amount: successResponse.amount,
+      customerEmail: successResponse.customer_email,
+    });
+
+    return new Response(JSON.stringify(successResponse), {
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "application/json",
+      },
+    });
   } catch (error) {
     console.error("Error processing payment:", error);
     return new Response(

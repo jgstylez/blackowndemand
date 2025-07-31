@@ -101,30 +101,24 @@ async function createCustomerVault(
   payment_method: any,
   userEmail: string
 ) {
-  console.log("Creating customer vault for business:", business.name);
+  console.log("🔄 Creating customer vault for business:", {
+    businessId: business.id,
+    businessName: business.name,
+    userEmail: userEmail || "Not provided",
+  });
 
   const cleanCardNumber = payment_method.card_number.replace(/\s/g, "");
-  // ✅ SECURE: Log only last 4 digits
-  console.log("Card number (last 4):", cleanCardNumber.slice(-4));
-  console.log("Is test card:", isValidTestCard(cleanCardNumber));
-
-  // ✅ SECURE: Log only safe payment information
-  console.log("Payment method details:", {
-    card_number: payment_method.card_number
-      ? "****" + payment_method.card_number.slice(-4)
-      : "missing",
-    expiry_date: "MM/YY", // Don't log actual expiry
-    cvv: "***", // Don't log actual CVV
-    cardholder_name: payment_method.cardholder_name ? "Present" : "Missing",
-    billing_zip: payment_method.billing_zip ? "Present" : "Missing",
+  console.log(" Card details:", {
+    last4: cleanCardNumber.slice(-4),
+    isTestCard: isValidTestCard(cleanCardNumber),
+    expiryDate: payment_method.expiry_date,
+    cardholderName: payment_method.cardholder_name ? "Present" : "Missing",
+    billingZip: payment_method.billing_zip ? "Present" : "Missing",
   });
-  console.log("User email:", userEmail ? "Provided" : "Missing");
-  console.log("Security key configured:", !!SECURITY_KEY);
-  console.log("Environment:", NODE_ENV);
 
   // Add validation for test cards
   if (!isValidTestCard(cleanCardNumber)) {
-    console.error("Invalid test card number:", cleanCardNumber.slice(-4));
+    console.error("❌ Invalid test card number:", cleanCardNumber.slice(-4));
     return {
       success: false,
       error: "Invalid test card. Please use a valid test card number.",
@@ -160,17 +154,18 @@ async function createCustomerVault(
     postData.append("email", userEmail);
   }
 
-  // ✅ SECURE: Log only safe information
-  console.log("Sending request to Ecom Payments:", {
+  console.log("📤 Sending customer vault creation request to Ecom Payments:", {
     type: "sale",
     amount: "0.01",
     customer_vault: "add_customer",
     currency: "USD",
     order_description: `Customer vault creation for ${business.name}`,
-    first_name: payment_method.cardholder_name ? "Present" : "Missing",
-    last_name: payment_method.cardholder_name ? "Present" : "Missing",
-    zip: payment_method.billing_zip ? "Present" : "Missing",
-    email: userEmail ? "Present" : "Missing",
+    hasFirstName: !!payment_method.cardholder_name,
+    hasLastName: !!payment_method.cardholder_name,
+    hasZip: !!payment_method.billing_zip,
+    hasEmail: !!userEmail,
+    securityKeyConfigured: !!SECURITY_KEY,
+    environment: NODE_ENV,
   });
 
   try {
@@ -183,21 +178,22 @@ async function createCustomerVault(
       }
     );
 
-    console.log("Payment gateway response status:", paymentResponse.status);
-    // ✅ SECURE: Don't log response headers
+    console.log("📥 Payment gateway response status:", paymentResponse.status);
 
     const responseText = await paymentResponse.text();
-    // ✅ SECURE: Don't log raw response text
+    console.log("📄 Raw response from Ecom Payments:", responseText);
 
     const parsedResponse = parseNMIResponse(responseText);
-    // ✅ SECURE: Log only success/failure status
-    console.log("Payment response:", {
+    console.log("🔍 Parsed payment response:", {
       success: parsedResponse.success,
       responseCode: parsedResponse.responseCode,
+      responseText: parsedResponse.responseText,
+      customerVaultId: parsedResponse.customerVaultId,
+      transactionId: parsedResponse.transactionId,
     });
 
     if (!parsedResponse.success) {
-      console.error("Payment gateway error:", {
+      console.error("❌ Payment gateway error:", {
         responseCode: parsedResponse.responseCode,
         responseText: parsedResponse.responseText,
         success: parsedResponse.success,
@@ -209,18 +205,20 @@ async function createCustomerVault(
       };
     }
 
-    console.log("Customer vault created successfully:", {
-      customerVaultId: parsedResponse.customer_vault_id,
+    console.log("✅ Customer vault created successfully:", {
+      customerVaultId: parsedResponse.customerVaultId,
       transactionId: parsedResponse.transactionId,
+      businessId: business.id,
+      businessName: business.name,
     });
 
     return {
       success: true,
-      customer_vault_id: parsedResponse.customer_vault_id,
+      customer_vault_id: parsedResponse.customerVaultId,
       transaction_id: parsedResponse.transactionId,
     };
   } catch (error) {
-    console.error("Error making payment gateway request:", error);
+    console.error("💥 Error making payment gateway request:", error);
     return {
       success: false,
       error: error.message || "Network error",
@@ -322,10 +320,18 @@ Deno.serve(async (req) => {
       }
     }
 
+    // In the main function, add logging for customer vault ID updates
+    console.log("🔍 Checking for existing customer vault ID:", {
+      businessId: business_id,
+      hasSubscription: !!business.subscription_id,
+      customerVaultId:
+        business.subscriptions?.nmi_customer_vault_id || "Not found",
+    });
+
     // Check if business has a customer vault ID (required for storing payment method)
     if (!business.subscriptions?.nmi_customer_vault_id) {
       console.log(
-        "No customer vault found, creating one for business:",
+        "🆕 No customer vault found, creating one for business:",
         business_id
       );
 
@@ -335,10 +341,10 @@ Deno.serve(async (req) => {
         payment_method,
         userEmail
       );
-      console.log("Customer vault creation result:", vaultResult);
+      console.log("🏗️ Customer vault creation result:", vaultResult);
 
       if (!vaultResult.success) {
-        console.error("Failed to create customer vault:", vaultResult.error);
+        console.error("❌ Failed to create customer vault:", vaultResult.error);
         return new Response(
           JSON.stringify({
             error: vaultResult.error || "Failed to create customer vault",
@@ -351,10 +357,14 @@ Deno.serve(async (req) => {
       }
 
       console.log(
-        "Customer vault created successfully, updating business record"
+        "✅ Customer vault created successfully, updating subscription record:",
+        {
+          subscriptionId: business.subscription_id,
+          customerVaultId: vaultResult.customer_vault_id,
+        }
       );
 
-      // Update the business update to use subscription_id
+      // Update the subscription record with the new customer vault ID
       const { error: updateError } = await supabase
         .from("subscriptions")
         .update({
@@ -364,11 +374,11 @@ Deno.serve(async (req) => {
 
       if (updateError) {
         console.error(
-          "Error updating business with customer vault ID:",
+          "❌ Error updating subscription with customer vault ID:",
           updateError
         );
         return new Response(
-          JSON.stringify({ error: "Failed to update business record" }),
+          JSON.stringify({ error: "Failed to update subscription record" }),
           {
             status: 500,
             headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -376,13 +386,19 @@ Deno.serve(async (req) => {
         );
       }
 
+      console.log("✅ Subscription updated with customer vault ID:", {
+        subscriptionId: business.subscription_id,
+        customerVaultId: vaultResult.customer_vault_id,
+      });
+
       // Update the business object for the rest of the function
       business.subscriptions.nmi_customer_vault_id =
         vaultResult.customer_vault_id;
-      console.log(
-        "Business updated with customer vault ID:",
-        vaultResult.customer_vault_id
-      );
+    } else {
+      console.log("✅ Existing customer vault found:", {
+        customerVaultId: business.subscriptions.nmi_customer_vault_id,
+        businessId: business_id,
+      });
     }
 
     // Prepare the payment data for updating the customer vault

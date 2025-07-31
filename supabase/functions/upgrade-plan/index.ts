@@ -67,27 +67,65 @@ serve(async (req) => {
     // Check if business exists and user owns it
     const { data: business, error: businessError } = await supabaseClient1
       .from("businesses")
-      .select("*")
+      .select(
+        `
+        *,
+        subscriptions(
+          id,
+          nmi_customer_vault_id
+        )
+      `
+      )
       .eq("id", businessId)
       .eq("owner_id", user.id)
       .single();
+
     if (businessError || !business) {
       throw new Error("Business not found or access denied");
     }
+
+    // Check if subscription exists, if not create one
+    let subscription = business.subscriptions?.[0] || null;
+    if (!subscription) {
+      console.log("No subscription found for business, creating one");
+      const { data: newSubscription, error: createError } =
+        await supabaseClient1
+          .from("subscriptions")
+          .insert({
+            business_id: businessId,
+            status: "active",
+            payment_status: "pending",
+            current_period_start: new Date().toISOString(),
+            current_period_end: new Date(
+              Date.now() + 365 * 24 * 60 * 60 * 1000
+            ).toISOString(),
+          })
+          .select()
+          .single();
+
+      if (createError) {
+        console.error("Error creating subscription:", createError);
+        throw new Error("Failed to create subscription record");
+      }
+      subscription = newSubscription;
+    }
+
     // Remove the plan_name check - allow any active business to upgrade
     // const currentPlanPrice = business.plan_price || 0;
     const currentPlanPrice = 0; // Treat as free plan if no plan_price set
     const planChangeAmount = planPrice - currentPlanPrice;
     const isUpgrade = planChangeAmount > 0;
     const isDowngrade = planChangeAmount < 0;
+
     // Allow both upgrades and downgrades
     if (planChangeAmount === 0) {
       throw new Error("New plan must be different from current plan");
     }
+
     // For downgrades, we need to ensure payment method is on file
     if (isDowngrade) {
       // Check if customer has a payment method on file
-      if (!business.nmi_customer_vault_id) {
+      if (!subscription.nmi_customer_vault_id) {
         return new Response(
           JSON.stringify({
             success: false,
@@ -106,6 +144,7 @@ serve(async (req) => {
           }
         );
       }
+
       // Update the business with new plan details (no payment needed for downgrades)
       const { error: updateError } = await supabaseClient1
         .from("businesses")
@@ -119,10 +158,12 @@ serve(async (req) => {
           last_payment_date: new Date().toISOString(),
         })
         .eq("id", businessId);
+
       if (updateError) {
         console.error("Error updating business plan:", updateError);
         throw new Error("Failed to update business plan");
       }
+
       // Log the plan change
       const { error: historyError } = await supabaseClient1
         .from("payment_history")
@@ -134,9 +175,11 @@ serve(async (req) => {
           type: "plan_downgrade",
           response_text: `Plan downgraded from ${currentPlan} to ${newPlan}`,
         });
+
       if (historyError) {
         console.error("Error logging plan downgrade:", historyError);
       }
+
       return new Response(
         JSON.stringify({
           success: true,
@@ -151,8 +194,9 @@ serve(async (req) => {
         }
       );
     }
+
     // For upgrades, require customer vault
-    if (!business.nmi_customer_vault_id) {
+    if (!subscription.nmi_customer_vault_id) {
       return new Response(
         JSON.stringify({
           success: false,
@@ -172,13 +216,14 @@ serve(async (req) => {
         }
       );
     }
+
     // Process upgrade with customer vault
     const upgradeResult = await processUpgradeWithCustomerVault({
       businessId,
       currentPlan,
       newPlan,
       upgradeAmount: planChangeAmount,
-      customerVaultId: business.nmi_customer_vault_id,
+      customerVaultId: subscription.nmi_customer_vault_id,
       userEmail: user.email || "",
       discountCode,
       discountedAmount,
