@@ -4,6 +4,7 @@ import useUserProfile from "../../../hooks/dashboard/useUserProfile";
 import { useAuth } from "../../../contexts/AuthContext";
 import { supabase } from "../../../lib/supabase";
 import AccountDeletionModal from "./AccountDeletionModal";
+import { Mail, Lock, Trash2, AlertTriangle } from "lucide-react";
 
 const AccountSettingsSection = () => {
   const { user } = useAuth();
@@ -117,13 +118,19 @@ const AccountSettingsSection = () => {
   };
 
   return (
-    <div className="bg-gray-900 rounded-lg p-6">
-      <h2 className="text-xl font-bold text-white mb-6">Account Settings</h2>
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-xl font-semibold text-white">Account Settings</h2>
+      </div>
 
-      <div className="space-y-8">
+      <div className="space-y-6">
         {/* Email Change Section */}
-        <div className="border-b border-gray-700 pb-6">
-          <h3 className="text-lg font-medium text-white mb-4">Change Email</h3>
+        <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
+          <div className="flex items-center gap-2 mb-4">
+            <Mail className="h-5 w-5 text-blue-400" />
+            <h3 className="text-lg font-semibold text-white">Change Email</h3>
+          </div>
+
           <form onSubmit={handleEmailChange} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -167,27 +174,40 @@ const AccountSettingsSection = () => {
                 className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:border-blue-500 focus:outline-none"
               />
             </div>
+
             {emailError && (
-              <div className="text-red-400 text-sm">{emailError}</div>
+              <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg text-sm">
+                {emailError}
+              </div>
             )}
             {emailSuccess && (
-              <div className="text-green-400 text-sm">{emailSuccess}</div>
+              <div className="p-3 bg-green-500/10 border border-green-500/20 text-green-400 rounded-lg text-sm">
+                {emailSuccess}
+              </div>
             )}
-            <button
-              type="submit"
-              disabled={emailLoading}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg disabled:opacity-50"
-            >
-              {emailLoading ? "Updating..." : "Update Email"}
-            </button>
+
+            <div className="pt-4 border-t border-gray-800">
+              <button
+                type="submit"
+                disabled={emailLoading}
+                className="flex items-center justify-center px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Mail className="h-4 w-4 mr-2" />
+                {emailLoading ? "Updating..." : "Update Email"}
+              </button>
+            </div>
           </form>
         </div>
 
         {/* Password Change Section */}
-        <div className="border-b border-gray-700 pb-6">
-          <h3 className="text-lg font-medium text-white mb-4">
-            Change Password
-          </h3>
+        <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
+          <div className="flex items-center gap-2 mb-4">
+            <Lock className="h-5 w-5 text-blue-400" />
+            <h3 className="text-lg font-semibold text-white">
+              Change Password
+            </h3>
+          </div>
+
           <form onSubmit={handlePasswordChange} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -242,38 +262,58 @@ const AccountSettingsSection = () => {
                 className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:border-blue-500 focus:outline-none"
               />
             </div>
+
             {passwordError && (
-              <div className="text-red-400 text-sm">{passwordError}</div>
+              <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg text-sm">
+                {passwordError}
+              </div>
             )}
             {passwordSuccess && (
-              <div className="text-green-400 text-sm">{passwordSuccess}</div>
+              <div className="p-3 bg-green-500/10 border border-green-500/20 text-green-400 rounded-lg text-sm">
+                {passwordSuccess}
+              </div>
             )}
-            <button
-              type="submit"
-              disabled={passwordLoading}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg disabled:opacity-50"
-            >
-              {passwordLoading ? "Updating..." : "Update Password"}
-            </button>
+
+            <div className="pt-4 border-t border-gray-800">
+              <button
+                type="submit"
+                disabled={passwordLoading}
+                className="flex items-center justify-center px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Lock className="h-4 w-4 mr-2" />
+                {passwordLoading ? "Updating..." : "Update Password"}
+              </button>
+            </div>
           </form>
         </div>
 
         {/* Account Deletion Section */}
-        <div>
-          <h3 className="text-lg font-medium text-red-400 mb-2">Danger Zone</h3>
+        <div className="bg-gray-900 rounded-xl p-6 border border-red-500/20">
+          <div className="flex items-center gap-2 mb-4">
+            <AlertTriangle className="h-5 w-5 text-red-400" />
+            <h3 className="text-lg font-semibold text-red-400">Danger Zone</h3>
+          </div>
+
           <p className="text-gray-400 text-sm mb-4">
             Once you delete your account, there is no going back. Please be
             certain.
           </p>
-          <button
-            onClick={prepareAccountDeletion}
-            disabled={deletionLoading}
-            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg disabled:opacity-50"
-          >
-            {deletionLoading ? "Loading..." : "Delete Account"}
-          </button>
+
+          <div className="pt-4 border-t border-gray-800">
+            <button
+              onClick={prepareAccountDeletion}
+              disabled={deletionLoading}
+              className="flex items-center justify-center px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              {deletionLoading ? "Loading..." : "Delete Account"}
+            </button>
+          </div>
+
           {deletionError && (
-            <p className="text-red-400 text-sm mt-2">{deletionError}</p>
+            <div className="mt-3 p-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg text-sm">
+              {deletionError}
+            </div>
           )}
         </div>
       </div>

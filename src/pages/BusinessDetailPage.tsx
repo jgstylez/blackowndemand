@@ -9,6 +9,9 @@ import {
   CheckCircle,
   Star,
   Shield,
+  Globe,
+  Phone,
+  Mail,
 } from "lucide-react";
 import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
@@ -30,7 +33,12 @@ import {
   isVipMember,
   isLegacyMember,
 } from "../utils/businessFeatureUtils";
-import { recordBusinessAction } from "../utils/analyticsUtils";
+import {
+  recordBusinessView,
+  trackWebsiteClick,
+  trackPhoneClick,
+  trackEmailClick,
+} from "../utils/analyticsUtils";
 
 const BusinessDetailPage = () => {
   const { id } = useParams();
@@ -139,26 +147,23 @@ const BusinessDetailPage = () => {
 
   // Add click handlers for tracking
   const handleWebsiteClick = () => {
-    if (business?.id) {
-      recordBusinessAction(business.id, "website_click", {
-        website_url: business.website_url,
-      });
+    if (business?.website_url) {
+      trackWebsiteClick(business.id, business.website_url);
+      window.open(business.website_url, "_blank");
     }
   };
 
   const handlePhoneClick = () => {
-    if (business?.id) {
-      recordBusinessAction(business.id, "phone_click", {
-        phone: business.phone,
-      });
+    if (business?.phone) {
+      trackPhoneClick(business.id, business.phone);
+      window.open(`tel:${business.phone}`, "_self");
     }
   };
 
   const handleEmailClick = () => {
-    if (business?.id) {
-      recordBusinessAction(business.id, "email_click", {
-        email: business.email,
-      });
+    if (business?.email) {
+      trackEmailClick(business.id, business.email);
+      window.open(`mailto:${business.email}`, "_self");
     }
   };
 

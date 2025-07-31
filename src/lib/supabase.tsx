@@ -7,12 +7,16 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 // Validate that required environment variables are present
 if (!supabaseUrl) {
+  console.error("❌ VITE_SUPABASE_URL environment variable is required");
   throw new Error("VITE_SUPABASE_URL environment variable is required");
 }
 
 if (!supabaseAnonKey) {
+  console.error("❌ VITE_SUPABASE_ANON_KEY environment variable is required");
   throw new Error("VITE_SUPABASE_ANON_KEY environment variable is required");
 }
+
+console.log("✅ Supabase environment variables loaded successfully");
 
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
 

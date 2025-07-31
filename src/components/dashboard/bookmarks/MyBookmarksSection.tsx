@@ -1,6 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { Bookmark, Trash2, CheckCircle, Crown } from "lucide-react";
+import { Bookmark, Trash2, CheckCircle, Crown, Eye } from "lucide-react";
 import { Business } from "../../../types";
 import { getBusinessImageUrl } from "../../../lib/supabase";
 
@@ -45,7 +45,10 @@ const MyBookmarksSection: React.FC<MyBookmarksSectionProps> = ({
       {bookmarkedBusinesses.length > 0 ? (
         <div className="grid grid-cols-1 gap-6">
           {bookmarkedBusinesses.map((business) => (
-            <div key={business.id} className="bg-gray-900 rounded-xl p-6">
+            <div
+              key={business.id}
+              className="bg-gray-900 rounded-xl p-6 border border-gray-800"
+            >
               <div className="flex items-start gap-4">
                 <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
                   <img
@@ -61,10 +64,10 @@ const MyBookmarksSection: React.FC<MyBookmarksSectionProps> = ({
                   />
                 </div>
                 <div className="flex-grow">
-                  <div className="flex items-center justify-between">
-                    <div>
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                    <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-2">
-                        <h3 className="text-xl font-semibold text-white">
+                        <h3 className="text-lg sm:text-xl font-semibold text-white break-words">
                           {business.name}
                         </h3>
                         {business.isVerified && (
@@ -80,36 +83,42 @@ const MyBookmarksSection: React.FC<MyBookmarksSectionProps> = ({
                           </span>
                         )}
                       </div>
-                      <p className="text-gray-400 text-sm mb-2">
+                      <p className="text-gray-400 text-sm mb-2 break-words">
                         {business.tagline}
                       </p>
-                      <div className="flex items-center gap-4 text-sm text-gray-500">
-                        {business.category && (
-                          <>
-                            <span>{business.category}</span>
-                          </>
-                        )}
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                        {business.category && <span>{business.category}</span>}
                         {business.city && business.state && (
-                          <span>
-                            • &nbsp;&nbsp; {business.city}, {business.state}
-                          </span>
+                          <>
+                            <span>•</span>
+                            <span>
+                              {business.city}, {business.state}
+                            </span>
+                          </>
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => navigate(`/business/${business.id}`)}
-                        className="px-3 py-1 rounded-lg bg-gray-800 text-white hover:bg-gray-700 transition-colors text-sm"
-                      >
-                        View
-                      </button>
-                      <button
-                        onClick={() => onRemoveBookmark(business.id)}
-                        className="p-2 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors"
-                      >
-                        <Trash2 className="h-5 w-5" />
-                      </button>
-                    </div>
+                  </div>
+
+                  {/* Action Buttons - Using same style as other dashboard sections */}
+                  <div className="flex flex-col sm:flex-row sm:justify-between gap-3 pt-4 border-t sm:border-t-0 border-gray-800">
+                    {/* Left side - View Business button */}
+                    <button
+                      onClick={() => navigate(`/business/${business.id}`)}
+                      className="flex items-center justify-center px-4 py-2.5 bg-gray-800 text-gray-300 rounded-lg hover:bg-gray-700 hover:text-white transition-all duration-200 border border-gray-700"
+                    >
+                      <Eye className="h-4 w-4 mr-2" />
+                      View Business
+                    </button>
+
+                    {/* Right side - Remove Bookmark button */}
+                    <button
+                      onClick={() => onRemoveBookmark(business.id)}
+                      className="flex items-center justify-center px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all duration-200"
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Remove Bookmark
+                    </button>
                   </div>
                 </div>
               </div>
@@ -128,8 +137,9 @@ const MyBookmarksSection: React.FC<MyBookmarksSectionProps> = ({
           </p>
           <button
             onClick={() => navigate("/browse")}
-            className="px-4 py-2 bg-white text-black rounded-lg hover:bg-gray-100 transition-colors"
+            className="inline-flex items-center px-4 py-2 bg-white text-black rounded-lg hover:bg-gray-100 transition-colors"
           >
+            <Eye className="h-4 w-4 mr-2" />
             Browse Businesses
           </button>
         </div>

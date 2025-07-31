@@ -402,7 +402,8 @@ const MyBusinessesSection: React.FC<MyBusinessesSectionProps> = ({
                   </>
                 )}
                 {/* Action Buttons */}
-                <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t sm:border-t-0 border-gray-800">
+                <div className="flex flex-col sm:flex-row sm:justify-between gap-3 pt-4 border-t sm:border-t-0 border-gray-800">
+                  {/* Left side - View Business button */}
                   <button
                     onClick={() => handleViewClick(business.id)}
                     className="flex items-center justify-center px-4 py-2.5 bg-gray-800 text-gray-300 rounded-lg hover:bg-gray-700 hover:text-white transition-all duration-200 border border-gray-700"
@@ -410,22 +411,26 @@ const MyBusinessesSection: React.FC<MyBusinessesSectionProps> = ({
                     <Eye className="h-4 w-4 mr-2" />
                     View Business
                   </button>
-                  <button
-                    onClick={() => handleEditClick(business)}
-                    className="flex items-center justify-center px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200"
-                  >
-                    <Edit2 className="h-4 w-4 mr-2" />
-                    Edit Business
-                  </button>
-                  <button
-                    onClick={() =>
-                      handleDeactivateClick(business.id, business.name)
-                    }
-                    className="flex items-center justify-center px-4 py-2.5 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-all duration-200"
-                  >
-                    <EyeOff className="h-4 w-4 mr-2" />
-                    Deactivate
-                  </button>
+
+                  {/* Right side - Edit and Deactivate buttons */}
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <button
+                      onClick={() => handleEditClick(business)}
+                      className="flex items-center justify-center px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200"
+                    >
+                      <Edit2 className="h-4 w-4 mr-2" />
+                      Edit Business
+                    </button>
+                    <button
+                      onClick={() =>
+                        handleDeactivateClick(business.id, business.name)
+                      }
+                      className="flex items-center justify-center px-4 py-2.5 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-all duration-200"
+                    >
+                      <EyeOff className="h-4 w-4 mr-2" />
+                      Deactivate
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -484,7 +489,8 @@ const MyBusinessesSection: React.FC<MyBusinessesSectionProps> = ({
                 </div>
 
                 {/* Action Buttons for Inactive Business */}
-                <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t sm:border-t-0 border-gray-700/50">
+                <div className="flex flex-col sm:flex-row sm:justify-between gap-3 pt-4 border-t sm:border-t-0 border-gray-700/50">
+                  {/* Left side - View Business button */}
                   <button
                     onClick={() => handleViewClick(business.id)}
                     className="flex items-center justify-center px-4 py-2.5 bg-gray-800/50 text-gray-400 rounded-lg hover:bg-gray-700/50 hover:text-gray-300 transition-all duration-200 border border-gray-700/50"
@@ -492,22 +498,26 @@ const MyBusinessesSection: React.FC<MyBusinessesSectionProps> = ({
                     <Eye className="h-4 w-4 mr-2" />
                     View Business
                   </button>
-                  <button
-                    onClick={() => handleEditClick(business)}
-                    className="flex items-center justify-center px-4 py-2.5 bg-blue-600/50 text-blue-300 rounded-lg hover:bg-blue-600 hover:text-white transition-all duration-200"
-                  >
-                    <Edit2 className="h-4 w-4 mr-2" />
-                    Edit Business
-                  </button>
-                  <button
-                    onClick={() =>
-                      handleReactivateClick(business.id, business.name)
-                    }
-                    className="flex items-center justify-center px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all duration-200"
-                  >
-                    <Eye className="h-4 w-4 mr-2" />
-                    Reactivate
-                  </button>
+
+                  {/* Right side - Edit and Reactivate buttons */}
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <button
+                      onClick={() => handleEditClick(business)}
+                      className="flex items-center justify-center px-4 py-2.5 bg-blue-600/50 text-blue-300 rounded-lg hover:bg-blue-600 hover:text-white transition-all duration-200"
+                    >
+                      <Edit2 className="h-4 w-4 mr-2" />
+                      Edit Business
+                    </button>
+                    <button
+                      onClick={() =>
+                        handleReactivateClick(business.id, business.name)
+                      }
+                      className="flex items-center justify-center px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all duration-200"
+                    >
+                      <Eye className="h-4 w-4 mr-2" />
+                      Reactivate
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}

@@ -37,17 +37,20 @@ BlackOWNDemand is a global business directory empowering Black-owned businesses 
 ### Installation
 
 1. Clone the repository:
+
    ```bash
    git clone https://github.com/yourusername/black-business-directory.git
    cd black-business-directory
    ```
 
 2. Install dependencies:
+
    ```bash
    npm install
    ```
 
 3. Create a `.env` file in the root directory with your Supabase credentials:
+
    ```
    VITE_SUPABASE_URL=your_supabase_project_url
    VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
@@ -89,10 +92,12 @@ npm run deploy:prod
 The application uses Supabase Edge Functions for email handling:
 
 1. **Environment Variables**:
+
    - `VITE_PRIMARY_SUPPORT_EMAIL`: Primary recipient for contact forms (default: support@blackdollarnetwork.com)
    - `VITE_SECONDARY_SUPPORT_EMAIL`: Secondary recipient for BCC (default: jlgreen@blackdollarnetwork.com)
 
 2. **Edge Functions**:
+
    - `send-contact-email`: Handles contact form submissions
    - `subscribe`: Manages newsletter subscriptions
 
@@ -157,3 +162,26 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## Contact
 
 For questions or support, please contact us through our [contact form](https://blackowndemand.com/contact).
+
+## Environment Setup
+
+1. Create a `.env` file in the root directory:
+
+```bash
+cp .env.example .env
+```
+
+2. Fill in your environment variables:
+
+```bash
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key_here
+VITE_PRIMARY_SUPPORT_EMAIL=support@blackdollarnetwork.com
+VITE_SECONDARY_SUPPORT_EMAIL=jlgreen@blackdollarnetwork.com
+VITE_NOREPLY_EMAIL=noreply@blackowndemand.com
+VITE_STRIPE_PUBLISHABLE_KEY=pk_test_your_stripe_key_here
+VITE_ECOM_SECURITY_KEY=your_ecom_security_key_here
+VITE_SENTRY_DSN=your_sentry_dsn_here
+```
+
+3. Restart your development server after adding the environment variables.
