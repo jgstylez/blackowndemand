@@ -116,6 +116,9 @@ export const validateBusinessSubmission = (
   const premiumValidation = validateBusinessPremiumStep(formData);
   if (!premiumValidation.isValid) return premiumValidation;
 
+  // Business hours are optional, so no validation needed
+  // They will be included in the submission if provided
+
   return { isValid: true };
 };
 

@@ -20,7 +20,7 @@ export function useBusinessListingForm(location: any, navigate: any) {
   const steps = useMemo(() => {
     const baseSteps = [];
     if (!paymentCompleted) baseSteps.push("payment");
-    baseSteps.push("info", "location", "media");
+    baseSteps.push("info", "location", "hours", "media"); // Add "hours" step
     if (isPremiumPlan) baseSteps.push("premium_features");
     baseSteps.push("summary");
     return baseSteps;
@@ -47,6 +47,7 @@ export function useBusinessListingForm(location: any, navigate: any) {
     imageUrl: "",
     galleryImages: [] as Array<{ id: string; url: string; file?: File }>, // Add this
     promoVideoUrl: "",
+    business_hours: {} as Record<string, string>, // Add this line
     socialLinks: {
       facebook: "",
       instagram: "",

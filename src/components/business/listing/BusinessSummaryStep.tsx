@@ -9,6 +9,7 @@ import {
   Image,
   Share2,
   Video,
+  Clock,
 } from "lucide-react";
 
 interface BusinessSummaryStepProps {
@@ -278,6 +279,42 @@ const BusinessSummaryStep: React.FC<BusinessSummaryStepProps> = ({
             </div>
           ))}
         </AccordionSection>
+
+        {/* Business Hours Section */}
+        {formData.business_hours &&
+          Object.keys(formData.business_hours).length > 0 && (
+            <AccordionSection
+              title="Business Hours"
+              icon={<Clock className="h-5 w-5 text-blue-400" />}
+              isExpanded={expandedSections.overview} // Assuming hours are part of overview for now
+              onToggle={() => toggleSection("overview")}
+            >
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {[
+                  "monday",
+                  "tuesday",
+                  "wednesday",
+                  "thursday",
+                  "friday",
+                  "saturday",
+                  "sunday",
+                ].map((day) => {
+                  const hours = formData.business_hours[day];
+                  if (!hours) return null;
+
+                  return (
+                    <div
+                      key={day}
+                      className="flex justify-between items-center"
+                    >
+                      <span className="text-gray-300 capitalize">{day}</span>
+                      <span className="text-white font-medium">{hours}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </AccordionSection>
+          )}
       </div>
 
       {/* Plan Information */}
