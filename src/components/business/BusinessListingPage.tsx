@@ -13,7 +13,6 @@ import BusinessMediaStep from "./listing/BusinessMediaStep";
 import BusinessPremiumStep from "./listing/BusinessPremiumStep";
 import BusinessSummaryStep from "./listing/BusinessSummaryStep";
 import { useUnifiedPayment } from "../../hooks/useUnifiedPayment";
-import BusinessHoursStep from "./listing/BusinessHoursStep";
 
 interface Step {
   id: number;
@@ -38,24 +37,18 @@ const steps: Step[] = [
   },
   {
     id: 3,
-    label: "Hours",
-    isValid: () => true, // Always valid since it's optional
-    component: BusinessHoursStep,
-  },
-  {
-    id: 4,
     label: "Media",
     isValid: (formData) => !!formData.imageUrl,
     component: BusinessMediaStep,
   },
   {
-    id: 5,
+    id: 4,
     label: "Premium",
     isValid: () => true,
     component: BusinessPremiumStep,
   },
   {
-    id: 6,
+    id: 5,
     label: "Summary",
     isValid: () => true,
     component: BusinessSummaryStep,

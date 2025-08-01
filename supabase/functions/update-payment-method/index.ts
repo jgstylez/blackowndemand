@@ -32,7 +32,7 @@ function parseNMIResponse(responseText: string) {
     response[key] = value;
   }
 
-  return {
+  const parsedResponse = {
     success: response.response === "1",
     responseCode: response.response_code,
     responseText: response.responsetext,
@@ -40,6 +40,27 @@ function parseNMIResponse(responseText: string) {
     customerVaultId: response.customer_vault_id, // Make sure this is extracted
     subscriptionId: response.subscription_id,
   };
+
+  // ENHANCED LOGGING: Log NMI response for payment method update
+  console.log("🔍 NMI Payment Method Update Response Analysis:", {
+    rawResponse: responseText,
+    parsedFields: {
+      response: response.response,
+      response_code: response.response_code,
+      responsetext: response.responsetext,
+      transactionid: response.transactionid,
+      customer_vault_id: response.customer_vault_id,
+      subscription_id: response.subscription_id,
+    },
+    extractedData: {
+      success: parsedResponse.success,
+      transactionId: parsedResponse.transactionId,
+      customerVaultId: parsedResponse.customerVaultId,
+      subscriptionId: parsedResponse.subscriptionId,
+    },
+  });
+
+  return parsedResponse;
 }
 
 // Map NMI response codes to user-friendly messages
@@ -326,6 +347,8 @@ Deno.serve(async (req) => {
       hasSubscription: !!business.subscription_id,
       customerVaultId:
         business.subscriptions?.nmi_customer_vault_id || "Not found",
+      subscriptionId:
+        business.subscriptions?.nmi_subscription_id || "Not found",
     });
 
     // Check if business has a customer vault ID (required for storing payment method)
@@ -442,6 +465,18 @@ Deno.serve(async (req) => {
 
     // Parse the response
     const parsedResponse = parseNMIResponse(responseText);
+
+    // ENHANCED LOGGING: Log payment method update result
+    console.log("🔍 Payment method update result:", {
+      success: parsedResponse.success,
+      responseCode: parsedResponse.responseCode,
+      responseText: parsedResponse.responseText,
+      transactionId: parsedResponse.transactionId,
+      customerVaultId: parsedResponse.customerVaultId,
+      subscriptionId: parsedResponse.subscriptionId,
+      hasCustomerVaultId: !!parsedResponse.customerVaultId,
+      hasSubscriptionId: !!parsedResponse.subscriptionId,
+    });
 
     // Check if the update was successful
     if (!parsedResponse.success) {

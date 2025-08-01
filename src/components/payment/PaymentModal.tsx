@@ -135,8 +135,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
           type: "free",
           card: null,
         },
-        simulated: true,
-        isFreeTransaction: true,
+        is_free_transaction: true, // Changed from simulated
         next_billing_date: nextBillingDate.toISOString(),
       };
 

@@ -14,12 +14,23 @@ const SECURITY_KEY =
   NODE_ENV === "production" ? ECOM_LIVE_SECURITY_KEY : ECOM_TEST_SECURITY_KEY;
 console.log(`Using ${NODE_ENV} environment for payment processing`);
 console.log(`Security key available: ${SECURITY_KEY ? "Yes" : "No"}`);
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+
+const allowedOrigins = [
+  "https://beta.blackowndemand.com",
+  "https://blackowndemand.com",
+  "http://localhost:8080",
+];
+
+const corsHeaders = (origin: string) => ({
+  "Access-Control-Allow-Origin": allowedOrigins.includes(origin)
+    ? origin
+    : allowedOrigins[0],
+  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+    "Content-Type, Authorization, x-nmi-signature",
+  "Access-Control-Max-Age": "86400",
+});
+
 // Helper function to create a simulated successful payment response
 function createSimulatedResponse(
   processAmount,
@@ -111,7 +122,7 @@ function parseNMIResponse(responseText: string) {
     response[key] = value;
   }
 
-  return {
+  const parsedResponse = {
     success: response.response === "1",
     responseCode: response.response_code,
     responseText: response.responsetext,
@@ -119,6 +130,27 @@ function parseNMIResponse(responseText: string) {
     customerVaultId: response.customer_vault_id, // Make sure this is extracted
     subscriptionId: response.subscription_id,
   };
+
+  // ENHANCED LOGGING: Log all NMI response fields for debugging
+  console.log("🔍 NMI Response Analysis:", {
+    rawResponse: responseText,
+    parsedFields: {
+      response: response.response,
+      response_code: response.response_code,
+      responsetext: response.responsetext,
+      transactionid: response.transactionid,
+      customer_vault_id: response.customer_vault_id,
+      subscription_id: response.subscription_id,
+    },
+    extractedData: {
+      success: parsedResponse.success,
+      transactionId: parsedResponse.transactionId,
+      customerVaultId: parsedResponse.customerVaultId,
+      subscriptionId: parsedResponse.subscriptionId,
+    },
+  });
+
+  return parsedResponse;
 }
 // Map NMI response codes to user-friendly messages
 function getNMIErrorMessage(responseCode, responseText) {
@@ -172,12 +204,74 @@ if (!SECURITY_KEY) {
   console.log("✅ EcomPayments security key configured successfully");
 }
 
+// Helper function to create a test card response for development
+function createTestCardResponse(
+  amount: number,
+  currency: string,
+  description: string,
+  customer_email: string,
+  payment_method: any,
+  reason: string
+) {
+  console.log(`Creating test card response. Reason: ${reason}`);
+
+  // Generate test transaction IDs for development
+  const testTransactionId = `test_${Date.now()}_${Math.random()
+    .toString(36)
+    .substr(2, 9)}`;
+  const testSubscriptionId = `sub_test_${Date.now()}_${Math.random()
+    .toString(36)
+    .substr(2, 9)}`;
+  const testCustomerVaultId = `vault_test_${Date.now()}_${Math.random()
+    .toString(36)
+    .substr(2, 9)}`;
+
+  console.log("🧪 Generated test card IDs:", {
+    transaction_id: testTransactionId,
+    subscription_id: testSubscriptionId,
+    customer_vault_id: testCustomerVaultId,
+  });
+
+  return {
+    success: true,
+    transaction_id: testTransactionId,
+    subscription_id: testSubscriptionId,
+    customer_vault_id: testCustomerVaultId,
+    amount: amount,
+    currency: currency,
+    description: description,
+    customer_email: customer_email,
+    payment_date: new Date().toISOString(),
+    status: "approved",
+    payment_method_details: {
+      type: "card",
+      card: {
+        last4: payment_method.card_number.slice(-4),
+        brand: "visa",
+      },
+    },
+    is_test_card: true,
+    test_card_reason: reason,
+  };
+}
+
+// Helper function to determine if we should use test card processing
+function isTestCard(cardNumber: string): boolean {
+  const testCards = [
+    "4000000000000127", // Visa test card
+    "4111111111111111", // Visa test card
+    "4000000000000002", // Visa test card (declined)
+  ];
+
+  return testCards.includes(cardNumber.replace(/\s/g, ""));
+}
+
 Deno.serve(async (req) => {
+  const origin = req.headers.get("origin") || "";
+
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
-    return new Response("ok", {
-      headers: corsHeaders,
-    });
+    return new Response("ok", { headers: corsHeaders(origin) });
   }
   try {
     // Only allow POST requests
@@ -190,7 +284,7 @@ Deno.serve(async (req) => {
         {
           status: 405,
           headers: {
-            ...corsHeaders,
+            ...corsHeaders(origin),
             "Content-Type": "application/json",
           },
         }
@@ -254,7 +348,7 @@ Deno.serve(async (req) => {
         {
           status: 400,
           headers: {
-            ...corsHeaders,
+            ...corsHeaders(origin),
             "Content-Type": "application/json",
           },
         }
@@ -272,7 +366,7 @@ Deno.serve(async (req) => {
         {
           status: 400,
           headers: {
-            ...corsHeaders,
+            ...corsHeaders(origin),
             "Content-Type": "application/json",
           },
         }
@@ -324,7 +418,7 @@ Deno.serve(async (req) => {
         }),
         {
           headers: {
-            ...corsHeaders,
+            ...corsHeaders(origin),
             "Content-Type": "application/json",
           },
         }
@@ -433,13 +527,34 @@ Deno.serve(async (req) => {
 
       return new Response(JSON.stringify(simulatedResponse), {
         headers: {
-          ...corsHeaders,
+          ...corsHeaders(origin),
           "Content-Type": "application/json",
         },
       });
     }
     // REAL EcomPayments processing - always attempt this if security key is available
     console.log("🚀 Attempting real EcomPayments processing with security key");
+
+    // Check if we should use test card processing
+    if (isTestCard(payment_method.card_number)) {
+      console.log("🧪 Using test card processing for development");
+
+      const testResponse = createTestCardResponse(
+        processAmount,
+        currency,
+        description,
+        customer_email,
+        payment_method,
+        "Test card detected"
+      );
+
+      return new Response(JSON.stringify(testResponse), {
+        headers: {
+          ...corsHeaders(origin),
+          "Content-Type": "application/json",
+        },
+      });
+    }
 
     // Prepare the billing information
     const billingInfo = {
@@ -579,7 +694,7 @@ Deno.serve(async (req) => {
       );
       return new Response(JSON.stringify(simulatedResponse), {
         headers: {
-          ...corsHeaders,
+          ...corsHeaders(origin),
           "Content-Type": "application/json",
         },
       });
@@ -587,6 +702,8 @@ Deno.serve(async (req) => {
 
     // Parse the NMI response
     const parsedResponse = parseNMIResponse(responseText);
+
+    // ENHANCED LOGGING: Log parsed response with clear NMI ID information
     console.log("🔍 Parsed EcomPayments response:", {
       success: parsedResponse.success,
       responseCode: parsedResponse.responseCode,
@@ -594,7 +711,36 @@ Deno.serve(async (req) => {
       transactionId: parsedResponse.transactionId,
       customerVaultId: parsedResponse.customerVaultId,
       subscriptionId: parsedResponse.subscriptionId,
+      // Add verification flags
+      hasCustomerVaultId: !!parsedResponse.customerVaultId,
+      hasSubscriptionId: !!parsedResponse.subscriptionId,
+      isRecurringTransaction: is_recurring,
     });
+
+    // ENHANCED LOGGING: Specific verification for NMI IDs
+    if (parsedResponse.customerVaultId) {
+      console.log("✅ NMI Customer Vault ID received:", {
+        customerVaultId: parsedResponse.customerVaultId,
+        length: parsedResponse.customerVaultId.length,
+        format: parsedResponse.customerVaultId.startsWith("vault_")
+          ? "vault_format"
+          : "direct_id",
+      });
+    } else {
+      console.warn("⚠️ No NMI Customer Vault ID in response");
+    }
+
+    if (parsedResponse.subscriptionId) {
+      console.log("✅ NMI Subscription ID received:", {
+        subscriptionId: parsedResponse.subscriptionId,
+        length: parsedResponse.subscriptionId.length,
+        format: parsedResponse.subscriptionId.startsWith("sub_")
+          ? "subscription_format"
+          : "direct_id",
+      });
+    } else {
+      console.warn("⚠️ No NMI Subscription ID in response");
+    }
 
     // Check if the payment was successful (response code 1 means approved)
     if (!parsedResponse.success) {
@@ -620,7 +766,7 @@ Deno.serve(async (req) => {
         {
           status: 400,
           headers: {
-            ...corsHeaders,
+            ...corsHeaders(origin),
             "Content-Type": "application/json",
           },
         }
@@ -686,11 +832,20 @@ Deno.serve(async (req) => {
             nmi_customer_vault_id: parsedResponse.customerVaultId,
           };
 
-          console.log("📝 Creating/updating subscription record:", {
-            businessId: businessData.id,
-            subscriptionId: parsedResponse.subscriptionId,
-            customerVaultId: parsedResponse.customerVaultId,
-          });
+          // ENHANCED LOGGING: Log subscription data being stored
+          console.log(
+            "📝 Creating/updating subscription record with NMI IDs:",
+            {
+              businessId: businessData.id,
+              subscriptionId: parsedResponse.subscriptionId,
+              customerVaultId: parsedResponse.customerVaultId,
+              subscriptionData: {
+                ...subscriptionData,
+                nmi_subscription_id: parsedResponse.subscriptionId,
+                nmi_customer_vault_id: parsedResponse.customerVaultId,
+              },
+            }
+          );
 
           const { error: subscriptionError } = await supabase
             .from("subscriptions")
@@ -699,7 +854,13 @@ Deno.serve(async (req) => {
           if (subscriptionError) {
             console.error("❌ Error creating subscription:", subscriptionError);
           } else {
-            console.log("✅ Subscription record created/updated successfully");
+            console.log(
+              "✅ Subscription record created/updated successfully with NMI IDs:",
+              {
+                subscriptionId: parsedResponse.subscriptionId,
+                customerVaultId: parsedResponse.customerVaultId,
+              }
+            );
           }
 
           // Update business with basic subscription info (but NOT customer vault ID)
@@ -789,17 +950,23 @@ Deno.serve(async (req) => {
       environment: NODE_ENV,
     };
 
-    console.log("🎉 Final success response:", {
+    // ENHANCED LOGGING: Final success response with NMI ID verification
+    console.log("🎉 Final success response with NMI IDs:", {
       transactionId: successResponse.transaction_id,
       subscriptionId: successResponse.subscription_id,
       customerVaultId: successResponse.customer_vault_id,
       amount: successResponse.amount,
       customerEmail: successResponse.customer_email,
+      // Verification summary
+      hasSubscriptionId: !!successResponse.subscription_id,
+      hasCustomerVaultId: !!successResponse.customer_vault_id,
+      isRecurringPayment: is_recurring,
+      environment: NODE_ENV,
     });
 
     return new Response(JSON.stringify(successResponse), {
       headers: {
-        ...corsHeaders,
+        ...corsHeaders(origin),
         "Content-Type": "application/json",
       },
     });
@@ -814,7 +981,7 @@ Deno.serve(async (req) => {
       {
         status: 500,
         headers: {
-          ...corsHeaders,
+          ...corsHeaders(origin),
           "Content-Type": "application/json",
         },
       }

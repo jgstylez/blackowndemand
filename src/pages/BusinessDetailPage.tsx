@@ -12,6 +12,7 @@ import {
   Globe,
   Phone,
   Mail,
+  Clock,
 } from "lucide-react";
 import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
@@ -60,6 +61,26 @@ const BusinessDetailPage = () => {
     clearError,
   } = useBusinessDetails(id);
 
+  // Helper function to check if business has any contact info or hours
+  const hasContactInfoOrHours = (business: any) => {
+    if (!business) return false; // Add null check
+
+    const hasContactInfo = !!(
+      business.city ||
+      business.website_url ||
+      business.phone ||
+      business.email
+    );
+
+    const hasBusinessHours =
+      business.business_hours &&
+      Object.values(business.business_hours).some(
+        (hours: any) => hours && hours !== "" && hours !== "Select hours"
+      );
+
+    return hasContactInfo || hasBusinessHours;
+  };
+
   // Add debugging for contact info visibility
   console.log("🔍 Business Detail Debug:", {
     businessName: business?.name,
@@ -74,6 +95,20 @@ const BusinessDetailPage = () => {
     businessHoursKeys: business?.business_hours
       ? Object.keys(business.business_hours)
       : [],
+    hasContactInfoOrHours: hasContactInfoOrHours(business),
+    // Add contact info debugging
+    hasCity: !!business?.city,
+    hasWebsite: !!business?.website_url,
+    hasPhone: !!business?.phone,
+    hasEmail: !!business?.email,
+    contactInfoCondition: !!(
+      business?.city ||
+      business?.website_url ||
+      business?.phone ||
+      business?.email
+    ),
+    // Add business data debugging
+    businessId: business?.id,
   });
 
   // Add more detailed debugging right after the existing debug log
@@ -465,14 +500,17 @@ const BusinessDetailPage = () => {
               />
             )}
 
-            {/* Contact Information - Only show if contact info should be displayed */}
+            {/* Contact Information - Show if contact info should be displayed OR if business has hours */}
             {shouldShowContactInfo(business) &&
               (business.city ||
                 business.website_url ||
                 business.phone ||
-                business.email) && (
-                <BusinessContactSocial business={business} />
-              )}
+                business.email ||
+                (business.business_hours &&
+                  Object.values(business.business_hours).some(
+                    (hours: any) =>
+                      hours && hours !== "" && hours !== "Select hours"
+                  ))) && <BusinessContactSocial business={business} />}
           </div>
         </div>
 

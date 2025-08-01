@@ -32,7 +32,7 @@ export const PAYMENT_CONFIG: PaymentConfig = {
       name: "Starter Plan",
       price: 12,
       stripePriceId: "price_starter_plan", // Replace with actual Stripe Price ID
-      ecomPaymentsPlanId: "starter_plan_annual", // Ecom Payments plan ID
+      ecomPaymentsPlanId: "ecom-starter-annual", // Ecom Payments plan ID
       features: [
         "Basic business listing",
         "Contact information display",
@@ -46,7 +46,7 @@ export const PAYMENT_CONFIG: PaymentConfig = {
       name: "Enhanced Plan",
       price: 60,
       stripePriceId: "price_enhanced_plan", // Replace with actual Stripe Price ID
-      ecomPaymentsPlanId: "enhanced_plan_annual", // Ecom Payments plan ID
+      ecomPaymentsPlanId: "ecom-enhanced-annual", // Ecom Payments plan ID
       features: [
         "Everything in Starter Plan",
         "Business verification badge",
@@ -63,7 +63,7 @@ export const PAYMENT_CONFIG: PaymentConfig = {
       name: "VIP Plan",
       price: 99,
       stripePriceId: "price_vip_plan", // Replace with actual Stripe Price ID
-      ecomPaymentsPlanId: "vip_plan_annual", // Ecom Payments plan ID
+      ecomPaymentsPlanId: "ecom-vip-annual", // Ecom Payments plan ID
       features: [
         "Everything in Enhanced Plan",
         "Exclusive VIP member badge",

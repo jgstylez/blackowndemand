@@ -32,11 +32,28 @@ function parseNMIResponse(responseText: string) {
     response[key] = value;
   }
 
-  return {
+  const parsedResponse = {
     success: response.response === "1",
     responseCode: response.response_code,
     responseText: response.responsetext,
   };
+
+  // ENHANCED LOGGING: Log NMI response for subscription cancellation
+  console.log("🔍 NMI Subscription Cancellation Response Analysis:", {
+    rawResponse: responseText,
+    parsedFields: {
+      response: response.response,
+      response_code: response.response_code,
+      responsetext: response.responsetext,
+    },
+    extractedData: {
+      success: parsedResponse.success,
+      responseCode: parsedResponse.responseCode,
+      responseText: parsedResponse.responseText,
+    },
+  });
+
+  return parsedResponse;
 }
 
 Deno.serve(async (req) => {
@@ -80,6 +97,7 @@ Deno.serve(async (req) => {
         subscriptions!inner(
           id,
           nmi_subscription_id,
+          nmi_customer_vault_id,
           stripe_subscription_id
         )
       `
@@ -95,7 +113,23 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ENHANCED LOGGING: Log subscription details for cancellation
+    console.log("🔍 Subscription details for cancellation:", {
+      businessId: business_id,
+      businessName: business.name,
+      subscriptionId: business.subscription_id,
+      subscriptionStatus: business.subscription_status,
+      planName: business.plan_name,
+      nmiSubscriptionId:
+        business.subscriptions?.nmi_subscription_id || "Not found",
+      nmiCustomerVaultId:
+        business.subscriptions?.nmi_customer_vault_id || "Not found",
+      hasNmiSubscription: !!business.subscriptions?.nmi_subscription_id,
+      hasNmiCustomerVault: !!business.subscriptions?.nmi_customer_vault_id,
+    });
+
     if (!business.subscriptions?.nmi_subscription_id) {
+      console.warn("⚠️ No NMI subscription ID found for cancellation");
       return new Response(
         JSON.stringify({
           error: "No active subscription found for this business",
@@ -116,7 +150,12 @@ Deno.serve(async (req) => {
     );
     postData.append("type", "delete_subscription");
 
-    console.log("Sending cancel subscription request to gateway");
+    console.log("📤 Sending cancel subscription request to gateway:", {
+      subscriptionId: business.subscriptions.nmi_subscription_id,
+      type: "delete_subscription",
+      hasSecurityKey: !!SECURITY_KEY,
+      environment: NODE_ENV,
+    });
 
     // Make the request to the payment gateway
     const paymentResponse = await fetch(
@@ -136,6 +175,15 @@ Deno.serve(async (req) => {
 
     // Parse the response
     const parsedResponse = parseNMIResponse(responseText);
+
+    // ENHANCED LOGGING: Log subscription cancellation result
+    console.log("🔍 Subscription cancellation result:", {
+      success: parsedResponse.success,
+      responseCode: parsedResponse.responseCode,
+      responseText: parsedResponse.responseText,
+      cancelledSubscriptionId: business.subscriptions.nmi_subscription_id,
+      hasCustomerVaultId: !!business.subscriptions.nmi_customer_vault_id,
+    });
 
     // Check if the cancellation was successful
     if (!parsedResponse.success) {

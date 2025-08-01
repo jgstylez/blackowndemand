@@ -21,13 +21,33 @@ function parseNMIResponse(responseText) {
   for (const [key, value] of params.entries()) {
     response[key] = value;
   }
-  return {
+
+  const parsedResponse = {
     success: response.response === "1",
     responseCode: response.response_code,
     responseText: response.responsetext,
     transactionId: response.transactionid,
     customerVaultId: response.customer_vault_id,
   };
+
+  // ENHANCED LOGGING: Log NMI response for customer vault creation
+  console.log("🔍 NMI Customer Vault Response Analysis:", {
+    rawResponse: responseText,
+    parsedFields: {
+      response: response.response,
+      response_code: response.response_code,
+      responsetext: response.responsetext,
+      transactionid: response.transactionid,
+      customer_vault_id: response.customer_vault_id,
+    },
+    extractedData: {
+      success: parsedResponse.success,
+      transactionId: parsedResponse.transactionId,
+      customerVaultId: parsedResponse.customerVaultId,
+    },
+  });
+
+  return parsedResponse;
 }
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -130,7 +150,22 @@ Deno.serve(async (req) => {
     );
     const responseText = await paymentResponse.text();
     const parsedResponse = parseNMIResponse(responseText);
+
+    // ENHANCED LOGGING: Log customer vault creation result
+    console.log("🔍 Customer vault creation result:", {
+      success: parsedResponse.success,
+      responseCode: parsedResponse.responseCode,
+      responseText: parsedResponse.responseText,
+      transactionId: parsedResponse.transactionId,
+      customerVaultId: parsedResponse.customerVaultId,
+      hasCustomerVaultId: !!parsedResponse.customerVaultId,
+    });
+
     if (!parsedResponse.success) {
+      console.error("❌ Customer vault creation failed:", {
+        responseCode: parsedResponse.responseCode,
+        responseText: parsedResponse.responseText,
+      });
       return new Response(
         JSON.stringify({
           error: `Failed to create customer vault: ${parsedResponse.responseText}`,
@@ -144,6 +179,14 @@ Deno.serve(async (req) => {
         }
       );
     }
+
+    // ENHANCED LOGGING: Customer vault created successfully
+    console.log("✅ Customer vault created successfully:", {
+      customerVaultId: parsedResponse.customerVaultId,
+      transactionId: parsedResponse.transactionId,
+      businessId: business_id,
+    });
+
     // Update business with customer vault ID
     const { error: updateError } = await supabase
       .from("businesses")
@@ -156,7 +199,10 @@ Deno.serve(async (req) => {
       .eq("id", business_id);
 
     if (updateError) {
-      console.error("Error updating business:", updateError);
+      console.error(
+        "❌ Error updating business with customer vault ID:",
+        updateError
+      );
       return new Response(
         JSON.stringify({
           error: "Failed to update business record",
@@ -170,6 +216,11 @@ Deno.serve(async (req) => {
         }
       );
     }
+
+    console.log("✅ Business updated with customer vault ID:", {
+      businessId: business_id,
+      customerVaultId: parsedResponse.customerVaultId,
+    });
 
     // Send payment method update email
     try {

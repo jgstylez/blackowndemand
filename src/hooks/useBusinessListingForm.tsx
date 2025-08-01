@@ -20,7 +20,7 @@ export function useBusinessListingForm(location: any, navigate: any) {
   const steps = useMemo(() => {
     const baseSteps = [];
     if (!paymentCompleted) baseSteps.push("payment");
-    baseSteps.push("info", "location", "hours", "media"); // Add "hours" step
+    baseSteps.push("info", "location", "media"); // Remove "hours" step since it's now part of info
     if (isPremiumPlan) baseSteps.push("premium_features");
     baseSteps.push("summary");
     return baseSteps;

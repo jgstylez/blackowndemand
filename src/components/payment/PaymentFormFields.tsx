@@ -192,15 +192,25 @@ const PaymentFormFields: React.FC<PaymentFormFieldsProps> = ({
 
       {/* Test Card Info */}
       {showTestCardLogos && (
-        <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+        <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 mb-4">
           <p className="text-blue-400 text-sm font-medium mb-2">
-            Test Mode - Use these cards:
+            🧪 Test Cards Available
           </p>
-          <div className="space-y-1 text-xs text-blue-300">
-            <p>• Visa: 4242 4242 4242 4242</p>
-            <p>• Mastercard: 5555 5555 5555 4444</p>
-            <p>• Use any future expiry date and any CVV</p>
-          </div>
+          <p className="text-blue-300 text-sm">
+            Use these test cards to process payments through the real payment
+            gateway:
+          </p>
+          <ul className="text-blue-300 text-sm mt-2 space-y-1">
+            <li>
+              • <strong>4000000000000127</strong> - Visa (approved)
+            </li>
+            <li>
+              • <strong>4111111111111111</strong> - Visa (approved)
+            </li>
+            <li>
+              • <strong>4000000000000002</strong> - Visa (declined)
+            </li>
+          </ul>
         </div>
       )}
     </div>

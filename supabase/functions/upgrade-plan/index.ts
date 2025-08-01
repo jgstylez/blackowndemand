@@ -271,6 +271,20 @@ async function processUpgradeWithCustomerVault({
   discountCode,
   discountedAmount,
 }) {
+  // ENHANCED LOGGING: Log upgrade parameters
+  console.log("🔄 Processing plan upgrade with customer vault:", {
+    businessId,
+    currentPlan,
+    newPlan,
+    upgradeAmount: (upgradeAmount / 100).toFixed(2),
+    customerVaultId,
+    userEmail: userEmail || "Not provided",
+    hasDiscountCode: !!discountCode,
+    discountedAmount: discountedAmount
+      ? (discountedAmount / 100).toFixed(2)
+      : "None",
+  });
+
   // Prepare the payment data for charging the difference
   const postData = new URLSearchParams();
   postData.append("security_key", SECURITY_KEY); // Fix: Use SECURITY_KEY instead of NMI_SECURITY_KEY
@@ -282,12 +296,17 @@ async function processUpgradeWithCustomerVault({
     "order_description",
     `Plan upgrade from ${currentPlan} to ${newPlan}`
   );
-  console.log("Processing upgrade with customer vault:", {
+
+  console.log("📤 Sending plan upgrade request to gateway:", {
     customerVaultId,
     upgradeAmount: (upgradeAmount / 100).toFixed(2),
     currentPlan,
     newPlan,
+    type: "sale",
+    hasSecurityKey: !!SECURITY_KEY,
+    environment: NODE_ENV,
   });
+
   // Make the request to the payment gateway
   const paymentResponse = await fetch(
     "https://ecompaymentprocessing.transactiongateway.com/api/transact.php",
@@ -299,11 +318,26 @@ async function processUpgradeWithCustomerVault({
       body: postData.toString(),
     }
   );
+
   // Get the response text
   const responseText = await paymentResponse.text();
   console.log("Raw payment gateway response:", responseText);
+
   // Parse the response
   const parsedResponse = parseNMIResponse(responseText);
+
+  // ENHANCED LOGGING: Log plan upgrade result
+  console.log("🔍 Plan upgrade result:", {
+    success: parsedResponse.success,
+    responseCode: parsedResponse.responseCode,
+    responseText: parsedResponse.responseText,
+    transactionId: parsedResponse.transactionId,
+    customerVaultId: parsedResponse.customerVaultId,
+    subscriptionId: parsedResponse.subscriptionId,
+    hasCustomerVaultId: !!parsedResponse.customerVaultId,
+    hasSubscriptionId: !!parsedResponse.subscriptionId,
+  });
+
   // Check if the payment was successful
   if (!parsedResponse.success) {
     const errorMessage = getNMIErrorMessage(
@@ -312,8 +346,16 @@ async function processUpgradeWithCustomerVault({
     );
     throw new Error(errorMessage);
   }
+
+  console.log("✅ Plan upgrade payment successful:", {
+    transactionId: parsedResponse.transactionId,
+    customerVaultId: parsedResponse.customerVaultId,
+    subscriptionId: parsedResponse.subscriptionId,
+    upgradeAmount: (upgradeAmount / 100).toFixed(2),
+  });
+
   // Update the business with new plan details
-  const { error: updateError } = await supabaseClient
+  const { error: updateError } = await supabaseClient1
     .from("businesses")
     .update({
       plan_name: newPlan,
@@ -330,7 +372,7 @@ async function processUpgradeWithCustomerVault({
     throw new Error("Failed to update business plan");
   }
   // Log the upgrade
-  const { error: historyError } = await supabaseClient
+  const { error: historyError } = await supabaseClient1
     .from("payment_history")
     .insert({
       business_id: businessId,
@@ -356,7 +398,8 @@ function parseNMIResponse(responseText) {
   for (const [key, value] of params.entries()) {
     response[key] = value;
   }
-  return {
+
+  const parsedResponse = {
     success: response.response === "1",
     responseCode: response.response_code,
     responseText: response.responsetext,
@@ -367,6 +410,27 @@ function parseNMIResponse(responseText) {
     avsResponse: response.avsresponse,
     cvvResponse: response.cvvresponse,
   };
+
+  // ENHANCED LOGGING: Log NMI response for plan upgrade
+  console.log("🔍 NMI Plan Upgrade Response Analysis:", {
+    rawResponse: responseText,
+    parsedFields: {
+      response: response.response,
+      response_code: response.response_code,
+      responsetext: response.responsetext,
+      transactionid: response.transactionid,
+      customer_vault_id: response.customer_vault_id,
+      subscription_id: response.subscription_id,
+    },
+    extractedData: {
+      success: parsedResponse.success,
+      transactionId: parsedResponse.transactionId,
+      customerVaultId: parsedResponse.customerVaultId,
+      subscriptionId: parsedResponse.subscriptionId,
+    },
+  });
+
+  return parsedResponse;
 }
 function getNMIErrorMessage(responseCode, responseText) {
   // Add common error mappings
