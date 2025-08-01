@@ -59,29 +59,75 @@ const GlobalErrorHandler: React.FC<{ children: React.ReactNode }> = ({
       // You could show a notification to the user here
     };
 
-    // Add event listeners
-    window.addEventListener("error", handleError);
-    window.addEventListener("unhandledrejection", handleUnhandledRejection);
-    window.addEventListener("online", handleOnline);
-    window.addEventListener("offline", handleOffline);
-
-    // Add this to suppress chrome extension errors
-    window.addEventListener("error", (event) => {
-      if (event.message.includes("chrome-extension")) {
+    // Enhanced extension error suppression
+    const handleExtensionError = (event: ErrorEvent) => {
+      // Suppress LastPass and other extension errors
+      if (
+        event.message.includes("chrome-extension") ||
+        event.message.includes("LastPass") ||
+        event.message.includes("message channel closed") ||
+        event.message.includes("asynchronous response") ||
+        event.filename?.includes("chrome-extension") ||
+        event.filename?.includes("moz-extension")
+      ) {
         event.preventDefault();
         return false;
       }
-    });
+    };
+
+    // Enhanced promise rejection handling for extension errors
+    const handleExtensionRejection = (event: PromiseRejectionEvent) => {
+      const reason = event.reason?.toString() || "";
+      if (
+        reason.includes("message channel closed") ||
+        reason.includes("asynchronous response") ||
+        reason.includes("LastPass") ||
+        reason.includes("chrome-extension")
+      ) {
+        event.preventDefault();
+        return false;
+      }
+    };
+
+    // Suppress runtime.lastError from extensions
+    const originalConsoleError = console.error;
+    console.error = (...args) => {
+      const message = args.join(" ");
+      if (
+        message.includes("runtime.lastError") ||
+        message.includes("Cannot create item with duplicate id") ||
+        message.includes("LastPass") ||
+        message.includes("chrome-extension")
+      ) {
+        // Suppress these errors silently
+        return;
+      }
+      originalConsoleError.apply(console, args);
+    };
+
+    // Add event listeners
+    window.addEventListener("error", handleError);
+    window.addEventListener("error", handleExtensionError);
+    window.addEventListener("unhandledrejection", handleUnhandledRejection);
+    window.addEventListener("unhandledrejection", handleExtensionRejection);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
 
     // Remove event listeners on cleanup
     return () => {
       window.removeEventListener("error", handleError);
+      window.removeEventListener("error", handleExtensionError);
       window.removeEventListener(
         "unhandledrejection",
         handleUnhandledRejection
       );
+      window.removeEventListener(
+        "unhandledrejection",
+        handleExtensionRejection
+      );
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
+      console.error = originalConsoleError;
     };
   }, []);
 
